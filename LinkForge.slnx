@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/LinkForge.App/LinkForge.App.csproj" />
+    <Project Path="src/LinkForge.Application/LinkForge.Application.csproj" />
+    <Project Path="src/LinkForge.Domain/LinkForge.Domain.csproj" />
+    <Project Path="src/LinkForge.Plugin.Abstractions/LinkForge.Plugin.Abstractions.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/LinkForge.Application.Tests/LinkForge.Application.Tests.csproj" />
+    <Project Path="tests/LinkForge.Domain.Tests/LinkForge.Domain.Tests.csproj" />
+  </Folder>
+</Solution>
