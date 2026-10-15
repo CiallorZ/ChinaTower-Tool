@@ -1,0 +1,112 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+
+    <!--
+        LinkForge 设计令牌 · 维度（与主题无关）
+
+        依据：docs/LinkForge_UI_Design_Guidelines_V1.1.md §2.2、docs/DECISIONS.md ADR-015
+        颜色令牌见 Themes/Tokens/Palette.Light.xaml 与 Palette.Dark.xaml（运行时可替换）。
+
+        约束：业务页面禁止硬编码间距、字号、圆角、控件高度，一律引用本文件的 Lf* 令牌。
+    -->
+
+    <!-- ===================== 字体族 ===================== -->
+    <!-- Windows 10/11 均自带；中文优先雅黑 UI，西文回退 Segoe UI。 -->
+    <FontFamily x:Key="LfFontFamilyUi">Microsoft YaHei UI, Segoe UI</FontFamily>
+    <FontFamily x:Key="LfFontFamilyMono">Cascadia Mono, Consolas, Courier New</FontFamily>
+
+    <!-- ===================== 字号 ===================== -->
+    <!-- 规范 §2.2：辅助 12-13 / 主文本 13-14 / 区块标题 15-18 / 页面标题 22-28 -->
+    <sys:Double x:Key="LfFontSizeCaption">12</sys:Double>
+    <sys:Double x:Key="LfFontSizeBody">13</sys:Double>
+    <sys:Double x:Key="LfFontSizeBodyLarge">14</sys:Double>
+    <sys:Double x:Key="LfFontSizeSectionTitle">16</sys:Double>
+    <sys:Double x:Key="LfFontSizePageTitle">24</sys:Double>
+    <sys:Double x:Key="LfFontSizeDisplay">28</sys:Double>
+
+    <sys:Double x:Key="LfLineHeightCaption">16</sys:Double>
+    <sys:Double x:Key="LfLineHeightBody">20</sys:Double>
+    <sys:Double x:Key="LfLineHeightBodyLarge">22</sys:Double>
+    <sys:Double x:Key="LfLineHeightSectionTitle">24</sys:Double>
+    <sys:Double x:Key="LfLineHeightPageTitle">32</sys:Double>
+
+    <!-- ===================== 间距（4px 基础单位） ===================== -->
+    <sys:Double x:Key="LfSpacingUnit">4</sys:Double>
+    <sys:Double x:Key="LfSpacingXxs">2</sys:Double>
+    <sys:Double x:Key="LfSpacingXs">4</sys:Double>
+    <sys:Double x:Key="LfSpacingSm">8</sys:Double>
+    <sys:Double x:Key="LfSpacingMd">12</sys:Double>
+    <sys:Double x:Key="LfSpacingLg">16</sys:Double>
+    <sys:Double x:Key="LfSpacingXl">20</sys:Double>
+    <sys:Double x:Key="LfSpacing2Xl">24</sys:Double>
+    <sys:Double x:Key="LfSpacing3Xl">32</sys:Double>
+
+    <!-- 页面内边距：常规 24，密集表格页 16-20，弹窗内容 20-24 -->
+    <Thickness x:Key="LfPagePadding">24</Thickness>
+    <Thickness x:Key="LfPagePaddingCompact">16</Thickness>
+    <Thickness x:Key="LfDialogPadding">20</Thickness>
+    <Thickness x:Key="LfCardPadding">16</Thickness>
+    <Thickness x:Key="LfControlPadding">10,0</Thickness>
+    <Thickness x:Key="LfControlPaddingCompact">8,0</Thickness>
+
+    <!--
+        组合边距：WPF 不允许在 {StaticResource} 后追加字面量（如 "{StaticResource LfPagePadding},0"），
+        因此所有"部分方向"的边距都必须以完整 Thickness 令牌形式定义。
+    -->
+    <Thickness x:Key="LfHeaderPadding">24,0</Thickness>
+    <Thickness x:Key="LfStatusBarPadding">24,0</Thickness>
+    <Thickness x:Key="LfPageHeaderSpacing">0,0,0,16</Thickness>
+    <Thickness x:Key="LfSectionSpacing">0,24,0,0</Thickness>
+    <Thickness x:Key="LfBlockSpacing">0,12,0,0</Thickness>
+    <Thickness x:Key="LfInlineSpacing">0,4,0,0</Thickness>
+    <Thickness x:Key="LfInlineSpacingLeading">0,0,12,0</Thickness>
+    <Thickness x:Key="LfBadgePadding">10,4</Thickness>
+    <Thickness x:Key="LfBadgeSpacing">0,0,8,8</Thickness>
+    <Thickness x:Key="LfLabelSpacing">0,0,8,0</Thickness>
+    <Thickness x:Key="LfDividerTop">0,1,0,0</Thickness>
+    <Thickness x:Key="LfDividerBottom">0,0,0,1</Thickness>
+
+    <!-- ===================== 圆角 ===================== -->
+    <CornerRadius x:Key="LfRadiusControl">6</CornerRadius>
+    <CornerRadius x:Key="LfRadiusPanel">10</CornerRadius>
+    <CornerRadius x:Key="LfRadiusDialog">12</CornerRadius>
+    <CornerRadius x:Key="LfRadiusPill">999</CornerRadius>
+
+    <!-- ===================== 控件尺寸 ===================== -->
+    <!-- 最小可点击目标 32x32，高频操作优先 36 -->
+    <sys:Double x:Key="LfControlHeight">34</sys:Double>
+    <sys:Double x:Key="LfControlHeightCompact">30</sys:Double>
+    <sys:Double x:Key="LfControlHeightLarge">38</sys:Double>
+    <sys:Double x:Key="LfMinClickTarget">32</sys:Double>
+    <sys:Double x:Key="LfButtonMinWidth">88</sys:Double>
+
+    <!-- ===================== 图标 ===================== -->
+    <sys:Double x:Key="LfIconSizeSm">16</sys:Double>
+    <sys:Double x:Key="LfIconSizeMd">20</sys:Double>
+    <sys:Double x:Key="LfIconSizeLg">24</sys:Double>
+    <sys:Double x:Key="LfIconStrokeThickness">1.5</sys:Double>
+
+    <!-- ===================== 应用壳层 ===================== -->
+    <!-- 规范 §3.1：左侧导航 232-248，顶部标题区 48-56 -->
+    <sys:Double x:Key="LfNavWidth">240</sys:Double>
+    <sys:Double x:Key="LfNavWidthCompact">48</sys:Double>
+    <sys:Double x:Key="LfHeaderHeight">52</sys:Double>
+    <sys:Double x:Key="LfStatusBarHeight">26</sys:Double>
+    <sys:Double x:Key="LfWindowMinWidth">1024</sys:Double>
+    <sys:Double x:Key="LfWindowMinHeight">640</sys:Double>
+    <sys:Double x:Key="LfReferenceWidth">1366</sys:Double>
+    <sys:Double x:Key="LfReferenceHeight">768</sys:Double>
+
+    <!-- ===================== 描边 ===================== -->
+    <Thickness x:Key="LfBorderThickness">1</Thickness>
+    <Thickness x:Key="LfFocusThickness">2</Thickness>
+    <sys:Double x:Key="LfNavSelectionIndicatorWidth">3</sys:Double>
+
+    <!-- ===================== 动效 ===================== -->
+    <!-- 规范 §6：动画轻量且可中断；持续动效仅用于"运行中"语义 -->
+    <sys:TimeSpan x:Key="LfDurationFast">0:0:0.10</sys:TimeSpan>
+    <sys:TimeSpan x:Key="LfDurationNormal">0:0:0.18</sys:TimeSpan>
+    <sys:TimeSpan x:Key="LfDurationSlow">0:0:0.30</sys:TimeSpan>
+
+</ResourceDictionary>

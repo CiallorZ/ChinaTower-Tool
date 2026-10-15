@@ -262,3 +262,65 @@ WPF-UI 4.3.0 会注入大量自身资源键（`ApplicationBackgroundBrush`、`Te
 - 不得把 `Skipped`/`Unknown` 渲染为 `Failed`（UI 规范 §5.4、§5.6）。
 
 **待确认**：需回写 PRD，见 `PRD_DELTA.md` PD-01。
+
+---
+
+## ADR-017 主题令牌必须用 DynamicResource 引用
+
+**状态**：已采纳（阶段 01 实施期间由运行时截图发现并验证）
+
+**背景**
+阶段 01 首次实现后，在深色主题下截图发现：主窗口头部与令牌卡片仍为白色，
+按钮在深色背景上文字不可读，即"只有一部分元素跟随主题"。
+
+**根因（已实测确认）**
+`StaticResource` 在 XAML 解析时求值一次并持有结果对象。
+`ThemeManager` 通过替换 `Themes/Tokens/Palette.*.xaml` 字典来切换主题，
+但已用 `StaticResource` 解析过的元素不会重新求值，因此保持旧主题颜色。
+
+已用测试锁定该机制（`ResourcePropagationTests`）：
+
+- `DynamicResource` 引用在调色板替换后**跟随变化**；
+- `StaticResource` 引用在调色板替换后**保持不变**。
+
+**决策**
+所有颜色/画刷类令牌（`LfBrush*`）在视图与样式中的引用**必须**使用 `DynamicResource`。
+尺寸、间距、字号、圆角等不随主题变化的令牌继续使用 `StaticResource`（更高效）。
+
+**约束**
+- `tests/LinkForge.App.Tests/DesignTokens/ThemeResourceUsageTests.cs` 静态扫描
+  `src/LinkForge.App/**/*.xaml`，发现 `{StaticResource LfBrush*}` 即失败
+  （`Themes/Tokens/` 目录内除外——那里是调色板自身的 Color -> Brush 组装）。
+- 新增页面时若出现"主题切换后部分区域不变色"，首先检查是否误用了 `StaticResource`。
+
+## ADR-018 控件库资源键映射集中在调色板内
+
+**状态**：已采纳（阶段 01 实施期间由运行时截图发现并验证）
+
+**背景**
+在按钮上直接设置 `Background="{DynamicResource LfBrushSurface}"` 后，
+深色主题下被点击/悬停的按钮出现"浅蓝底 + 近白字"、文字几乎不可读。
+
+**根因（已实测确认）**
+WPF-UI 4.3.0 的 `Button` 默认模板不读取 `Border.Background`，
+而是通过 `DynamicResource` 读取自身资源键：
+`ButtonBackground`、`ButtonBackgroundPointerOver`、`ButtonBackgroundPressed`、
+`ButtonForeground`、`ButtonForegroundPointerOver`、`ButtonBorderBrush` 等。
+进入 `PointerOver`/`Pressed` 状态时，模板触发器用控件库的浅色画刷覆盖局部设置值。
+
+同时确认：**显式 `Style` 会替换 WPF-UI 的隐式按钮样式**，回退到旧版 Aero2 模板
+（其悬停色为硬编码浅蓝），使问题更严重。
+
+**决策**
+- 保持 WPF-UI 隐式样式，不自建按钮 `Style` 覆盖模板。
+- 在 `Palette.Light.xaml` / `Palette.Dark.xaml` 内集中映射控件库资源键
+  （`Button*`、`AccentButton*`），值全部引用 `Lf*` 颜色令牌。
+- 映射写在调色板内，使主题切换时这些键随字典一起重建，模板的 `DynamicResource` 立即解析到新值。
+
+**理由**
+符合 ADR-015"映射集中在一处维护"的约束；避免在页面里逐处覆盖控件库内部键而分散失控。
+
+**约束**
+- 键名以 WPF-UI 4.3.0 实测为准；升级 WPF-UI 后需重新枚举模板触发器并核对映射。
+- 阶段 02 若需自定义按钮视觉，必须同时提供正常/悬停/按下/禁用/焦点/忙碌六态，
+  且不得回退到控件库默认的浅色悬停值。

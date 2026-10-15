@@ -1,9 +1,24 @@
-﻿<Application x:Class="LinkForge.App.App"
+<Application x:Class="LinkForge.App.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              xmlns:local="clr-namespace:LinkForge.App"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
-         
+        <ResourceDictionary>
+            <!--
+                合并顺序固定（见 Themes/ThemeResources.xaml 与 ADR-015）：
+                  1. WPF-UI 主题与控件字典（提供 Fluent 基线资源键）
+                  2. LinkForge 设计令牌（Lf* 前缀，业务页面只允许引用这一层）
+
+                Theme="Light" 是启动期默认值（浅色为设计基准）；运行时由
+                Services/ThemeManager 依据"跟随系统"偏好替换为实际主题。
+            -->
+            <ResourceDictionary.MergedDictionaries>
+                <ui:ThemesDictionary Theme="Light" />
+                <ui:ControlsDictionary />
+                <ResourceDictionary Source="pack://application:,,,/LinkForge.App;component/Themes/ThemeResources.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
     </Application.Resources>
 </Application>

@@ -1,0 +1,21 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        LinkForge 设计令牌合并入口。
+
+        合并顺序固定：
+          1. Dimensions  - 与主题无关的间距/字号/圆角/尺寸
+          2. Palette     - 当前主题调色板（由 ThemeManager 在运行时替换本条目）
+
+        依赖 WPF-UI 的 ThemesDictionary / ControlsDictionary，二者在 App.xaml 中先于本文件合并。
+        ThemeManager 依赖 "Themes/Tokens/Palette." 这一路径片段定位待替换的调色板字典；
+        移动本文件或重命名调色板时必须同步更新 ThemeManager.PalettePathPrefix。
+    -->
+
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="pack://application:,,,/LinkForge.App;component/Themes/Tokens/Dimensions.xaml" />
+        <ResourceDictionary Source="pack://application:,,,/LinkForge.App;component/Themes/Tokens/Palette.Light.xaml" />
+    </ResourceDictionary.MergedDictionaries>
+
+</ResourceDictionary>

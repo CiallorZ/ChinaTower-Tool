@@ -7,6 +7,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/LinkForge.Application.Tests/LinkForge.Application.Tests.csproj" />
+    <Project Path="tests/LinkForge.App.Tests/LinkForge.App.Tests.csproj" />
     <Project Path="tests/LinkForge.Domain.Tests/LinkForge.Domain.Tests.csproj" />
   </Folder>
 </Solution>
