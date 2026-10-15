@@ -2,13 +2,17 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <!--
-        LinkForge 设计令牌合并入口。
+        LinkForge 设计令牌与基础控件样式合并入口。
 
-        合并顺序固定：
+        合并顺序固定（改变顺序会导致引用解析失败）：
           1. Dimensions  - 与主题无关的间距/字号/圆角/尺寸
           2. Palette     - 当前主题调色板（由 ThemeManager 在运行时替换本条目）
+          3. Controls    - 基础控件默认样式，引用 1、2 的令牌
 
-        依赖 WPF-UI 的 ThemesDictionary / ControlsDictionary，二者在 App.xaml 中先于本文件合并。
+        依赖 WPF-UI 的 ThemesDictionary / ControlsDictionary，二者在 App.xaml 中先于本文件合并：
+        自研控件的模板里使用了 WPF-UI 的 Button/TextBox（ADR-018：保留控件库模板），
+        必须先有控件库字典，否则这些控件会回退到未样式化的原生外观。
+
         ThemeManager 依赖 "Themes/Tokens/Palette." 这一路径片段定位待替换的调色板字典；
         移动本文件或重命名调色板时必须同步更新 ThemeManager.PalettePathPrefix。
     -->
@@ -16,6 +20,16 @@
     <ResourceDictionary.MergedDictionaries>
         <ResourceDictionary Source="pack://application:,,,/LinkForge.App;component/Themes/Tokens/Dimensions.xaml" />
         <ResourceDictionary Source="pack://application:,,,/LinkForge.App;component/Themes/Tokens/Palette.Light.xaml" />
+        <ResourceDictionary Source="pack://application:,,,/LinkForge.App;component/Themes/Controls/StatusBadge.xaml" />
+        <ResourceDictionary Source="pack://application:,,,/LinkForge.App;component/Themes/Controls/LabeledTextBox.xaml" />
+        <ResourceDictionary Source="pack://application:,,,/LinkForge.App;component/Themes/Controls/SecretTextBox.xaml" />
+        <ResourceDictionary Source="pack://application:,,,/LinkForge.App;component/Themes/Controls/LogViewer.xaml" />
+        <ResourceDictionary Source="pack://application:,,,/LinkForge.App;component/Themes/Controls/EmptyState.xaml" />
+        <ResourceDictionary Source="pack://application:,,,/LinkForge.App;component/Themes/Controls/LoadingState.xaml" />
+        <ResourceDictionary Source="pack://application:,,,/LinkForge.App;component/Themes/Controls/ErrorPanel.xaml" />
+        <ResourceDictionary Source="pack://application:,,,/LinkForge.App;component/Themes/Controls/DependencyMissingPanel.xaml" />
+        <ResourceDictionary Source="pack://application:,,,/LinkForge.App;component/Themes/Controls/TaskProgressPanel.xaml" />
+        <ResourceDictionary Source="pack://application:,,,/LinkForge.App;component/Themes/Controls/ResultSummary.xaml" />
     </ResourceDictionary.MergedDictionaries>
 
 </ResourceDictionary>

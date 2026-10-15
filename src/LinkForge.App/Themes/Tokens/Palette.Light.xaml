@@ -134,8 +134,6 @@
     <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="{StaticResource LfColorTextPrimary}" />
     <SolidColorBrush x:Key="ButtonForegroundPressed" Color="{StaticResource LfColorTextPrimary}" />
     <SolidColorBrush x:Key="ButtonForegroundDisabled" Color="{StaticResource LfColorTextDisabled}" />
-    <SolidColorBrush x:Key="ButtonBorderBrush" Color="{StaticResource LfColorBorderStrong}" />
-    <SolidColorBrush x:Key="ButtonBorderBrushPointerOver" Color="{StaticResource LfColorAccent}" />
     <SolidColorBrush x:Key="ButtonBorderBrushPressed" Color="{StaticResource LfColorAccentPressed}" />
     <SolidColorBrush x:Key="ButtonBorderBrushDisabled" Color="{StaticResource LfColorBorder}" />
 
@@ -147,5 +145,103 @@
     <SolidColorBrush x:Key="AccentButtonForegroundPointerOver" Color="{StaticResource LfColorTextOnAccent}" />
     <SolidColorBrush x:Key="AccentButtonForegroundPressed" Color="{StaticResource LfColorTextOnAccent}" />
     <SolidColorBrush x:Key="AccentButtonBorderBrushPressed" Color="{StaticResource LfColorAccentPressed}" />
+
+    <!--
+        ===================== WPF-UI 语义调色板映射 =====================
+
+        依据 ADR-015 / ADR-018。这里映射的是 WPF-UI 的**语义层**键
+        （TextFillColor*、ControlFillColor*、AccentFillColor*、SolidBackgroundFillColor* …），
+        而不是逐个控件键。WPF-UI 的所有控件模板都建立在这一层之上，
+        因此映射这一层即可让按钮、输入框、下拉框、列表、滚动条、InfoBar 等
+        统一跟随 LinkForge 设计令牌，无需逐控件覆盖。
+
+        映射写在调色板内的原因：主题切换时调色板被整体替换，
+        这些键随字典一起重建，控件模板的 DynamicResource 立即解析到新值。
+
+        不映射的键（有意保留控件库原值）：
+        - ControlFillColorTransparentBrush：必须保持透明。
+        - ControlStrokeColorOnAccent*：强调色之上的白色描边，与主题无关。
+        - ControlElevationBorderBrush / AccentControlElevationBorderBrush：渐变边框，
+          用于 Fluent 立体感；本产品采用"细边框 + 克制层级"（规范 §2.1），
+          改由卡片自身的 Border 令牌表达。
+    -->
+
+    <!-- 背景与表面 -->
+    <SolidColorBrush x:Key="ApplicationBackgroundBrush" Color="{StaticResource LfColorBackground}" />
+    <SolidColorBrush x:Key="SolidBackgroundFillColorBaseBrush" Color="{StaticResource LfColorBackground}" />
+    <SolidColorBrush x:Key="SolidBackgroundFillColorSecondaryBrush" Color="{StaticResource LfColorSurfaceSubtle}" />
+    <SolidColorBrush x:Key="SolidBackgroundFillColorTertiaryBrush" Color="{StaticResource LfColorSurfaceSubtle}" />
+    <SolidColorBrush x:Key="SolidBackgroundFillColorQuarternaryBrush" Color="{StaticResource LfColorSurface}" />
+    <SolidColorBrush x:Key="CardBackgroundFillColorDefaultBrush" Color="{StaticResource LfColorSurface}" />
+    <SolidColorBrush x:Key="CardBackgroundFillColorSecondaryBrush" Color="{StaticResource LfColorSurfaceSubtle}" />
+    <SolidColorBrush x:Key="CardStrokeColorDefaultBrush" Color="{StaticResource LfColorBorder}" />
+    <SolidColorBrush x:Key="LayerFillColorDefaultBrush" Color="{StaticResource LfColorSurface}" />
+    <SolidColorBrush x:Key="LayerFillColorAltBrush" Color="{StaticResource LfColorSurfaceRaised}" />
+    <SolidColorBrush x:Key="LayerOnAcrylicFillColorDefaultBrush" Color="{StaticResource LfColorSurface}" />
+
+    <!-- 文本 -->
+    <SolidColorBrush x:Key="TextFillColorPrimaryBrush" Color="{StaticResource LfColorTextPrimary}" />
+    <SolidColorBrush x:Key="TextFillColorSecondaryBrush" Color="{StaticResource LfColorTextSecondary}" />
+    <SolidColorBrush x:Key="TextFillColorTertiaryBrush" Color="{StaticResource LfColorTextMuted}" />
+    <SolidColorBrush x:Key="TextFillColorDisabledBrush" Color="{StaticResource LfColorTextDisabled}" />
+    <SolidColorBrush x:Key="TextFillColorInverseBrush" Color="{StaticResource LfColorTextOnAccent}" />
+
+    <!-- 强调色 -->
+    <SolidColorBrush x:Key="AccentFillColorDefaultBrush" Color="{StaticResource LfColorAccent}" />
+    <SolidColorBrush x:Key="AccentFillColorSecondaryBrush" Color="{StaticResource LfColorAccentHover}" />
+    <SolidColorBrush x:Key="AccentFillColorTertiaryBrush" Color="{StaticResource LfColorAccentPressed}" />
+    <Color x:Key="AccentFillColorDisabled">#FFDDE3EA</Color>
+    <SolidColorBrush x:Key="TextOnAccentFillColorPrimaryBrush" Color="{StaticResource LfColorTextOnAccent}" />
+    <SolidColorBrush x:Key="TextOnAccentFillColorSecondaryBrush" Color="{StaticResource LfColorTextOnAccent}" />
+    <SolidColorBrush x:Key="TextOnAccentFillColorDisabledBrush" Color="{StaticResource LfColorTextOnAccent}" />
+
+    <!-- 控件填充与描边 -->
+    <SolidColorBrush x:Key="ControlFillColorDefaultBrush" Color="{StaticResource LfColorSurface}" />
+    <SolidColorBrush x:Key="ControlFillColorSecondaryBrush" Color="{StaticResource LfColorSurfaceSubtle}" />
+    <SolidColorBrush x:Key="ControlFillColorTertiaryBrush" Color="{StaticResource LfColorSurfaceDisabled}" />
+    <SolidColorBrush x:Key="ControlFillColorDisabledBrush" Color="{StaticResource LfColorSurfaceDisabled}" />
+    <SolidColorBrush x:Key="ControlFillColorInputActiveBrush" Color="{StaticResource LfColorSurface}" />
+    <SolidColorBrush x:Key="ControlStrokeColorDefaultBrush" Color="{StaticResource LfColorBorder}" />
+    <SolidColorBrush x:Key="ControlStrokeColorSecondaryBrush" Color="{StaticResource LfColorBorderStrong}" />
+    <SolidColorBrush x:Key="ControlStrongFillColorDefaultBrush" Color="{StaticResource LfColorTextMuted}" />
+    <SolidColorBrush x:Key="ControlStrongStrokeColorDefaultBrush" Color="{StaticResource LfColorBorderStrong}" />
+
+    <!-- 分隔线与焦点环 -->
+    <SolidColorBrush x:Key="DividerStrokeColorDefaultBrush" Color="{StaticResource LfColorDivider}" />
+    <SolidColorBrush x:Key="FocusStrokeColorOuterBrush" Color="{StaticResource LfColorFocus}" />
+    <SolidColorBrush x:Key="FocusStrokeColorInnerBrush" Color="{StaticResource LfColorSurface}" />
+
+    <!-- 低强度填充（悬停/轻选中） -->
+    <SolidColorBrush x:Key="SubtleFillColorSecondaryBrush" Color="{StaticResource LfColorSurfaceSubtle}" />
+    <SolidColorBrush x:Key="SubtleFillColorTertiaryBrush" Color="{StaticResource LfColorSurfaceSubtle}" />
+
+    <!-- 输入控件（TextBox / PasswordBox / ComboBox 编辑区） -->
+    <SolidColorBrush x:Key="TextControlForeground" Color="{StaticResource LfColorTextPrimary}" />
+    <SolidColorBrush x:Key="TextControlBackground" Color="{StaticResource LfColorSurface}" />
+    <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="{StaticResource LfColorSurfaceSubtle}" />
+    <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="{StaticResource LfColorSurface}" />
+    <SolidColorBrush x:Key="TextControlBackgroundDisabled" Color="{StaticResource LfColorSurfaceDisabled}" />
+    <SolidColorBrush x:Key="TextControlForegroundDisabled" Color="{StaticResource LfColorTextDisabled}" />
+    <SolidColorBrush x:Key="TextControlBorderBrushDisabled" Color="{StaticResource LfColorBorder}" />
+    <SolidColorBrush x:Key="TextControlPlaceholderForeground" Color="{StaticResource LfColorTextMuted}" />
+
+    <!-- 滚动条 -->
+    <SolidColorBrush x:Key="ScrollBarThumbFill" Color="{StaticResource LfColorBorderStrong}" />
+
+    <!-- 系统状态色（InfoBar / 校验提示等复用） -->
+    <SolidColorBrush x:Key="SystemFillColorSuccessBrush" Color="{StaticResource LfColorSuccess}" />
+    <SolidColorBrush x:Key="SystemFillColorSuccessBackgroundBrush" Color="{StaticResource LfColorSuccessSubtle}" />
+    <SolidColorBrush x:Key="SystemFillColorCautionBrush" Color="{StaticResource LfColorWarning}" />
+    <SolidColorBrush x:Key="SystemFillColorCautionBackgroundBrush" Color="{StaticResource LfColorWarningSubtle}" />
+    <SolidColorBrush x:Key="SystemFillColorCriticalBrush" Color="{StaticResource LfColorDanger}" />
+    <SolidColorBrush x:Key="SystemFillColorCriticalBackgroundBrush" Color="{StaticResource LfColorDangerSubtle}" />
+    <SolidColorBrush x:Key="SystemFillColorAttentionBrush" Color="{StaticResource LfColorAccent}" />
+    <SolidColorBrush x:Key="SystemFillColorAttentionBackgroundBrush" Color="{StaticResource LfColorAccentSubtle}" />
+    <SolidColorBrush x:Key="SystemFillColorNeutralBrush" Color="{StaticResource LfColorTextMuted}" />
+    <SolidColorBrush x:Key="SystemFillColorNeutralBackgroundBrush" Color="{StaticResource LfColorUnknownSubtle}" />
+    <SolidColorBrush x:Key="InfoBarSuccessSeverityBackgroundBrush" Color="{StaticResource LfColorSuccessSubtle}" />
+    <SolidColorBrush x:Key="InfoBarWarningSeverityBackgroundBrush" Color="{StaticResource LfColorWarningSubtle}" />
+    <SolidColorBrush x:Key="InfoBarErrorSeverityBackgroundBrush" Color="{StaticResource LfColorDangerSubtle}" />
+    <SolidColorBrush x:Key="InfoBarInformationalSeverityBackgroundBrush" Color="{StaticResource LfColorInfoSubtle}" />
 
 </ResourceDictionary>

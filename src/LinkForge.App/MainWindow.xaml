@@ -3,9 +3,10 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:controls="clr-namespace:LinkForge.App.Controls"
         mc:Ignorable="d"
-        Title="LinkForge — 设计令牌验证"
-        Width="1100" Height="720"
+        Title="LinkForge — 基础组件验证"
+        Width="1180" Height="860"
         MinWidth="{StaticResource LfWindowMinWidth}"
         MinHeight="{StaticResource LfWindowMinHeight}"
         Background="{DynamicResource LfBrushBackground}"
@@ -15,30 +16,14 @@
         TextOptions.TextFormattingMode="Display">
 
     <!--
-        阶段 01 临时验证面（阶段 03 由 Views/ShellWindow.xaml 取代）。
+        阶段 02 基础组件验证面（阶段 03 由 Views/ShellWindow.xaml 取代）。
 
-        存在目的：真实证明设计令牌可解析、可切换、无缺色，
-        而不是仅交付一组未被引用的资源字典。
-        本窗口所有颜色/间距/字号/圆角均来自 Lf* 令牌，无硬编码视觉值。
+        存在目的：真实证明基础组件在浅/深色下都可渲染、可交互、状态正确，
+        而不是只交付一组未被任何界面使用的样式。
+
+        刻意覆盖组件规范要求的每一类状态：
+        空 / 加载 / 运行 / 成功 / 部分成功 / 失败 / 取消 / 依赖缺失。
     -->
-    <Window.Resources>
-        <!-- 令牌预览卡的统一外壳；避免四个卡片复制粘贴相同属性集。 -->
-        <Style x:Key="TokenSwatchStyle" TargetType="Border">
-            <Setter Property="BorderBrush" Value="{DynamicResource LfBrushBorder}" />
-            <Setter Property="BorderThickness" Value="{StaticResource LfBorderThickness}" />
-            <Setter Property="CornerRadius" Value="{StaticResource LfRadiusPanel}" />
-            <Setter Property="Padding" Value="{StaticResource LfCardPadding}" />
-            <Setter Property="Margin" Value="{StaticResource LfInlineSpacingLeading}" />
-        </Style>
-
-        <!-- 状态语义徽标外壳；颜色由每个实例的 Background/Foreground 覆盖。 -->
-        <Style x:Key="StatusBadgeStyle" TargetType="Border">
-            <Setter Property="CornerRadius" Value="{StaticResource LfRadiusPill}" />
-            <Setter Property="Padding" Value="{StaticResource LfBadgePadding}" />
-            <Setter Property="Margin" Value="{StaticResource LfBadgeSpacing}" />
-        </Style>
-
-    </Window.Resources>
 
     <Grid>
         <Grid.RowDefinitions>
@@ -47,14 +32,14 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- 顶部：页面标题区（规范 §3.1 第 3 区的最小形态） -->
+        <!-- 顶部：标题区 + 主题切换 -->
         <Border Grid.Row="0"
                 Height="{StaticResource LfHeaderHeight}"
                 Background="{DynamicResource LfBrushSurface}"
                 BorderBrush="{DynamicResource LfBrushDivider}"
                 BorderThickness="{StaticResource LfDividerBottom}">
             <Grid Margin="{StaticResource LfHeaderPadding}">
-                <TextBlock Text="设计令牌验证"
+                <TextBlock Text="基础组件验证"
                            VerticalAlignment="Center"
                            FontSize="{StaticResource LfFontSizeSectionTitle}"
                            FontWeight="SemiBold"
@@ -67,19 +52,16 @@
                                VerticalAlignment="Center"
                                Margin="{StaticResource LfLabelSpacing}"
                                Foreground="{DynamicResource LfBrushTextSecondary}" />
-                    <Button x:Name="LightThemeButton"
-                            Content="浅色"
+                    <Button Content="浅色"
                             MinWidth="{StaticResource LfButtonMinWidth}"
                             Height="{StaticResource LfControlHeight}"
                             Click="OnLightThemeClick" />
-                    <Button x:Name="DarkThemeButton"
-                            Content="深色"
+                    <Button Content="深色"
                             MinWidth="{StaticResource LfButtonMinWidth}"
                             Height="{StaticResource LfControlHeight}"
                             Margin="{StaticResource LfInlineSpacingLeading}"
                             Click="OnDarkThemeClick" />
-                    <Button x:Name="SystemThemeButton"
-                            Content="跟随系统"
+                    <Button Content="跟随系统"
                             MinWidth="{StaticResource LfButtonMinWidth}"
                             Height="{StaticResource LfControlHeight}"
                             Margin="{StaticResource LfInlineSpacingLeading}"
@@ -88,12 +70,63 @@
             </Grid>
         </Border>
 
-        <!-- 内容区：令牌与状态语义预览 -->
+        <!-- 内容区：按组件分组展示 -->
         <ScrollViewer Grid.Row="1"
                       VerticalScrollBarVisibility="Auto"
                       Padding="{StaticResource LfPagePadding}">
             <StackPanel>
-                <TextBlock Text="表面层级"
+
+                <!-- ===== 状态标签 ===== -->
+                <TextBlock Text="状态标签（颜色 + 图标 + 文字三重表达）"
+                           FontSize="{StaticResource LfFontSizeSectionTitle}"
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource LfBrushTextPrimary}" />
+
+                <WrapPanel Margin="{StaticResource LfBlockSpacing}">
+                    <controls:StatusBadge DiagnosticStatus="NotRun"
+                                          Margin="{StaticResource LfBadgeSpacing}" />
+                    <controls:StatusBadge DiagnosticStatus="Running"
+                                          Margin="{StaticResource LfBadgeSpacing}" />
+                    <controls:StatusBadge DiagnosticStatus="Passed"
+                                          Margin="{StaticResource LfBadgeSpacing}" />
+                    <controls:StatusBadge DiagnosticStatus="Failed"
+                                          Margin="{StaticResource LfBadgeSpacing}" />
+                    <controls:StatusBadge DiagnosticStatus="Warning"
+                                          Margin="{StaticResource LfBadgeSpacing}" />
+                    <controls:StatusBadge DiagnosticStatus="Skipped"
+                                          Margin="{StaticResource LfBadgeSpacing}" />
+                    <controls:StatusBadge DiagnosticStatus="Unknown"
+                                          Margin="{StaticResource LfBadgeSpacing}" />
+                    <controls:StatusBadge DiagnosticStatus="Cancelled"
+                                          Margin="{StaticResource LfBadgeSpacing}" />
+                    <controls:StatusBadge DiagnosticStatus="TimedOut"
+                                          Margin="{StaticResource LfBadgeSpacing}" />
+                </WrapPanel>
+
+                <WrapPanel Margin="{StaticResource LfInlineSpacing}">
+                    <controls:StatusBadge TaskState="Pending"
+                                          Margin="{StaticResource LfBadgeSpacing}" />
+                    <controls:StatusBadge TaskState="Preparing"
+                                          Margin="{StaticResource LfBadgeSpacing}" />
+                    <controls:StatusBadge TaskState="Running"
+                                          Margin="{StaticResource LfBadgeSpacing}" />
+                    <controls:StatusBadge TaskState="Completed"
+                                          Margin="{StaticResource LfBadgeSpacing}" />
+                    <controls:StatusBadge TaskState="PartiallySucceeded"
+                                          Margin="{StaticResource LfBadgeSpacing}" />
+                    <controls:StatusBadge TaskState="Failed"
+                                          Margin="{StaticResource LfBadgeSpacing}" />
+                    <controls:StatusBadge TaskState="Cancelled"
+                                          Margin="{StaticResource LfBadgeSpacing}" />
+                    <controls:StatusBadge TaskState="Inconclusive"
+                                          Margin="{StaticResource LfBadgeSpacing}" />
+                    <controls:StatusBadge DependencyName="Npcap"
+                                          Margin="{StaticResource LfBadgeSpacing}" />
+                </WrapPanel>
+
+                <!-- ===== 表单控件 ===== -->
+                <TextBlock Text="表单输入（可见标签 + 就近错误 + 凭据保护）"
+                           Margin="{StaticResource LfSectionSpacing}"
                            FontSize="{StaticResource LfFontSizeSectionTitle}"
                            FontWeight="SemiBold"
                            Foreground="{DynamicResource LfBrushTextPrimary}" />
@@ -101,164 +134,112 @@
                 <Grid Margin="{StaticResource LfBlockSpacing}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="{StaticResource LfGridGapLength}" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
 
-                    <Border Grid.Column="0"
-                            Style="{StaticResource TokenSwatchStyle}"
-                            Margin="0"
-                            Background="{DynamicResource LfBrushBackground}">
-                        <StackPanel>
-                            <TextBlock Text="Background" Foreground="{DynamicResource LfBrushTextPrimary}" />
-                            <TextBlock Text="主工作区底色"
-                                       Margin="{StaticResource LfInlineSpacing}"
-                                       FontSize="{StaticResource LfFontSizeCaption}"
-                                       Foreground="{DynamicResource LfBrushTextMuted}" />
-                        </StackPanel>
-                    </Border>
+                    <StackPanel Grid.Column="0">
+                        <controls:LabeledTextBox Label="目标地址"
+                                                 IsRequired="True"
+                                                 Placeholder="10.20.30.40"
+                                                 Hint="IPv4 或主机名" />
+                        <controls:LabeledTextBox Label="端口"
+                                                 Text="554"
+                                                 Hint="默认 554"
+                                                 Margin="{StaticResource LfBlockSpacing}" />
+                        <controls:LabeledTextBox Label="超时（毫秒）"
+                                                 Text="-1"
+                                                 ErrorText="超时必须为正整数，请改为例如 5000"
+                                                 Margin="{StaticResource LfBlockSpacing}" />
+                    </StackPanel>
 
-                    <Border Grid.Column="1"
-                            Style="{StaticResource TokenSwatchStyle}"
-                            Background="{DynamicResource LfBrushSurface}">
-                        <StackPanel>
-                            <TextBlock Text="Surface" Foreground="{DynamicResource LfBrushTextPrimary}" />
-                            <TextBlock Text="面板 / 弹层表面"
-                                       Margin="{StaticResource LfInlineSpacing}"
-                                       FontSize="{StaticResource LfFontSizeCaption}"
-                                       Foreground="{DynamicResource LfBrushTextMuted}" />
-                        </StackPanel>
-                    </Border>
-
-                    <Border Grid.Column="2"
-                            Style="{StaticResource TokenSwatchStyle}"
-                            Background="{DynamicResource LfBrushSurfaceSubtle}">
-                        <StackPanel>
-                            <TextBlock Text="SurfaceSubtle" Foreground="{DynamicResource LfBrushTextPrimary}" />
-                            <TextBlock Text="次级区域 / 表头"
-                                       Margin="{StaticResource LfInlineSpacing}"
-                                       FontSize="{StaticResource LfFontSizeCaption}"
-                                       Foreground="{DynamicResource LfBrushTextMuted}" />
-                        </StackPanel>
-                    </Border>
-
-                    <Border Grid.Column="3"
-                            Style="{StaticResource TokenSwatchStyle}"
-                            Background="{DynamicResource LfBrushSurfaceRaised}">
-                        <StackPanel>
-                            <TextBlock Text="SurfaceRaised" Foreground="{DynamicResource LfBrushTextPrimary}" />
-                            <TextBlock Text="悬浮 / 弹层提升面"
-                                       Margin="{StaticResource LfInlineSpacing}"
-                                       FontSize="{StaticResource LfFontSizeCaption}"
-                                       Foreground="{DynamicResource LfBrushTextMuted}" />
-                        </StackPanel>
-                    </Border>
+                    <StackPanel Grid.Column="2">
+                        <controls:SecretTextBox Label="设备密码"
+                                                Placeholder="留空表示不启用鉴权" />
+                        <controls:SecretTextBox Label="API Key"
+                                                ErrorText="API Key 长度不足"
+                                                Margin="{StaticResource LfBlockSpacing}" />
+                    </StackPanel>
                 </Grid>
 
-                <TextBlock Text="文本层级"
+                <!-- ===== 任务进度（运行中） ===== -->
+                <TextBlock Text="任务进度（阶段 + 耗时 + 停止入口）"
                            Margin="{StaticResource LfSectionSpacing}"
                            FontSize="{StaticResource LfFontSizeSectionTitle}"
                            FontWeight="SemiBold"
                            Foreground="{DynamicResource LfBrushTextPrimary}" />
-                <StackPanel Margin="{StaticResource LfBlockSpacing}">
-                    <TextBlock Text="TextPrimary — 主文本，用于标题与关键数据"
-                               Foreground="{DynamicResource LfBrushTextPrimary}" />
-                    <TextBlock Text="TextSecondary — 次级文本，用于说明与标签"
-                               Margin="{StaticResource LfInlineSpacing}"
-                               Foreground="{DynamicResource LfBrushTextSecondary}" />
-                    <TextBlock Text="TextMuted — 辅助说明，不得用于关键数据"
-                               Margin="{StaticResource LfInlineSpacing}"
-                               FontSize="{StaticResource LfFontSizeCaption}"
-                               Foreground="{DynamicResource LfBrushTextMuted}" />
-                    <TextBlock Text="TextDisabled — 禁用态文本"
-                               Margin="{StaticResource LfInlineSpacing}"
-                               Foreground="{DynamicResource LfBrushTextDisabled}" />
-                </StackPanel>
 
-                <TextBlock Text="状态语义（颜色 + 文字，不得仅靠颜色）"
-                           Margin="{StaticResource LfSectionSpacing}"
-                           FontSize="{StaticResource LfFontSizeSectionTitle}"
-                           FontWeight="SemiBold"
-                           Foreground="{DynamicResource LfBrushTextPrimary}" />
-                <WrapPanel Margin="{StaticResource LfBlockSpacing}">
-                    <Border Style="{StaticResource StatusBadgeStyle}"
-                            Background="{DynamicResource LfBrushSuccessSubtle}">
-                        <TextBlock Text="成功 / 通过" Foreground="{DynamicResource LfBrushSuccess}" />
-                    </Border>
-                    <Border Style="{StaticResource StatusBadgeStyle}"
-                            Background="{DynamicResource LfBrushRunningSubtle}">
-                        <TextBlock Text="运行中" Foreground="{DynamicResource LfBrushRunning}" />
-                    </Border>
-                    <Border Style="{StaticResource StatusBadgeStyle}"
-                            Background="{DynamicResource LfBrushWarningSubtle}">
-                        <TextBlock Text="警告 / 部分成功" Foreground="{DynamicResource LfBrushWarning}" />
-                    </Border>
-                    <Border Style="{StaticResource StatusBadgeStyle}"
-                            Background="{DynamicResource LfBrushDangerSubtle}">
-                        <TextBlock Text="失败 / 危险" Foreground="{DynamicResource LfBrushDanger}" />
-                    </Border>
-                    <Border Style="{StaticResource StatusBadgeStyle}"
-                            Background="{DynamicResource LfBrushUnknownSubtle}">
-                        <TextBlock Text="未知 / 未检测" Foreground="{DynamicResource LfBrushUnknown}" />
-                    </Border>
-                    <Border Style="{StaticResource StatusBadgeStyle}"
-                            Background="{DynamicResource LfBrushDependencyMissingSubtle}">
-                        <TextBlock Text="依赖缺失 / 环境不可用"
-                                   Foreground="{DynamicResource LfBrushDependencyMissing}" />
-                    </Border>
-                    <Border Style="{StaticResource StatusBadgeStyle}"
-                            Background="{DynamicResource LfBrushInfoSubtle}">
-                        <TextBlock Text="信息提示" Foreground="{DynamicResource LfBrushInfo}" />
-                    </Border>
-                </WrapPanel>
+                <controls:TaskProgressPanel Stage="正在建立 MQTT 连接…"
+                                            ElapsedText="00:00:12.4"
+                                            TaskState="Running"
+                                            Margin="{StaticResource LfBlockSpacing}" />
 
-                <TextBlock Text="强调色与交互边界"
+                <controls:TaskProgressPanel Stage="全部步骤完成"
+                                            ElapsedText="00:00:41.2"
+                                            TaskState="Completed"
+                                            Margin="{StaticResource LfInlineSpacing}" />
+
+                <!-- ===== 结论摘要（部分成功） ===== -->
+                <TextBlock Text="结论摘要（结论先于原始日志）"
                            Margin="{StaticResource LfSectionSpacing}"
                            FontSize="{StaticResource LfFontSizeSectionTitle}"
                            FontWeight="SemiBold"
                            Foreground="{DynamicResource LfBrushTextPrimary}" />
-                <StackPanel Margin="{StaticResource LfBlockSpacing}" Orientation="Horizontal">
-                    <Border Background="{DynamicResource LfBrushAccent}"
-                            CornerRadius="{StaticResource LfRadiusControl}"
-                            Height="{StaticResource LfControlHeight}"
-                            Padding="{StaticResource LfControlPadding}">
-                        <TextBlock Text="主操作（Accent）"
-                                   VerticalAlignment="Center"
-                                   Foreground="{DynamicResource LfBrushTextOnAccent}" />
-                    </Border>
-                    <Border Background="{DynamicResource LfBrushAccentSubtle}"
-                            CornerRadius="{StaticResource LfRadiusControl}"
-                            Height="{StaticResource LfControlHeight}"
-                            Padding="{StaticResource LfControlPadding}"
-                            Margin="{StaticResource LfInlineSpacingLeading}">
-                        <TextBlock Text="选中态（AccentSubtle）"
-                                   VerticalAlignment="Center"
-                                   Foreground="{DynamicResource LfBrushAccent}" />
-                    </Border>
-                    <Border Background="{DynamicResource LfBrushSurface}"
-                            BorderBrush="{DynamicResource LfBrushBorderStrong}"
-                            BorderThickness="{StaticResource LfBorderThickness}"
-                            CornerRadius="{StaticResource LfRadiusControl}"
-                            Height="{StaticResource LfControlHeight}"
-                            Padding="{StaticResource LfControlPadding}"
-                            Margin="{StaticResource LfInlineSpacingLeading}">
-                        <TextBlock Text="输入边界（BorderStrong）"
-                                   VerticalAlignment="Center"
-                                   Foreground="{DynamicResource LfBrushTextPrimary}" />
-                    </Border>
-                    <Border Background="{DynamicResource LfBrushSurfaceDisabled}"
-                            BorderBrush="{DynamicResource LfBrushBorder}"
-                            BorderThickness="{StaticResource LfBorderThickness}"
-                            CornerRadius="{StaticResource LfRadiusControl}"
-                            Height="{StaticResource LfControlHeight}"
-                            Padding="{StaticResource LfControlPadding}"
-                            Margin="{StaticResource LfInlineSpacingLeading}">
-                        <TextBlock Text="禁用态"
-                                   VerticalAlignment="Center"
-                                   Foreground="{DynamicResource LfBrushTextDisabled}" />
-                    </Border>
-                </StackPanel>
+
+                <controls:ResultSummary x:Name="SummaryPanel"
+                                        Margin="{StaticResource LfBlockSpacing}" />
+
+                <!-- ===== 错误与依赖缺失 ===== -->
+                <TextBlock Text="错误与依赖缺失（两者必须可区分）"
+                           Margin="{StaticResource LfSectionSpacing}"
+                           FontSize="{StaticResource LfFontSizeSectionTitle}"
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource LfBrushTextPrimary}" />
+
+                <controls:ErrorPanel Message="无法连接目标：TCP 554 端口无响应"
+                                     Detail="System.Net.Sockets.SocketException (10060): A connection attempt failed."
+                                     IsRecoverable="True"
+                                     Margin="{StaticResource LfBlockSpacing}" />
+
+                <controls:DependencyMissingPanel DependencyName="Npcap"
+                                                 Impact="未安装 Npcap，抓包相关步骤无法执行。"
+                                                 Guidance="请以管理员身份安装 Npcap，或在设置中关闭抓包步骤后再运行。"
+                                                 Margin="{StaticResource LfInlineSpacing}" />
+
+                <!-- ===== 空状态与加载状态 ===== -->
+                <TextBlock Text="空状态与加载状态"
+                           Margin="{StaticResource LfSectionSpacing}"
+                           FontSize="{StaticResource LfFontSizeSectionTitle}"
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource LfBrushTextPrimary}" />
+
+                <Grid Margin="{StaticResource LfBlockSpacing}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="{StaticResource LfGridGapLength}" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <controls:EmptyState Grid.Column="0"
+                                         Title="尚未运行诊断"
+                                         Description="填入目标地址后点击“开始诊断”，结果将显示在这里。" />
+
+                    <controls:LoadingState Grid.Column="2"
+                                           Message="正在解析目标地址…"
+                                           Detail="若超过 10 秒未完成，可停止任务后检查 DNS 配置。" />
+                </Grid>
+
+                <!-- ===== 日志查看器 ===== -->
+                <TextBlock Text="日志查看器（虚拟化 + 级别过滤 + 搜索 + 默认脱敏）"
+                           Margin="{StaticResource LfSectionSpacing}"
+                           FontSize="{StaticResource LfFontSizeSectionTitle}"
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource LfBrushTextPrimary}" />
+
+                <controls:LogViewer x:Name="LogPanel"
+                                    Height="260"
+                                    Margin="{StaticResource LfBlockSpacing}" />
+
             </StackPanel>
         </ScrollViewer>
 
@@ -274,5 +255,7 @@
                        FontSize="{StaticResource LfFontSizeCaption}"
                        Foreground="{DynamicResource LfBrushTextSecondary}" />
         </Border>
+
     </Grid>
 </Window>
+

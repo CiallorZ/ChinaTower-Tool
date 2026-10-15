@@ -61,6 +61,9 @@
     <Thickness x:Key="LfBlockSpacing">0,12,0,0</Thickness>
     <Thickness x:Key="LfInlineSpacing">0,4,0,0</Thickness>
     <Thickness x:Key="LfInlineSpacingLeading">0,0,12,0</Thickness>
+    <!-- 标签与必填标记之间的极窄间隙；WPF 不允许在 {StaticResource} 后追加字面量。 -->
+    <Thickness x:Key="LfInlineSpacingXxs">2,0,0,0</Thickness>
+    <Thickness x:Key="LfInlineSpacingSm">0,8,0,0</Thickness>
     <Thickness x:Key="LfBadgePadding">10,4</Thickness>
     <Thickness x:Key="LfBadgeSpacing">0,0,8,8</Thickness>
     <Thickness x:Key="LfLabelSpacing">0,0,8,0</Thickness>
@@ -102,6 +105,15 @@
     <Thickness x:Key="LfBorderThickness">1</Thickness>
     <Thickness x:Key="LfFocusThickness">2</Thickness>
     <sys:Double x:Key="LfNavSelectionIndicatorWidth">3</sys:Double>
+
+    <!--
+        栅格间距：GridLength 与 double 是不同类型，
+        不能用 LfSpacing3Xl 直接充当 ColumnDefinition.Width（会报"32 不是有效值"）。
+        因此单独定义 GridLength 令牌。
+    -->
+    <sys:Double x:Key="LfGridGap">24</sys:Double>
+    <GridLength x:Key="LfGridGapLength">24</GridLength>
+    <GridLength x:Key="LfGridGapLengthCompact">16</GridLength>
 
     <!-- ===================== 动效 ===================== -->
     <!-- 规范 §6：动画轻量且可中断；持续动效仅用于"运行中"语义 -->

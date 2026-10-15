@@ -66,6 +66,11 @@ internal sealed class PaletteFile
         return (SolidColorBrush)_dictionary[key];
     }
 
+    /// <summary>
+    /// 读取原始资源值（不做类型断言），用于校验类型本身是否符合预期。
+    /// </summary>
+    internal object? RawValue(string key) => _dictionary.Contains(key) ? _dictionary[key] : null;
+
     private IReadOnlyList<string> KeysWithPrefix(string prefix) =>
         AllKeys.Where(key => key.StartsWith(prefix, StringComparison.Ordinal)).ToList();
 }

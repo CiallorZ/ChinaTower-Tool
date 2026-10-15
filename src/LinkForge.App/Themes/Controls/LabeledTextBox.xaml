@@ -1,0 +1,99 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:controls="clr-namespace:LinkForge.App.Controls"
+                    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
+
+    <!--
+        LabeledTextBox 默认样式（UI 规范 §5.2）。
+
+        结构（自上而下）：标签行 -> 输入框 -> 提示/错误行。
+        顺序刻意把错误提示放在输入框**下方且紧邻**，
+        因为规范禁止"只在页面顶部弹一句参数错误"。
+
+        错误态用 Danger 边框 + 文字，而不是把整个输入框染红：
+        规范 §5.3 要求"不用整行红底表示普通失败"，仅做局部强调。
+    -->
+
+    <BooleanToVisibilityConverter x:Key="LfBoolToVisibility" />
+
+    <Style TargetType="{x:Type controls:LabeledTextBox}">
+        <Setter Property="Focusable" Value="False" />
+
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type controls:LabeledTextBox}">
+                    <StackPanel>
+
+                        <!-- 标签行：必填标记在标签右侧，用户一眼可见 -->
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="{TemplateBinding Label}"
+                                       Foreground="{DynamicResource LfBrushTextSecondary}"
+                                       FontSize="{DynamicResource LfFontSizeCaption}" />
+
+                            <!--
+                                必须用 Binding 而非 TemplateBinding：TemplateBinding 不支持
+                                Converter，需要转换器的场景只能用 RelativeSource 绑定。
+                            -->
+                            <TextBlock Text="*"
+                                       Foreground="{DynamicResource LfBrushDanger}"
+                                       FontSize="{DynamicResource LfFontSizeCaption}"
+                                       Margin="{DynamicResource LfInlineSpacingXxs}"
+                                       Visibility="{Binding IsRequired,
+                                                            RelativeSource={RelativeSource TemplatedParent},
+                                                                    Converter={StaticResource LfBoolToVisibility}}" />
+                        </StackPanel>
+
+                        <ui:TextBox Text="{Binding Text,
+                                                   RelativeSource={RelativeSource TemplatedParent},
+                                                   Mode=TwoWay,
+                                                   UpdateSourceTrigger=PropertyChanged}"
+                                    PlaceholderText="{TemplateBinding Placeholder}"
+                                    Margin="{DynamicResource LfInlineSpacing}"
+                                    Height="{DynamicResource LfControlHeight}" />
+
+                        <!--
+                            提示与错误共用同一行位置，但互斥显示：
+                            有错误时错误优先——用户此刻最需要知道的是"怎么改对"，
+                            而不是"这个字段单位是 ms"。
+                        -->
+                        <TextBlock Text="{TemplateBinding ErrorText}"
+                                   Foreground="{DynamicResource LfBrushDanger}"
+                                   FontSize="{DynamicResource LfFontSizeCaption}"
+                                   Margin="{DynamicResource LfInlineSpacing}"
+                                   TextWrapping="Wrap"
+                                   Visibility="{Binding HasError,
+                                                        RelativeSource={RelativeSource TemplatedParent},
+                                                                Converter={StaticResource LfBoolToVisibility}}" />
+
+                        <TextBlock Text="{TemplateBinding Hint}"
+                                   Foreground="{DynamicResource LfBrushTextMuted}"
+                                   FontSize="{DynamicResource LfFontSizeCaption}"
+                                   Margin="{DynamicResource LfInlineSpacing}"
+                                   TextWrapping="Wrap">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <!-- 无错误且有说明时才显示 -->
+                                        <DataTrigger Binding="{Binding HasError,
+                                                                       RelativeSource={RelativeSource TemplatedParent}}"
+                                                     Value="False">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding HasHint,
+                                                                       RelativeSource={RelativeSource TemplatedParent}}"
+                                                     Value="False">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+
+                    </StackPanel>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+</ResourceDictionary>

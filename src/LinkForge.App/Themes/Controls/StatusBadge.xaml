@@ -1,0 +1,55 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:controls="clr-namespace:LinkForge.App.Controls">
+
+    <!--
+        StatusBadge 默认样式。
+
+        依据 UI 规范 §5.4（状态标签）与 §5.6（状态表达）：
+        颜色 + 图标 + 文字三重表达，禁止仅靠颜色。
+
+        颜色不在此处硬编码：控件的 ResolvedForeground / ResolvedBackground
+        由 StatusBadge.Refresh() 依据当前主题的 Lf* 令牌解析，
+        因此主题切换后重新解析即可得到新值（见 ADR-017）。
+    -->
+
+    <Style TargetType="{x:Type controls:StatusBadge}">
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Foreground" Value="{Binding ResolvedForeground, RelativeSource={RelativeSource Self}}" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="ToolTip"
+                Value="{Binding ResolvedAccessibleText, RelativeSource={RelativeSource Self}}" />
+        <!-- 读屏名称：不含颜色信息，直接读语义描述。 -->
+        <Setter Property="AutomationProperties.Name"
+                Value="{Binding ResolvedAccessibleText, RelativeSource={RelativeSource Self}}" />
+
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type controls:StatusBadge}">
+                    <Border Background="{Binding ResolvedBackground, RelativeSource={RelativeSource TemplatedParent}}"
+                            CornerRadius="{DynamicResource LfRadiusPill}"
+                            Padding="{DynamicResource LfBadgePadding}"
+                            SnapsToDevicePixels="True">
+                        <StackPanel Orientation="Horizontal">
+                            <!-- 图标：颜色之外的第二重区分手段 -->
+                            <TextBlock Text="{Binding ResolvedGlyph, RelativeSource={RelativeSource TemplatedParent}}"
+                                       FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                                       FontSize="{DynamicResource LfFontSizeCaption}"
+                                       VerticalAlignment="Center"
+                                       Margin="{DynamicResource LfLabelSpacing}"
+                                       Foreground="{TemplateBinding Foreground}" />
+
+                            <TextBlock Text="{Binding ResolvedText, RelativeSource={RelativeSource TemplatedParent}}"
+                                       FontSize="{DynamicResource LfFontSizeCaption}"
+                                       VerticalAlignment="Center"
+                                       Foreground="{TemplateBinding Foreground}" />
+                        </StackPanel>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+</ResourceDictionary>

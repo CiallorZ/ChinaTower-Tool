@@ -62,7 +62,18 @@ internal static class StaRunner
             try
             {
                 // Application 只需存在，不调用 Run()；它提供 pack URI 解析所需的应用程序上下文。
-                _ = new Application();
+                //
+                // ShutdownMode 必须改为 OnExplicitShutdown：默认是 OnLastWindowClose，
+                // 而渲染冒烟测试会 Show 一个真实窗口再 Close 它。
+                // 默认模式下这会被判定为"最后一个窗口关闭"从而关停整个 Application，
+                // 之后 Application.Current 变成 null，其余用例全线 NullReferenceException。
+                // 测试宿主的生命周期由进程控制，不该由被测窗口控制。
+                // 必须是基类 Application 而不是 LinkForge.App.App：
+                // 后者在构造后会调度 OnStartup，而 OnStartup 会调用 ThemeManager.Apply，
+                // 在没有合并生产字典的测试宿主里会抛"未找到调色板"。
+                // 基类没有 OnStartup 逻辑，安全性更高；
+                // MainWindow 读取 ThemeManager 的路径由 Screenshot 测试单独验证。
+                _ = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
                 dispatcher = Dispatcher.CurrentDispatcher;
             }
             catch (Exception ex)

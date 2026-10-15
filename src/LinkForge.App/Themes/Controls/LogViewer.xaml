@@ -1,0 +1,275 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:controls="clr-namespace:LinkForge.App.Controls"
+                    xmlns:presentation="clr-namespace:LinkForge.App.Presentation"
+                    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
+
+    <!--
+        LogViewer 默认样式（UI 规范 §10 虚拟化、§5.3 列表、§9 脱敏）。
+
+        四个必须同时成立的约束：
+          1. 列表虚拟化（VirtualizingStackPanel + 回收模式 + 按项滚动）
+          2. 级别过滤 + 文本搜索
+          3. 等宽字体：日志含时间戳与 ID，比例字体会让列对不齐
+          4. 文字可选可复制，便于用户摘取自己需要的行
+
+        刻意**不**加"复制全部"按钮：那会让用户一次把整份日志（含目标地址、
+        内部路径）粘出去。逐行选中是更克制的默认行为。
+
+        级别过滤用可空的枚举数组，其中 x:Null 代表"全部"。
+        这样才能让"最低级别"语义成立（选 Warning 时同时显示 Error 与 Critical），
+        而不是让用户逐个勾选级别。
+    -->
+
+    <BooleanToVisibilityConverter x:Key="LfBoolToVisibility" />
+
+    <!-- 级别下拉项：首项 Null = 全部，其余按由低到高的严重度排列。 -->
+    <x:Array x:Key="LfLogLevelFilterItems" Type="{x:Type sys:Object}"
+             xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+        <x:Null />
+        <presentation:LfLogLevel>Trace</presentation:LfLogLevel>
+        <presentation:LfLogLevel>Debug</presentation:LfLogLevel>
+        <presentation:LfLogLevel>Information</presentation:LfLogLevel>
+        <presentation:LfLogLevel>Warning</presentation:LfLogLevel>
+        <presentation:LfLogLevel>Error</presentation:LfLogLevel>
+        <presentation:LfLogLevel>Critical</presentation:LfLogLevel>
+    </x:Array>
+
+    <Style TargetType="{x:Type controls:LogViewer}">
+        <Setter Property="Focusable" Value="False" />
+
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type controls:LogViewer}">
+                    <Border Background="{DynamicResource LfBrushSurface}"
+                            BorderBrush="{DynamicResource LfBrushBorder}"
+                            BorderThickness="{DynamicResource LfBorderThickness}"
+                            CornerRadius="{DynamicResource LfRadiusPanel}">
+
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <!-- 工具条：级别过滤 + 搜索 + 自动滚动 -->
+                            <Border Grid.Row="0"
+                                    Background="{DynamicResource LfBrushSurfaceSubtle}"
+                                    BorderBrush="{DynamicResource LfBrushDivider}"
+                                    BorderThickness="{DynamicResource LfDividerBottom}"
+                                    Padding="{DynamicResource LfControlPadding}">
+
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                        <TextBlock Text="级别"
+                                                   Foreground="{DynamicResource LfBrushTextSecondary}"
+                                                   FontSize="{DynamicResource LfFontSizeCaption}"
+                                                   VerticalAlignment="Center"
+                                                   Margin="{DynamicResource LfLabelSpacing}" />
+
+                                        <ComboBox x:Name="PART_LevelSelector"
+                                                  ItemsSource="{DynamicResource LfLogLevelFilterItems}"
+                                                  SelectedItem="{Binding MinimumLevel,
+                                                                         RelativeSource={RelativeSource TemplatedParent},
+                                                                         Mode=TwoWay}"
+                                                  Width="120"
+                                                  Height="{DynamicResource LfControlHeightCompact}"
+                                                  VerticalAlignment="Center">
+                                            <ComboBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <!--
+                                                        空值没有"级别"可言，只能显示"全部"。
+                                                        用 DataTrigger 而不是转换器，
+                                                        是因为这里只需要一个固定的中文标签。
+                                                    -->
+                                                    <TextBlock>
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Text"
+                                                                        Value="{Binding}" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding}"
+                                                                                 Value="{x:Null}">
+                                                                        <Setter Property="Text"
+                                                                                Value="全部" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                </DataTemplate>
+                                            </ComboBox.ItemTemplate>
+                                        </ComboBox>
+                                    </StackPanel>
+
+                                    <ui:TextBox Grid.Column="1"
+                                                Text="{Binding SearchText,
+                                                               RelativeSource={RelativeSource TemplatedParent},
+                                                               Mode=TwoWay,
+                                                               UpdateSourceTrigger=PropertyChanged}"
+                                                PlaceholderText="搜索日志内容"
+                                                Height="{DynamicResource LfControlHeightCompact}"
+                                                Margin="{DynamicResource LfInlineSpacingLeading}"
+                                                VerticalAlignment="Center"
+                                                ClearButtonEnabled="True" />
+
+                                    <CheckBox Grid.Column="2"
+                                              Content="自动滚动"
+                                              IsChecked="{Binding AutoScroll,
+                                                                  RelativeSource={RelativeSource TemplatedParent}}"
+                                              VerticalAlignment="Center"
+                                              Margin="{DynamicResource LfInlineSpacingLeading}" />
+
+                                </Grid>
+                            </Border>
+
+                            <!--
+                                日志列表。
+                                VirtualizingStackPanel 的三个属性必须同时设置：
+                                IsVirtualizing + VirtualizationMode=Recycling（复用容器）
+                                + ScrollUnit=Item（按项滚动，保证行对齐）。
+                                IsTextSearchEnabled=False：搜索由本控件自己实现，
+                                系统文本搜索会与虚拟化的容器复用冲突。
+                            -->
+                            <ListBox Grid.Row="1"
+                                     x:Name="PART_List"
+                                     ItemsSource="{Binding View,
+                                                          RelativeSource={RelativeSource TemplatedParent}}"
+                                     VirtualizingStackPanel.IsVirtualizing="True"
+                                     VirtualizingStackPanel.VirtualizationMode="Recycling"
+                                     VirtualizingStackPanel.ScrollUnit="Item"
+                                     ScrollViewer.CanContentScroll="True"
+                                     IsTextSearchEnabled="False"
+                                     BorderThickness="0"
+                                     Background="Transparent"
+                                     FontFamily="{DynamicResource LfFontFamilyMono}"
+                                     FontSize="{DynamicResource LfFontSizeCaption}">
+
+                                <!-- 用 TextBlock 承载整行：TextBlock 可复制且比多个控件更轻。 -->
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type presentation:LogEntry}">
+                                        <Grid Margin="{DynamicResource LfInlineSpacingXxs}">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <TextBlock Grid.Column="0"
+                                                       Text="{Binding Path=TimestampText}"
+                                                       Foreground="{DynamicResource LfBrushTextMuted}"
+                                                       Margin="{DynamicResource LfLabelSpacing}" />
+
+                                            <!--
+                                                级别列：文字 + 颜色双表达（§5.4 禁止仅靠颜色）。
+                                                颜色复用既有语义令牌，不新增 LfBrushLog* 令牌：
+                                                Trace/Debug 用弱化色，Warning/Error 复用语义色，
+                                                这样"日志里的警告色"与"状态标签的警告色"天然一致。
+                                            -->
+                                            <TextBlock Grid.Column="1"
+                                                       x:Name="LevelText"
+                                                       Text="{Binding Path=LevelText}"
+                                                       MinWidth="36"
+                                                       Foreground="{DynamicResource LfBrushTextSecondary}"
+                                                       Margin="{DynamicResource LfLabelSpacing}" />
+
+                                            <TextBlock Grid.Column="2"
+                                                       Text="{Binding Path=Module}"
+                                                       MinWidth="72"
+                                                       Foreground="{DynamicResource LfBrushTextMuted}"
+                                                       Margin="{DynamicResource LfLabelSpacing}" />
+
+                                            <TextBlock Grid.Column="3"
+                                                       x:Name="MessageText"
+                                                       Text="{Binding Path=Message}"
+                                                       Foreground="{DynamicResource LfBrushTextPrimary}"
+                                                       TextWrapping="Wrap" />
+                                        </Grid>
+
+                                        <!--
+                                            按级别调整强调强度。
+                                            只有 Error/Critical 才加粗：若 Warning 也加粗，
+                                            满屏日志里就分不出轻重，等于没有强调。
+                                        -->
+                                        <DataTemplate.Triggers>
+                                            <DataTrigger Binding="{Binding Path=Level}" Value="Trace">
+                                                <Setter TargetName="LevelText"
+                                                        Property="Foreground"
+                                                        Value="{DynamicResource LfBrushTextMuted}" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Path=Level}" Value="Debug">
+                                                <Setter TargetName="LevelText"
+                                                        Property="Foreground"
+                                                        Value="{DynamicResource LfBrushTextMuted}" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Path=Level}" Value="Information">
+                                                <Setter TargetName="LevelText"
+                                                        Property="Foreground"
+                                                        Value="{DynamicResource LfBrushInfo}" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Path=Level}" Value="Warning">
+                                                <Setter TargetName="LevelText"
+                                                        Property="Foreground"
+                                                        Value="{DynamicResource LfBrushWarning}" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Path=Level}" Value="Error">
+                                                <Setter TargetName="LevelText"
+                                                        Property="Foreground"
+                                                        Value="{DynamicResource LfBrushDanger}" />
+                                                <Setter TargetName="LevelText"
+                                                        Property="FontWeight"
+                                                        Value="SemiBold" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Path=Level}" Value="Critical">
+                                                <Setter TargetName="LevelText"
+                                                        Property="Foreground"
+                                                        Value="{DynamicResource LfBrushDanger}" />
+                                                <Setter TargetName="LevelText"
+                                                        Property="FontWeight"
+                                                        Value="Bold" />
+                                                <Setter TargetName="MessageText"
+                                                        Property="Foreground"
+                                                        Value="{DynamicResource LfBrushDanger}" />
+                                            </DataTrigger>
+                                        </DataTemplate.Triggers>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+
+                            <!-- 底部计数条：让用户知道"当前看到的是全部还是子集" -->
+                            <Border Grid.Row="2"
+                                    Background="{DynamicResource LfBrushSurfaceSubtle}"
+                                    BorderBrush="{DynamicResource LfBrushDivider}"
+                                    BorderThickness="{DynamicResource LfDividerTop}"
+                                    Padding="{DynamicResource LfControlPadding}">
+                                <TextBlock FontSize="{DynamicResource LfFontSizeCaption}"
+                                           Foreground="{DynamicResource LfBrushTextSecondary}">
+                                    <Run Text="共 " />
+                                    <Run Text="{Binding TotalCount,
+                                                        RelativeSource={RelativeSource TemplatedParent},
+                                                        Mode=OneWay}" />
+                                    <Run Text=" 行，当前显示 " />
+                                    <Run Text="{Binding VisibleCount,
+                                                        RelativeSource={RelativeSource TemplatedParent},
+                                                        Mode=OneWay}" />
+                                    <Run Text=" 行" />
+                                </TextBlock>
+                            </Border>
+
+                        </Grid>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+</ResourceDictionary>
+

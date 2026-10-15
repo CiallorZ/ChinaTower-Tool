@@ -26,6 +26,9 @@
 | ADR-014 | 默认主题策略 | 跟随系统，浅色为设计基准，深色对等 | 提议（待 D-03 确认） |
 | ADR-015 | 令牌命名空间 | 语义令牌统一 `Lf` 前缀 | 提议 |
 | ADR-016 | 状态模型分层 | 任务层与步骤层分离，显式映射 | 提议 |
+| ADR-017 | 主题令牌引用方式 | 颜色令牌一律 `DynamicResource` | 已采纳 |
+| ADR-018 | 控件库资源键映射 | 集中在调色板内，保留控件库模板 | 已采纳 |
+| ADR-019 | 模板内令牌引用方式 | 控件模板内一律 `DynamicResource` | 已采纳 |
 
 ---
 
@@ -324,3 +327,77 @@ WPF-UI 4.3.0 的 `Button` 默认模板不读取 `Border.Background`，
 - 键名以 WPF-UI 4.3.0 实测为准；升级 WPF-UI 后需重新枚举模板触发器并核对映射。
 - 阶段 02 若需自定义按钮视觉，必须同时提供正常/悬停/按下/禁用/焦点/忙碌六态，
   且不得回退到控件库默认的浅色悬停值。
+
+## ADR-019 控件模板内一律使用 DynamicResource
+
+**状态**：已采纳（阶段 02 实施期间由运行时崩溃发现并验证）
+
+**背景**
+阶段 02 完成基础组件后，应用启动即抛
+`XamlParseException: 无法找到名为"LfFontSizeCaption"的资源`，
+而同一时刻 `dotnet build` 与全部 185 个测试均为绿色。
+
+**根因（已实测确认）**
+控件模板是**延迟实例化**的。模板内的 `StaticResource` 在
+`FrameworkTemplate.LoadContent` 阶段求值，
+而那时模板根元素尚未进入逻辑树，`StaticResource` 沿逻辑树向上查找必然落空。
+
+`Dimensions.xaml` 里的令牌确实存在，但它们挂在
+`ThemeResources.xaml` 这层**嵌套**字典内；
+`MainWindow` 的 XAML 引用是可以解析的（Window 自身在逻辑树里），
+模板内的引用则不行——这就是"Window 能显示、模板一应用就崩"的原因。
+
+**决策**
+`Themes/Controls/*.xaml` 内所有 `Lf*` 令牌引用一律使用 `DynamicResource`，
+不论其类型是颜色、画刷、尺寸、间距还是字号。
+
+**与 ADR-017 的关系**
+ADR-017 只要求颜色类令牌用 `DynamicResource`（为跟随主题替换）。
+本条把范围**扩大到全部令牌类型**，理由不同：
+这里不是为了跟随主题，而是因为模板求值时不在逻辑树上。
+因此即便是不随主题变化的 `LfFontSizeCaption`，在模板内也必须用 `DynamicResource`。
+
+**已用 Mutation 验证的例外**
+`Converter={StaticResource LfBoolToVisibility}` **必须保持 StaticResource**。
+`Binding.Converter` 不是依赖属性，`DynamicResource` 在此会直接抛
+"只能在 DependencyObject 的 DependencyProperty 上设置 DynamicResourceExtension"。
+批量替换时若不加区分，会把 9 处转换器引用改坏。
+
+**约束**
+- 静态守卫 `Controls/ResourceReferenceTests` 扫描 `Themes/Controls/*.xaml`，
+  发现 `{StaticResource Lf*}` 即失败，仅豁免 `Converter=` 位置。
+- 新建控件模板时，任何 `Lf*` 引用默认写 `DynamicResource`。
+
+## ADR-020 供模板绑定的属性必须是依赖属性
+
+**状态**：已采纳（阶段 02 实施期间由渲染测试发现并验证）
+
+**背景**
+`LogViewer` 的 `View` 属性曾是普通 CLR 属性
+（`internal ICollectionView? View => _viewSource?.View;`），
+而模板里写的是 `ItemsSource="{Binding View, RelativeSource=TemplatedParent}"`。
+
+**症状**
+构造 `LogViewer` 时直接赋 `Entries` 完全正常
+（那时 `OnApplyTemplate` 尚未执行，视图在首次布局时才建立）。
+但**模板已应用之后再替换 `Entries`**，视图对象换了、绑定却收不到任何通知，
+结果 `Items` 仍为空——界面表现为"换了日志源，一行都不显示"。
+
+这是本产品的高频场景：诊断任务跑完一批、再跑下一批就是换数据源。
+
+**根因**
+WPF 绑定只监听数据源发出的变更通知。普通 CLR 属性没有通知机制，
+属性指向的对象被整体替换后，绑定仍持有旧值（或 null）。
+
+**决策**
+任何供模板绑定的属性都必须是依赖属性（读写或只读皆可），
+并在内部重建对象时通过依赖属性赋值把变更推送出去。
+
+**约束**
+- 契约测试 `LogViewerContractTests` 用反射断言
+  `View` / `Entries` / `MinimumLevel` / `SearchText` / `AutoScroll`
+  均存在对应 `DependencyProperty` 静态字段。
+  新增供模板绑定的属性时若不遵守，测试立即失败。
+- 渲染测试 `Replacing_entries_after_the_template_is_applied_should_repopulate_rows`
+  从行为侧锁定同一缺陷：先渲染、后换源、断言行数更新。
+  行为测试与契约测试并行，避免"改对了结构却没人验证行为"。

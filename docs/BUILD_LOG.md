@@ -184,3 +184,56 @@ pwsh -File scripts/run.ps1
 - 未做键盘焦点环与 Tab 顺序人工走查（阶段 02/06）。
 - 未做深浅色对比度的人工目视复核以外的工具校验（如颜色盲模拟）。
 - x86 运行未通过，原因已定位为缺少 x86 .NET 10 运行时，非代码缺陷。
+
+## 阶段 02 · 基础组件（2026-10-16）
+
+### 1. 交付物
+
+| 类别 | 内容 |
+| --- | --- |
+| 状态组件 | `EmptyState` / `LoadingState` / `ErrorPanel` / `DependencyMissingPanel` / `TaskProgressPanel` / `ResultSummary` / `StatusBadge` |
+| 输入组件 | `LabeledTextBox`（可见标签 + 必填标记 + 就近错误）/ `SecretTextBox`（SecureString + 默认禁复制 + 明文警示） |
+| 列表组件 | `LogViewer`（虚拟化 + 级别过滤 + 搜索 + 默认脱敏 + 计数条） |
+| 展示模型 | `LogEntry`（构造时脱敏，无明文成员）/ `LogLevelPresentation` |
+| 测试 | 181 个 WPF 测试（ComponentStyles 26 / SecretTextBox 14 / LogViewer 12 / LogEntry 11 / RenderSmoke 14 / Contract 2 / ResourceReference 2 / Screenshot 2 …） |
+
+### 2. 本阶段发现并修复的真实缺陷
+
+| # | 现象 | 根因 | 处理 |
+| --- | --- | --- | --- |
+| 1 | 应用启动即抛 XamlParseException"无法找到 LfFontSizeCaption" | 控件模板延迟实例化，LoadContent 时模板根不在逻辑树，StaticResource 沿树查找落空 | 模板内全部 `Lf*` 引用改 `DynamicResource`（91 处）；新增 ADR-019 + 静态守卫 |
+| 2 | 测试全绿但生产崩溃 | 测试宿主把令牌字典扁平合并，与生产的嵌套结构不同，掩盖了 StaticResource 缺陷 | ThemedHost 只合并 ThemeResources.xaml，与 App.xaml 逐字对齐 |
+| 3 | LogViewer 换日志源后界面不刷新 | `View` 是普通 CLR 属性，模板绑定收不到变更通知 | 改为只读依赖属性 + 重建时推送；新增 ADR-020 + 契约测试 + 行为测试 |
+| 4 | MainWindow 测试后其余用例 NullReferenceException | 窗口 Close 触发默认 OnLastWindowClose 关停 Application | 测试宿主 ShutdownMode 改 OnExplicitShutdown |
+| 5 | 日志行 Margin 报"4 不是 Margin 有效值" | `{DynamicResource LfSpacingXs}`（double）当 Thickness 用 | 换用 `LfInlineSpacingXxs` |
+| 6 | Binding.Converter 上不能设置 DynamicResource | Converter 不是依赖属性 | 批量替换时豁免 `Converter=` 位置（9 处） |
+| 7 | 深色启动后状态栏仍显示"浅色" | UpdateThemeStatus 在构造时读主题，早于 App.OnStartup 应用 | 改为 Loaded 后更新 |
+
+### 3. Mutation 验证记录
+
+| 验证项 | 操作 | 结果 |
+| --- | --- | --- |
+| RenderSmoke 测试能抓模板 StaticResource 缺陷 | 把 EmptyState `LfRadiusPanel` 改回 StaticResource | 5 个用例失败（含 MainWindow 用例，需 Show） |
+| 契约测试能抓 View 退化 | 删除 `View = _viewSource.View` 赋值 | Replacing_entries 用例失败 |
+| 静态守卫能抓 ADR-019 违规 | LoadingState `LfFontSizeCaption` 改回 StaticResource | ResourceReferenceTests 失败并指出文件与键名 |
+
+### 4. 阶段验收
+
+| 验证项 | 结果 |
+| --- | --- |
+| 全解决方案构建（-warnaserror） | 通过，0 警告 0 错误 |
+| 全解决方案测试 | **213 / 213 通过**（Domain 29 + Application 5 + App 179） |
+| 应用真实启动（默认浅色） | 成功 |
+| 应用真实启动（深色） | 成功，无崩溃 |
+| 浅色截图 | `screenshots/stage02-mainwindow-light.png` |
+| 深色截图 | `screenshots/stage02-mainwindow-dark.png`（经 RenderTargetBitmap，与设备无关） |
+| MainWindow 加载路径守卫 | 新增用例 `MainWindow_should_survive_a_full_layout_pass`，已验证 Show() 后能捕获模板缺陷 |
+| 日志脱敏 | UI 呈现的样例日志包含 RTSP URL + Bearer 头，脱敏后不可见明文 |
+
+### 5. 测试基础设施改进
+
+- `ThemedHost`：与生产 App.xaml 的合并结构逐字对齐（嵌套 ThemeResources），消除假阳性。
+- `StaRunner`：ShutdownMode 改 OnExplicitShutdown，避免窗口 Close 关停整个 Application。
+- 新增 `ResourceReferenceTests`：静态扫描模板内 `Lf*` 引用，豁免 `Converter=`（ADR-019）。
+- 新增 `LogViewerContractTests`：反射断言模板绑定属性均有 DependencyProperty 支撑（ADR-020）。
+- 新增 `MainWindowScreenshotTests`：RenderTargetBitmap 输出浅/深色 PNG 到 `screenshots/`，断言非空非全透明。

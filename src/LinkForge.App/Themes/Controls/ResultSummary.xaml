@@ -1,0 +1,109 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:controls="clr-namespace:LinkForge.App.Controls">
+
+    <!--
+        ResultSummary 默认样式（UI 规范 §4.2 第 6 项"结论先于原始日志"）。
+
+        信息顺序刻意固定为：结论 -> 补充 -> 事实明细 -> 原始输出（后者由页面自行放置）。
+        诊断工具最容易犯的错是把 200 行原始输出放在最上面，
+        让用户自己去找结论；本模板把结论钉在最顶部。
+
+        状态色由 StatusBadge 统一渲染（ADR-016），本模板不自行判断颜色，
+        避免出现"同一状态在摘要里和步骤列表里颜色不一致"。
+    -->
+
+    <BooleanToVisibilityConverter x:Key="LfBoolToVisibility" />
+
+    <Style TargetType="{x:Type controls:ResultSummary}">
+        <Setter Property="Focusable" Value="False" />
+
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type controls:ResultSummary}">
+                    <Border Background="{DynamicResource LfBrushSurface}"
+                            BorderBrush="{DynamicResource LfBrushBorder}"
+                            BorderThickness="{DynamicResource LfBorderThickness}"
+                            CornerRadius="{DynamicResource LfRadiusPanel}"
+                            Padding="{DynamicResource LfCardPadding}"
+                            SnapsToDevicePixels="True">
+
+                        <StackPanel>
+
+                            <!-- 第一行：任务状态标签 + 一句话结论 -->
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <controls:StatusBadge Grid.Column="0"
+                                                      TaskState="{TemplateBinding TaskState}"
+                                                      VerticalAlignment="Center"
+                                                      Margin="{DynamicResource LfLabelSpacing}" />
+
+                                <TextBlock Grid.Column="1"
+                                           Text="{TemplateBinding Conclusion}"
+                                           FontSize="{DynamicResource LfFontSizeBodyLarge}"
+                                           Foreground="{DynamicResource LfBrushTextPrimary}"
+                                           VerticalAlignment="Center"
+                                           TextWrapping="Wrap" />
+                            </Grid>
+
+                            <!-- 第二行：补充说明（例如"3 项未执行，原因是缺少依赖"） -->
+                            <TextBlock Text="{TemplateBinding Note}"
+                                       Margin="{DynamicResource LfInlineSpacing}"
+                                       FontSize="{DynamicResource LfFontSizeCaption}"
+                                       Foreground="{DynamicResource LfBrushTextSecondary}"
+                                       TextWrapping="Wrap" />
+
+                            <!-- 第三行：结构化事实（标签 + 取值 + 状态标签） -->
+                            <ItemsControl ItemsSource="{TemplateBinding Items}"
+                                          Margin="{DynamicResource LfBlockSpacing}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type controls:ResultSummaryItem}">
+                                        <Grid Margin="{DynamicResource LfInlineSpacing}">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <TextBlock Grid.Column="0"
+                                                       Text="{Binding Path=Label}"
+                                                       MinWidth="120"
+                                                       Foreground="{DynamicResource LfBrushTextSecondary}"
+                                                       VerticalAlignment="Center" />
+
+                                            <TextBlock Grid.Column="1"
+                                                       Text="{Binding Path=Value}"
+                                                       FontFamily="{DynamicResource LfFontFamilyMono}"
+                                                       Foreground="{DynamicResource LfBrushTextPrimary}"
+                                                       VerticalAlignment="Center"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       Margin="{DynamicResource LfLabelSpacing}" />
+
+                                            <!--
+                                                纯事实项（Status 为 null）不渲染状态标签。
+                                                否则会把"目标地址 = 10.0.0.1"渲染成"待运行"，
+                                                属于无结论却显示出结论。
+                                            -->
+                                            <controls:StatusBadge Grid.Column="2"
+                                                                  DiagnosticStatus="{Binding Path=Status}"
+                                                                  VerticalAlignment="Center"
+                                                                  Visibility="{Binding Path=HasStatus,
+                                                                                        Converter={StaticResource LfBoolToVisibility}}" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                        </StackPanel>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+</ResourceDictionary>
+

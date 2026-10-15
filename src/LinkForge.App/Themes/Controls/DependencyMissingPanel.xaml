@@ -1,0 +1,91 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:controls="clr-namespace:LinkForge.App.Controls">
+
+    <!--
+        DependencyMissingPanel 默认样式（UI 规范 §5.6 无权限/缺少依赖状态）。
+
+        规范原文："说明缺什么、如何配置；不能伪装成普通失败。"
+
+        因此本模板使用 LfBrushDependencyMissing* 独立令牌（赭色系），
+        而不是 Danger 红色系：缺少 Npcap 与"任务执行失败"是两回事，
+        混用会让用户去排查并不存在的故障，也会让报告里的失败数虚高。
+
+        文案结构强制三问：缺什么（DependencyName）-> 影响什么（Impact）-> 怎么办（Guidance）。
+    -->
+
+    <Style TargetType="{x:Type controls:DependencyMissingPanel}">
+        <Setter Property="Focusable" Value="False" />
+
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type controls:DependencyMissingPanel}">
+                    <Border Background="{DynamicResource LfBrushDependencyMissingSubtle}"
+                            BorderBrush="{DynamicResource LfBrushDependencyMissing}"
+                            BorderThickness="{DynamicResource LfBorderThickness}"
+                            CornerRadius="{DynamicResource LfRadiusPanel}"
+                            Padding="{DynamicResource LfCardPadding}"
+                            SnapsToDevicePixels="True">
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Column="0"
+                                       Text="&#xF384;"
+                                       FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                                       FontSize="{DynamicResource LfIconSizeMd}"
+                                       Foreground="{DynamicResource LfBrushDependencyMissing}"
+                                       VerticalAlignment="Top"
+                                       Margin="{DynamicResource LfLabelSpacing}" />
+
+                            <StackPanel Grid.Column="1">
+
+                                <!-- 第一问：缺什么。用"缺少 X"而非"失败"，口径明确。 -->
+                                <TextBlock FontSize="{DynamicResource LfFontSizeBodyLarge}"
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource LfBrushTextPrimary}"
+                                           TextWrapping="Wrap">
+                                    <Run Text="缺少 " />
+                                    <Run Text="{Binding DependencyName,
+                                                         RelativeSource={RelativeSource TemplatedParent}}" />
+                                </TextBlock>
+
+                                <!-- 第二问：影响什么——说明因此不可用的功能。 -->
+                                <TextBlock Text="{TemplateBinding Impact}"
+                                           Margin="{DynamicResource LfInlineSpacing}"
+                                           Foreground="{DynamicResource LfBrushTextSecondary}"
+                                           TextWrapping="Wrap" />
+
+                                <!-- 第三问：怎么办——给出可执行的配置指引。 -->
+                                <TextBlock Text="{TemplateBinding Guidance}"
+                                           Margin="{DynamicResource LfBlockSpacing}"
+                                           Foreground="{DynamicResource LfBrushTextSecondary}"
+                                           TextWrapping="Wrap" />
+
+                            </StackPanel>
+
+                            <!--
+                                配置入口绑定到命令。命令由调用方提供；
+                                WPF 对 Command 为 null 的按钮自动禁用，
+                                因此这里不需要额外的可空处理。
+                            -->
+                            <Button Grid.Column="2"
+                                    Content="前往配置"
+                                    Command="{TemplateBinding ConfigureCommand}"
+                                    MinWidth="{DynamicResource LfButtonMinWidth}"
+                                    Height="{DynamicResource LfControlHeight}"
+                                    Margin="{DynamicResource LfInlineSpacingLeading}"
+                                    VerticalAlignment="Top" />
+
+                        </Grid>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+</ResourceDictionary>

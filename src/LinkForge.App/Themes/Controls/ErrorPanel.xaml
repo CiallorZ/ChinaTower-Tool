@@ -1,0 +1,103 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:controls="clr-namespace:LinkForge.App.Controls">
+
+    <!--
+        ErrorPanel 默认样式（UI 规范 §5.6 错误状态）。
+
+        规范要求错误状态必须回答三件事，模板逐一对应：
+          1. 解释原因 -> Message（一句话，不含内部术语）
+          2. 可恢复性 -> IsRecoverable 决定显示"可重试"还是"需先排除原因"
+          3. 重试或查看详情入口 -> 重试按钮 + 详情 Expander（仅当有详情时）
+
+        与 DependencyMissingPanel 的区别：本控件表达"执行失败"，
+        依赖缺失必须用另一个控件，不得伪装成普通失败。
+
+        技术详情默认折叠：多数用户只需要原因，原始堆栈按需展开。
+    -->
+
+    <BooleanToVisibilityConverter x:Key="LfBoolToVisibility" />
+
+    <Style TargetType="{x:Type controls:ErrorPanel}">
+        <Setter Property="Focusable" Value="False" />
+
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type controls:ErrorPanel}">
+                    <Border Background="{DynamicResource LfBrushDangerSubtle}"
+                            BorderBrush="{DynamicResource LfBrushDanger}"
+                            BorderThickness="{DynamicResource LfBorderThickness}"
+                            CornerRadius="{DynamicResource LfRadiusPanel}"
+                            Padding="{DynamicResource LfCardPadding}"
+                            SnapsToDevicePixels="True">
+
+                        <StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock Grid.Column="0"
+                                           Text="&#xEA39;"
+                                           FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                                           FontSize="{DynamicResource LfIconSizeMd}"
+                                           Foreground="{DynamicResource LfBrushDanger}"
+                                           VerticalAlignment="Center"
+                                           Margin="{DynamicResource LfLabelSpacing}" />
+
+                                <TextBlock Grid.Column="1"
+                                           Text="{TemplateBinding Message}"
+                                           Foreground="{DynamicResource LfBrushTextPrimary}"
+                                           VerticalAlignment="Center"
+                                           TextWrapping="Wrap" />
+
+                                <!--
+                                    不可恢复时保留按钮并置灰，而不是隐藏：
+                                    隐藏会让用户以为"没有重试功能"，
+                                    置灰 + ToolTip 能说明"为什么不能重试"。
+                                -->
+                                <Button Grid.Column="2"
+                                        Content="重试"
+                                        Command="{TemplateBinding RetryCommand}"
+                                        CommandParameter="{TemplateBinding RetryCommandParameter}"
+                                        IsEnabled="{TemplateBinding IsRecoverable}"
+                                        MinWidth="{DynamicResource LfButtonMinWidth}"
+                                        Height="{DynamicResource LfControlHeight}"
+                                        Margin="{DynamicResource LfInlineSpacingLeading}"
+                                        VerticalAlignment="Center" />
+                            </Grid>
+
+                            <Expander Header="技术详情"
+                                      Margin="{DynamicResource LfBlockSpacing}"
+                                      Visibility="{Binding HasDetail,
+                                                           RelativeSource={RelativeSource TemplatedParent},
+                                                           Converter={StaticResource LfBoolToVisibility}}">
+                                <Border Background="{DynamicResource LfBrushSurface}"
+                                        BorderBrush="{DynamicResource LfBrushBorder}"
+                                        BorderThickness="{DynamicResource LfBorderThickness}"
+                                        CornerRadius="{DynamicResource LfRadiusControl}"
+                                        Padding="{DynamicResource LfControlPadding}"
+                                        Margin="{DynamicResource LfInlineSpacing}">
+                                    <TextBox Text="{TemplateBinding Detail}"
+                                             IsReadOnly="True"
+                                             TextWrapping="Wrap"
+                                             AcceptsReturn="True"
+                                             MaxHeight="200"
+                                             VerticalScrollBarVisibility="Auto"
+                                             FontFamily="{DynamicResource LfFontFamilyMono}"
+                                             FontSize="{DynamicResource LfFontSizeCaption}"
+                                             Foreground="{DynamicResource LfBrushTextSecondary}"
+                                             BorderThickness="0" />
+                                </Border>
+                            </Expander>
+
+                        </StackPanel>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+</ResourceDictionary>
