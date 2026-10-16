@@ -32,6 +32,13 @@ public partial class MainWindow : System.Windows.Window
     {
         InitializeComponent();
 
+        // 生产路径从 App 取主题服务；测试宿主里 Application.Current 是基类 Application
+        // （见 StaRunner 的说明），取不到，因此由测试显式注入。
+        // 曾经写成只读表达式 `(Application.Current as App)?.ThemeManager`，
+        // 结果是测试里恒为 null：状态栏永远显示"浅色"，
+        // 而主题按钮点了也没反应 —— 截图证据与实际状态不符。
+        ThemeManager = (System.Windows.Application.Current as App)?.ThemeManager;
+
         LoadSampleSummary();
         LoadSampleLogs();
 
@@ -41,7 +48,16 @@ public partial class MainWindow : System.Windows.Window
         Loaded += (_, _) => UpdateThemeStatus();
     }
 
-    private ThemeManager? ThemeManager => (System.Windows.Application.Current as App)?.ThemeManager;
+    /// <summary>
+    /// 主题服务。
+    /// </summary>
+    /// <remarks>
+    /// 可写（internal）是刻意的：测试宿主不是 <see cref="App"/>，
+    /// 无法从 <c>Application.Current</c> 取到主题服务，
+    /// 若没有这个注入点，截图测试就只能验证"某个残留主题"，
+    /// 而不是"请求的那个主题"。
+    /// </remarks>
+    internal ThemeManager? ThemeManager { get; set; }
 
     private void OnLightThemeClick(object sender, RoutedEventArgs e) => ApplyTheme(LfThemePreference.Light);
 

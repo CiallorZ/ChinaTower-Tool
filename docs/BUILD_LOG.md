@@ -237,3 +237,77 @@ pwsh -File scripts/run.ps1
 - 新增 `ResourceReferenceTests`：静态扫描模板内 `Lf*` 引用，豁免 `Converter=`（ADR-019）。
 - 新增 `LogViewerContractTests`：反射断言模板绑定属性均有 DependencyProperty 支撑（ADR-020）。
 - 新增 `MainWindowScreenshotTests`：RenderTargetBitmap 输出浅/深色 PNG 到 `screenshots/`，断言非空非全透明。
+---
+
+## 阶段 03 · 应用壳层（2026-10-16）
+
+### 1. 交付物
+
+| 类别 | 内容 |
+| --- | --- |
+| 应用壳层 | `Views/ShellWindow.xaml(.cs)`：标题栏 + 可折叠导航 + 内容区 + 可拖拽日志面板 + 状态栏 |
+| 导航 | `Navigation/NavigationCatalog.cs`（一级结构取自 `REVIEW_V1.0.md` C-01 裁决）、`Navigation/LfGlyph.cs`（图标码位集中管理） |
+| 视图模型 | `ViewModels/ShellViewModel.cs`（导航/主题/面板状态）、`ViewModels/DashboardViewModel.cs`（只呈现可验证事实） |
+| 服务 | `Services/AppSettingsStore.cs`（原子写入 + 白名单）、`Services/AppSettings.cs`、`Services/AppEnvironment.cs`、`Services/ThemeManager.cs`（扩展主题同步） |
+| 主题 | `Themes/Controls/Navigation.xaml`、`Dimensions.xaml` 新增壳层令牌（含 `LfBorderThicknessNone`） |
+| 测试 | 新增 78 个用例：`ShellWindowTests` 11、`ShellWindowScreenshotTests` 3、`ShellViewModelTests` 25、`AppSettingsStoreTests` 17、`NavigationCatalogTests` 11、`GlyphTests` 6、`VisualHardcodingTests` 2，以及 `ThemeRoot` 测试基础设施 |
+
+### 2. 本阶段发现并修复的真实缺陷
+
+| # | 现象 | 根因 | 处理 |
+| --- | --- | --- | --- |
+| 1 | **关闭窗口必崩** | `SystemThemeWatcher.UnWatch` 在 `Closed` 调用，那时 HWND 已销毁，控件库抛 `InvalidOperationException("Could not get window handle.")`。单次关闭=非零退出码，反复开关=测试宿主进程崩溃 | 解绑提前到 `Closing`，加 `_isThemeWatcherAttached` 标志 |
+| 2 | **工作台一片空白** | `DashboardPage` 的 `DataContext` 继承窗口的 `ShellViewModel`，页面所有绑定静默落空（无异常、无日志） | `ShellWindow.xaml` 加 `DataContext="{Binding Dashboard}"`；`ShellViewModel` 暴露 `Dashboard` 属性 |
+| 3 | **"重新检测依赖"按钮点了没反应** | XAML 绑 `RefreshDependenciesCommand`，但 `DashboardViewModel.RefreshDependencies` 缺 `[RelayCommand]`，命令根本不存在 | 补特性 + `using CommunityToolkit.Mvvm.Input` |
+| 4 | **半截主题**（控件库深、令牌浅） | `SystemThemeWatcher.Watch` 注册首个窗口时强制 `ApplySystemTheme`，只切 WPF-UI 字典，不动 `Palette.*.xaml` | 新增 `ThemeManager.SyncWithWpfUiTheme()` + 窗口订阅 `ApplicationThemeManager.Changed`（含 `_isSyncingWithWpfUi` 防递归）。沉淀为 **ADR-021** |
+| 5 | **分组节点选中态分裂**（高亮在"接入调试"、内容是工作台） | TreeView 自己维护选中状态，ViewModel 拦不住 | `AddHandler(TreeViewItem.SelectedEvent, ...)` 撤销分组选中并回填当前节点 |
+| 6 | **令牌/代码数字漂移** | 导航宽度在 code-behind 硬编码 `OpenPaneLength=240`/`CompactPaneLength=52`，令牌是 240/48 | 改为 XAML `Border.Style` + `DataTrigger` 在两个令牌间切换；删除 code-behind 宽度逻辑 |
+| 7 | **日志面板折叠留白 / 拖动高度不持久** | 折叠只改可见性不改行高；`Border.Height` 绑定导致 GridSplitter 拖动与持久化脱节 | `LogPanelRow` 行定义 + `ApplyLogPanelHeight()`（折叠=0，展开=像素值）+ `DragCompleted` 回写 `SetLogPanelHeight` |
+| 8 | **视图硬编码视觉值** | `Width="1366" Height="800"`、`ColumnDefinition Width="120"` | 新增令牌 `LfLabelColumnWidth`；窗口尺寸改用 `LfReferenceWidth`/`LfReferenceHeight` |
+| 9 | **阶段 02 的"浅色截图"其实是深色** | `MainWindowScreenshotTests` 只在 `Application.Current is App` 时注入主题，而测试宿主是**基类** `Application`，分支永不成立 —— 主题从未被设定，截图反映残留状态；阶段 02 提交的 light/dark 两张 PNG **SHA-256 完全相同** | `MainWindow` 增加 `internal ThemeManager` 注入点；测试显式注入并新增"两主题必须不同"断言。沉淀为 **ADR-023** |
+| 10 | **截图证据依赖执行顺序** | 截图类通过进程级 `ApplicationThemeManager` 全局状态互相影响；并行执行不可复现 | 关闭 xunit 测试集合并行；固定窗口 `Left/Top`（ClearType 子像素相位）。沉淀为 **ADR-023** |
+| 11 | **静态守卫报 3 处硬编码** | `BorderThickness="0"` 写在视图与模板里 | 新增 `LfBorderThicknessNone` 令牌替换（未走白名单豁免） |
+
+### 3. Mutation 验证记录
+
+每一项都是"把缺陷改回去、确认守卫真的失败"，而不是只跑一遍绿灯。
+
+| 验证项 | 操作 | 结果 |
+| --- | --- | --- |
+| 关闭路径守卫 | 把 `UnWatch` 从 `Closing` 搬回 `Closed`（复现缺陷 1） | `Closing_the_window_should_not_throw` 与 `Opening_and_closing_repeatedly_should_not_crash` **均失败** |
+| 工作台绑定守卫 | 删掉 `DashboardPage` 的 `DataContext="{Binding Dashboard}"` | `Dashboard_page_should_receive_its_own_view_model` **失败** |
+| 命令守卫 | 去掉 `RefreshDependencies` 的 `[RelayCommand]` | 相关用例**失败** |
+| 分组选中守卫 | 移除 `TreeViewItem.SelectedEvent` 的 `AddHandler` | `Selecting_a_group_node_should_not_leave_it_highlighted` **失败** |
+| 令牌宽度守卫 | 把折叠宽度写死为 `52` | `Navigation_pane_width_should_come_from_design_tokens` **失败** |
+| 主题同步守卫（ADR-021） | 把 `SyncWithWpfUiTheme` 改为空实现 | `SyncThemeWithWpfUi` 相关用例**失败** |
+| 视觉值守卫 | 把 `ErrorPanel` 的令牌改回字面量 `0` | `VisualHardcodingTests` **失败** 并列出文件与属性 |
+| 截图主题守卫（ADR-023） | 移除显式主题注入（回到阶段 02 写法） | 两张截图变为字节相同，`Light_and_dark_screenshots_should_differ` **失败** |
+
+### 4. 阶段验收
+
+| 验证项 | 结果 |
+| --- | --- |
+| 全解决方案构建（`-warnaserror`） | 通过，0 警告 0 错误 |
+| 全解决方案测试 | **291 / 291 通过**（Domain 29 + Application 5 + App 257） |
+| 应用真实启动 + 关闭 | 成功；窗口标题 `LinkForge`，`MainWindowHandle` 有效，**退出码 0** |
+| 浅色截图 | `screenshots/stage03-shellwindow-light.png`（人工目视确认：导航/令牌/状态栏"主题：浅色"正确） |
+| 深色截图 | `screenshots/stage03-shellwindow-dark.png`（人工目视确认：状态栏"主题：深色"正确） |
+| 阶段 02 截图修正 | 修正前 light 与 dark 字节完全相同（`D1AB10E7...`，两张其实都是浅色渲染）；修正后 light 字节不变，dark 变为真正的深色（`7384586C...`），两图差异 5% 以上 |
+| 1366×768 布局 | `ShellWindowTests` 断言非全透明渲染；1024×640（最小尺寸）同样通过 |
+| 主题持久化 | `ShellViewModelTests` 断言往返、只改主题字段、显式主题不被系统变化覆盖 |
+| 脱敏 | `AppSettingsStoreTests` 白名单断言：设置文件中不含任何秘密字段 |
+| 令牌漂移 | `VisualHardcodingTests` 扫描 `Views/` 与 `Themes/Controls/`，无颜色/字号/间距/描边字面量 |
+
+### 5. 测试基础设施改进
+
+- 新增 `DesignTokens/ThemeRoot.cs`：构造与生产**嵌套结构一致**的主题根，供不依赖 `Application.Current` 的用例使用。
+- 新增 `xunit.runner.json`（`parallelizeTestCollections: false`）：被测对象共享进程级 WPF 全局状态，并行会让截图证据不可复现。
+- `StaRunner` 的"基类 Application"设计在阶段 03 暴露了阶段 02 的假阳性（缺陷 9）；已在 `MainWindow` 侧补注入点，而不是放宽测试宿主。
+
+### 6. 尚未验证（如实声明）
+
+- 未在 **Windows 10** 上实测（本机为 Windows 11 build 26300）。图标字体回退（Fluent → MDL2）由 `GlyphTests` 在**字体文件层面**验证码位存在，未在 Win10 真机渲染验证。
+- 未做高 DPI 缩放（125% / 150% / 200%）实测。
+- 未做键盘焦点环与 Tab 顺序人工走查（阶段 06）。
+- 截图存在跨进程的微小像素差异（约 0.87%，集中在按钮边框与文字边缘，源于字形缓存预热与 ClearType），因此截图仅用于人工目视比对，**未**作为字节级回归基线。
+- x86 运行未通过，原因已定位为缺少 x86 .NET 10 运行时，非代码缺陷（见 `REVIEW_V1.0.md` D-08）。

@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              xmlns:local="clr-namespace:LinkForge.App"
-             StartupUri="MainWindow.xaml">
+             >
     <Application.Resources>
         <ResourceDictionary>
             <!--
@@ -13,6 +13,9 @@
 
                 Theme="Light" 是启动期默认值（浅色为设计基准）；运行时由
                 Services/ThemeManager 依据"跟随系统"偏好替换为实际主题。
+
+                阶段 03 起不再使用 StartupUri：主窗口由 DI 容器创建，
+                以便注入 ShellViewModel 与 ThemeManager（见 App.xaml.cs）。
             -->
             <ResourceDictionary.MergedDictionaries>
                 <ui:ThemesDictionary Theme="Light" />

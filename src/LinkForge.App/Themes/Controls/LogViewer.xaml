@@ -147,7 +147,7 @@
                                      VirtualizingStackPanel.ScrollUnit="Item"
                                      ScrollViewer.CanContentScroll="True"
                                      IsTextSearchEnabled="False"
-                                     BorderThickness="0"
+                                     BorderThickness="{DynamicResource LfBorderThicknessNone}"
                                      Background="Transparent"
                                      FontFamily="{DynamicResource LfFontFamilyMono}"
                                      FontSize="{DynamicResource LfFontSizeCaption}">

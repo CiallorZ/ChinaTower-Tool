@@ -89,7 +89,7 @@
                                              FontFamily="{DynamicResource LfFontFamilyMono}"
                                              FontSize="{DynamicResource LfFontSizeCaption}"
                                              Foreground="{DynamicResource LfBrushTextSecondary}"
-                                             BorderThickness="0" />
+                                             BorderThickness="{DynamicResource LfBorderThicknessNone}" />
                                 </Border>
                             </Expander>
 

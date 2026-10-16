@@ -194,9 +194,20 @@
 | x86 运行时缺失 | `C:\Program Files (x86)\dotnet` 无 .NET 10 运行时 | x86 目标可构建但不可运行，见 D-08 |
 | GitHub 推送需代理 | 直连 `github.com` 出现 `curl 55 Connection was reset` | 已为本仓库设置 `http.proxy` / `https.proxy` 指向本机 Clash 混合端口 `127.0.0.1:7897`（仅仓库级配置） |
 
+### 6.4 阶段 02 / 03 期间新发现的验证约束
+
+| 事项 | 实测结论 | 影响 |
+| --- | --- | --- |
+| 测试宿主不是 `App` | `StaRunner` 里 `Application.Current` 是基类 `Application`（刻意为之，避免触发 `App.OnStartup`） | 任何"`Application.Current as App`"的取用路径在测试中恒为 null。阶段 02 的截图证据因此失效（见 ADR-023），阶段 03 已补显式注入点 |
+| 进程级 WPF 全局状态 | `ApplicationThemeManager` 与 `Application.Resources` 都是进程级，xunit 并行执行会让截图结果不可复现 | 已关闭测试集合并行（`xunit.runner.json`）；截图窗口固定 `Left`/`Top` 以消除 ClearType 子像素相位差异 |
+| 两套图标字体码表不通用 | `SymbolRegular.Home24` = `0xF481` 存在于 `Segoe Fluent Icons`、**缺失**于 `segmdl2.ttf` | 图标码位集中管理并用双字体存在性测试锁定，见 ADR-022 |
+
+**D-08 / D-09 / D-10 状态不变**：三者均阻塞阶段 05（业务页面 / 厂商 SDK / 安全中心），
+不阻塞阶段 04（工作台），故本轮保持"待确认"。
 ## 7. 本轮未做与原因
 
 - 未实现任何业务页面或诊断逻辑：遵循"第一轮不要大规模改代码"与 `CODEX_TASKS.md` 分阶段约束。
 - 未引入 MQTT/EF Core/Serilog 等运行期依赖：属阶段 05 及之后，提前引入会锁定未验证选型。
 - 未改动 `towerlens`：ADR-013 已划定边界。
 - 未把 SDK 安装到系统级目录：采用用户级 `%USERPROFILE%\.dotnet`，删除该目录即可回滚，未触碰系统 PATH。
+

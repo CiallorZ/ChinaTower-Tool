@@ -1,0 +1,339 @@
+<ui:FluentWindow x:Class="LinkForge.App.Views.ShellWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:controls="clr-namespace:LinkForge.App.Controls"
+        xmlns:nav="clr-namespace:LinkForge.App.Navigation"
+        xmlns:pages="clr-namespace:LinkForge.App.Views.Pages"
+        xmlns:services="clr-namespace:LinkForge.App.Services"
+        xmlns:vm="clr-namespace:LinkForge.App.ViewModels"
+        mc:Ignorable="d"
+        d:DataContext="{d:DesignInstance Type=vm:ShellViewModel}"
+        Title="LinkForge"
+        Width="{DynamicResource LfReferenceWidth}"
+        Height="{DynamicResource LfReferenceHeight}"
+        MinWidth="{DynamicResource LfWindowMinWidth}"
+        MinHeight="{DynamicResource LfWindowMinHeight}"
+        Background="{DynamicResource LfBrushBackground}"
+        Foreground="{DynamicResource LfBrushTextPrimary}"
+        FontFamily="{DynamicResource LfFontFamilyUi}"
+        FontSize="{DynamicResource LfFontSizeBody}"
+        TextOptions.TextFormattingMode="Display">
+
+    <!--
+        应用壳层（UI 规范 §3.1）。四个稳定区域，全部用 Grid 行列定义：
+          第 0 行：标题栏（应用名 + 全局动作 + 窗口控制）
+          第 1 行：主体 = 左侧导航 | 内容区（页面标题 + 内容 + 底部日志面板）
+          第 2 行：状态栏
+
+        刻意不使用 Canvas 绝对定位（规范 §3.1 明确禁止用固定坐标搭整页）。
+        日志面板用 GridSplitter 让用户可调整高度，而不是写死。
+    -->
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- ============ 第 0 行：标题栏 ============ -->
+        <Border Grid.Row="0"
+                Height="{DynamicResource LfHeaderHeight}"
+                Background="{DynamicResource LfBrushSurface}"
+                BorderBrush="{DynamicResource LfBrushDivider}"
+                BorderThickness="{DynamicResource LfDividerBottom}">
+            <Grid Margin="{DynamicResource LfHeaderPadding}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!-- 导航折叠开关：图标按钮，带 ToolTip 与可访问名称（规范 §3.1）。 -->
+                <Button Grid.Column="0"
+                        x:Name="PaneToggleButton"
+                        Width="{DynamicResource LfControlHeight}"
+                        Height="{DynamicResource LfControlHeight}"
+                        Command="{Binding ToggleNavigationPaneCommand}"
+                        ToolTip="展开或折叠导航栏"
+                        AutomationProperties.Name="展开或折叠导航栏">
+                    <TextBlock Text="&#xE700;"
+                               FontFamily="{DynamicResource LfIconFontFamily}"
+                               FontSize="{DynamicResource LfIconSizeMd}" />
+                </Button>
+
+                <TextBlock Grid.Column="1"
+                           Text="LinkForge 视联网调试工具箱"
+                           VerticalAlignment="Center"
+                           Margin="{DynamicResource LfInlineSpacingLeading}"
+                           FontSize="{DynamicResource LfFontSizeBodyLarge}"
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource LfBrushTextPrimary}" />
+
+                <!-- 全局动作：主题切换 + 日志面板开关 -->
+                <StackPanel Grid.Column="2"
+                            Orientation="Horizontal"
+                            VerticalAlignment="Center">
+
+                    <TextBlock Text="主题"
+                               VerticalAlignment="Center"
+                               Margin="{DynamicResource LfLabelSpacing}"
+                               Foreground="{DynamicResource LfBrushTextSecondary}" />
+
+                    <Button Content="跟随系统"
+                            MinWidth="{DynamicResource LfButtonMinWidth}"
+                            Height="{DynamicResource LfControlHeight}"
+                            Command="{Binding ApplyThemeCommand}"
+                            CommandParameter="{x:Static services:LfThemePreference.FollowSystem}"
+                            ToolTip="主题跟随 Windows 系统设置" />
+
+                    <Button Content="浅色"
+                            MinWidth="{DynamicResource LfButtonMinWidth}"
+                            Height="{DynamicResource LfControlHeight}"
+                            Margin="{DynamicResource LfInlineSpacingLeading}"
+                            Command="{Binding ApplyThemeCommand}"
+                            CommandParameter="{x:Static services:LfThemePreference.Light}" />
+
+                    <Button Content="深色"
+                            MinWidth="{DynamicResource LfButtonMinWidth}"
+                            Height="{DynamicResource LfControlHeight}"
+                            Margin="{DynamicResource LfInlineSpacingLeading}"
+                            Command="{Binding ApplyThemeCommand}"
+                            CommandParameter="{x:Static services:LfThemePreference.Dark}" />
+
+                    <Button Content="日志面板"
+                            MinWidth="{DynamicResource LfButtonMinWidth}"
+                            Height="{DynamicResource LfControlHeight}"
+                            Margin="{DynamicResource LfInlineSpacingLeading}"
+                            Command="{Binding ToggleLogPanelCommand}"
+                            ToolTip="展开或折叠底部日志面板" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ============ 第 1 行：主体 ============ -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- 左侧导航 -->
+            <!--
+                宽度由 IsNavigationPaneOpen 在两个令牌之间切换（展开 LfNavWidth / 折叠 LfNavWidthCompact）。
+                刻意不写在代码后置里：那样会出现"令牌是 48、代码写 52"这类两处数字各自维护、
+                改一处漏一处的问题（阶段 03 实施期间真实发生过）。
+            -->
+            <Border Grid.Column="0"
+                    Background="{DynamicResource LfBrushSurfaceSubtle}"
+                    BorderBrush="{DynamicResource LfBrushDivider}"
+                    BorderThickness="{DynamicResource LfDividerRight}">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Width" Value="{DynamicResource LfNavWidth}" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsNavigationPaneOpen}" Value="False">
+                                <Setter Property="Width" Value="{DynamicResource LfNavWidthCompact}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!--
+                        导航列表。
+                        宽度由代码后置根据折叠状态设置（OpenPaneLength / CompactPaneLength）：
+                        折叠时仅显示图标，但保留 ToolTip 与 AutomationProperties.Name，
+                        使键盘与读屏用户仍能识别每个入口（规范 §3.1）。
+                    -->
+                    <TreeView Grid.Row="0"
+                              x:Name="NavigationTree"
+                              ItemsSource="{Binding NavigationItems}"
+                              Background="Transparent"
+                              BorderThickness="{DynamicResource LfBorderThicknessNone}"
+                              Margin="{DynamicResource LfInlineSpacingSm}"
+                              SelectedItemChanged="OnNavigationSelectedItemChanged"
+                              ItemContainerStyle="{StaticResource LfNavigationTreeItemStyle}">
+
+                        <TreeView.ItemTemplate>
+                            <HierarchicalDataTemplate DataType="{x:Type nav:NavigationNode}"
+                                                      ItemsSource="{Binding Children}">
+                                <StackPanel Orientation="Horizontal"
+                                            Height="{DynamicResource LfNavItemHeight}"
+                                            ToolTip="{Binding Purpose}"
+                                            AutomationProperties.Name="{Binding Title}">
+                                    <TextBlock Text="{Binding Glyph}"
+                                               FontFamily="{DynamicResource LfIconFontFamily}"
+                                               FontSize="{DynamicResource LfNavItemIconSize}"
+                                               VerticalAlignment="Center"
+                                               Margin="{DynamicResource LfLabelSpacing}"
+                                               Foreground="{DynamicResource LfBrushTextPrimary}" />
+
+                                    <!--
+                                        折叠模式下隐藏文字。
+                                        用绑定到窗口的 IsNavigationPaneOpen 而不是导航项自身状态：
+                                        折叠是全局行为，不应让每个节点各存一份。
+                                    -->
+                                    <TextBlock Text="{Binding Title}"
+                                               VerticalAlignment="Center"
+                                               Foreground="{DynamicResource LfBrushTextPrimary}">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding DataContext.IsNavigationPaneOpen,
+                                                                                   RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                 Value="False">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </StackPanel>
+                            </HierarchicalDataTemplate>
+                        </TreeView.ItemTemplate>
+                    </TreeView>
+
+                    <!-- 底部：设置与帮助入口（规范 §3.1 要求导航底部放设置与帮助）。 -->
+                    <StackPanel Grid.Row="1" Margin="{DynamicResource LfInlineSpacingSm}">
+                        <TextBlock Text="阶段 03 · 应用壳层"
+                                   Margin="{DynamicResource LfCardPadding}"
+                                   FontSize="{DynamicResource LfFontSizeCaption}"
+                                   Foreground="{DynamicResource LfBrushTextMuted}"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- 右侧内容区 -->
+            <Grid Grid.Column="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                    <!--
+                        日志面板行高度由代码后置同步（ApplyLogPanelHeight）：
+                        折叠时必须归零，否则会留下一条与 LogPanelHeight 等高的空白；
+                        展开时必须是像素高度，GridSplitter 才能拖动它。
+                        若在 Border 上写 Height，会出现"拖动改了行高、Border 不变"的空隙。
+                    -->
+                    <RowDefinition x:Name="LogPanelRow" Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <!-- 页面标题区：名称 + 一句话用途（规范 §4.2 第 1 项）。 -->
+                <Border Grid.Row="0"
+                        Padding="{DynamicResource LfPageTitlePadding}">
+                    <StackPanel>
+                        <TextBlock Text="{Binding CurrentTitle}"
+                                   FontSize="{DynamicResource LfFontSizePageTitle}"
+                                   FontWeight="SemiBold"
+                                   TextWrapping="Wrap"
+                                   Foreground="{DynamicResource LfBrushTextPrimary}" />
+
+                        <TextBlock Text="{Binding CurrentPurpose}"
+                                   Margin="{DynamicResource LfInlineSpacing}"
+                                   FontSize="{DynamicResource LfFontSizeBodyLarge}"
+                                   TextWrapping="Wrap"
+                                   Foreground="{DynamicResource LfBrushTextSecondary}" />
+                    </StackPanel>
+                </Border>
+
+                <!-- 内容区 -->
+                <Grid Grid.Row="1">
+                    <!-- 已实现模块：工作台 -->
+                    <!--
+                        显式把工作台页面的 DataContext 指向 ShellViewModel.Dashboard。
+                        不加这一句，页面会继承窗口的 DataContext（ShellViewModel），
+                        DashboardPage 里所有绑定都会静默落空，页面呈现为"只有标题的空白"。
+                    -->
+                    <pages:DashboardPage x:Name="DashboardContent"
+                                         DataContext="{Binding Dashboard}"
+                                         Visibility="{Binding DataContext.IsCurrentModuleImplemented,
+                                                              RelativeSource={RelativeSource AncestorType=Window},
+                                                              Converter={StaticResource LfBoolToVisibility}}" />
+
+                    <!-- 未实现模块：明确的占位状态，不伪造功能 -->
+                    <controls:EmptyState x:Name="NotImplementedContent"
+                                         Title="{Binding CurrentTitle}"
+                                         Description="{Binding CurrentUnavailableReason}">
+                        <controls:EmptyState.Style>
+                            <Style TargetType="controls:EmptyState">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsCurrentModuleImplemented}" Value="False">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </controls:EmptyState.Style>
+                    </controls:EmptyState>
+                </Grid>
+
+                <!-- 分隔条：仅在日志面板展开时可见 -->
+                <GridSplitter Grid.Row="2"
+                              x:Name="LogPanelSplitter"
+                              Height="{DynamicResource LfSplitterThickness}"
+                              HorizontalAlignment="Stretch"
+                              VerticalAlignment="Center"
+                              Background="{DynamicResource LfBrushDivider}"
+                              ResizeDirection="Rows"
+                              ResizeBehavior="PreviousAndNext"
+                              DragCompleted="OnLogPanelSplitterDragCompleted"
+                              ToolTip="拖动以调整日志面板高度">
+                    <GridSplitter.Style>
+                        <Style TargetType="GridSplitter">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsLogPanelOpen}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </GridSplitter.Style>
+                </GridSplitter>
+
+                <!-- 底部日志面板 -->
+                <Border Grid.Row="3"
+                        x:Name="LogPanelHost"
+                        Background="{DynamicResource LfBrushBackground}"
+                        BorderBrush="{DynamicResource LfBrushDivider}"
+                        BorderThickness="{DynamicResource LfDividerTop}">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsLogPanelOpen}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+
+                    <controls:LogViewer x:Name="ShellLogViewer"
+                                        Margin="{DynamicResource LfCardPadding}" />
+                </Border>
+            </Grid>
+        </Grid>
+
+        <!-- ============ 第 2 行：状态栏 ============ -->
+        <Border Grid.Row="2"
+                Height="{DynamicResource LfStatusBarHeight}"
+                Background="{DynamicResource LfBrushSurfaceSubtle}"
+                BorderBrush="{DynamicResource LfBrushDivider}"
+                BorderThickness="{DynamicResource LfDividerTop}">
+            <TextBlock Text="{Binding StatusText}"
+                       Margin="{DynamicResource LfStatusBarPadding}"
+                       VerticalAlignment="Center"
+                       FontSize="{DynamicResource LfFontSizeCaption}"
+                       Foreground="{DynamicResource LfBrushTextSecondary}" />
+        </Border>
+    </Grid>
+</ui:FluentWindow>

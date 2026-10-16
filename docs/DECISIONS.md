@@ -401,3 +401,118 @@ WPF 绑定只监听数据源发出的变更通知。普通 CLR 属性没有通�
 - 渲染测试 `Replacing_entries_after_the_template_is_applied_should_repopulate_rows`
   从行为侧锁定同一缺陷：先渲染、后换源、断言行数更新。
   行为测试与契约测试并行，避免"改对了结构却没人验证行为"。
+
+## ADR-021 WPF-UI 主题变更必须回灌 Lf* 令牌
+
+**状态**：已采纳（阶段 03 实施期间由真实窗口启动发现并验证）
+
+**背景**
+阶段 03 的壳层窗口使用控件库的 `SystemThemeWatcher.Watch` 监听系统主题。
+该调用在注册**第一个**窗口时会强制执行 `ApplicationThemeManager.ApplySystemTheme()`，
+系统主题变化时也会再次调用。
+
+**症状**
+窗口出现"半截主题"：控件库提供的部分（按钮、输入框、滚动条）跟着系统变成深色，
+而 `Lf*` 令牌驱动的部分（窗口背景、文字、导航、状态栏）仍是浅色。
+两者拼在一个窗口里，视觉上像渲染错乱。
+
+**根因**
+`ApplicationThemeManager.Apply*` 只替换 **WPF-UI 自己的** 字典，
+**不会**替换 `Themes/Tokens/Palette.*.xaml`。
+而本项目的颜色全部来自调色板字典（ADR-015），两套主题系统互不知情。
+
+这与 ADR-017 要修的缺陷同源，只是触发路径不同：
+ADR-017 是"用户点了主题按钮但令牌没换"，本条是"控件库自己换了但令牌没换"。
+
+**决策**
+订阅 `ApplicationThemeManager.Changed`，在事件里调用
+`ThemeManager.SyncWithWpfUiTheme()`，把 `Lf*` 令牌拉回**用户偏好**对应的主题。
+
+必须用 `ApplyResolved` 而不是 `Apply`：后者会改写 `Preference`，
+把"跟随系统"意外固化成事件发生那一刻的系统主题。
+
+**终止性**
+若用户显式选了浅色/深色，本方法会把控件库主题改回去。
+`ApplicationThemeManager.Apply` 只在字典**确实变化**时抛 `Changed`，
+因此第二次进入时偏好与实际一致、不再产生事件；
+`_isSyncingWithWpfUi` 标志是额外的硬保险，确保任何版本的控件库都不会把这里变成死循环。
+
+**约束**
+- 窗口在 `Closing` 时解绑 `Changed`（与 `SystemThemeWatcher.UnWatch` 同一时机，见 ADR-023）。
+- `ShellViewModelTests` 断言：`OnSystemThemeChanged` 在非"跟随系统"偏好下不生效；
+  `SyncThemeWithWpfUi` 能把显式主题拉回来。
+
+## ADR-022 图标字形集中管理并验证码位存在
+
+**状态**：已采纳（阶段 03 实施期间由字形探测发现）
+
+**背景**
+导航与状态组件需要图标。候选字体有两个：
+Windows 11 的 `Segoe Fluent Icons` 与 Windows 10 的 `Segoe MDL2 Assets`。
+
+**实测结论（不可想当然）**
+两套字体是**两套码表**，并非同一个字体的新旧版本：
+`Wpf.Ui` 的 `SymbolRegular.Home24` = `0xF481`，
+该码位在 `Segoe Fluent Icons` 中存在，在 `segmdl2.ttf` 中**缺失**。
+因此"写一个看起来合理的码位、在字体族里排两个候选"这种做法会
+在其中一个系统上渲染成空白方块（豆腐块），而编译与测试全绿。
+
+**决策**
+1. 所有图标码位集中在 `Navigation/LfGlyph.cs` 常量中，禁止在 XAML 里散写 `&#xE7BA;` 之类的字面量。
+2. 字体族统一走 `LfIconFontFamily` 令牌，不各页各写字体名。
+3. 新增 `GlyphTests`：用 `GlyphTypeface.CharacterToGlyphMap` 逐个断言
+   本项目使用的**每一个**码位在 `SegoeIcons.ttf`（Fluent）**和** `segmdl2.ttf`（MDL2）中**都存在**。
+4. 同时断言 `SymbolRegular.Home24`（`0xF481`）在系统字体中**缺失**，
+   把"两套码表不通用"这一结论固化下来 —— 避免后人再次引入控件库符号常量。
+
+**约束**
+- 新增图标时若只存在于其中一套字体，`GlyphTests` 立即失败并指出码位。
+- `Themes/Controls/*.xaml` 内仍允许写图标字面量（模板需要），
+  但必须使用双字体都存在的码位，由同一组测试覆盖。
+
+## ADR-023 截图证据必须显式设定被测状态并固定窗口位置
+
+**状态**：已采纳（阶段 03 验收期间发现阶段 02 遗留的证据缺陷）
+
+**背景**
+阶段 02 起，验收证据是 `screenshots/` 下的浅/深色 PNG。
+阶段 03 加入壳层截图后，全量测试跑出来的阶段 02 截图发生了变化，
+排查过程中发现这条证据链上有**三个独立的缺陷**，都会让"截图是对的"这一结论失真。
+
+**缺陷 1：证据根本没设定主题（阶段 02 遗留）**
+`MainWindowScreenshotTests` 原本只在 `Application.Current is App` 时注入 `ThemeManager`。
+而测试宿主里的 `Application.Current` 是**基类** `Application`（见 `StaRunner` 的说明），
+该分支**永不成立**。后果：
+- 主题从未被显式设定，截图反映的是"上一个测试残留的调色板"；
+- `(Application.Current as App)?.ThemeManager` 在测试里恒为 null，
+  状态栏永远显示"浅色"。
+实测确认：阶段 02 提交的 `stage02-mainwindow-light.png` 与 `-dark.png`
+**SHA-256 完全相同**（均为 `D1AB10E7...`）——所谓"两张主题截图"其实是同一张。
+而当时的用例只断言"文件非空、非全透明"，所以全绿。
+
+**缺陷 2：证据依赖测试执行顺序**
+截图类之间通过进程级的 `ApplicationThemeManager` 全局状态互相影响：
+单独跑 `MainWindowScreenshotTests` 与连跑两个截图类，得到**不同字节**的"浅色"截图。
+
+**缺陷 3：证据依赖窗口落点（ClearType 子像素相位）**
+即使主题一致，窗口默认落在屏幕不同位置时，
+ClearType 的子像素抗锯齿结果不同，同一主题的两张截图产生约 **0.9%** 的像素差异。
+实测：固定 `Left`/`Top` 后差异消失。
+
+**决策**
+1. 截图测试必须**显式**设定被测状态，不得依赖环境残留。
+   `MainWindow` 增加 `internal ThemeManager` 注入点（生产路径仍从 `App` 取）。
+2. 必须断言"两个主题真的不同"（差异像素 > 5%），
+   而不只是"文件非空"。只断言非空等于没断言主题。
+3. 截图窗口固定 `WindowStartupLocation = Manual`、`Left = 0`、`Top = 0`。
+4. 关闭 xunit 的测试集合并行（`xunit.runner.json` 的
+   `parallelizeTestCollections: false`）：
+   被测对象共享进程级 WPF 全局状态（主题、Application 资源），
+   并行执行会让结果不可复现。
+
+**约束**
+- 新增截图测试必须走与既有测试相同的 `Render(...)` 入口，
+  避免"修好一处、漏改另一处"导致证据互相矛盾。
+- 已知限制（如实声明）：即使固定位置，跨**进程**运行仍可能因
+  首帧字形缓存预热产生极小差异（实测 0.87%，集中在按钮边框与文字边缘）。
+  因此截图用于**人工目视比对**，不作为字节级回归基线。

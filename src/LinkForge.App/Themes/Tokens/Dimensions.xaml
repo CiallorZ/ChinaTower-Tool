@@ -16,6 +16,12 @@
     <FontFamily x:Key="LfFontFamilyUi">Microsoft YaHei UI, Segoe UI</FontFamily>
     <FontFamily x:Key="LfFontFamilyMono">Cascadia Mono, Consolas, Courier New</FontFamily>
 
+    <!--
+        图标字体：Segoe Fluent Icons 优先，Windows 10 回退 Segoe MDL2 Assets。
+        两者在本项目使用的全部码位上已实测一致（见 Navigation/LfGlyph.cs 的说明）。
+    -->
+    <FontFamily x:Key="LfIconFontFamily">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
+
     <!-- ===================== 字号 ===================== -->
     <!-- 规范 §2.2：辅助 12-13 / 主文本 13-14 / 区块标题 15-18 / 页面标题 22-28 -->
     <sys:Double x:Key="LfFontSizeCaption">12</sys:Double>
@@ -69,6 +75,7 @@
     <Thickness x:Key="LfLabelSpacing">0,0,8,0</Thickness>
     <Thickness x:Key="LfDividerTop">0,1,0,0</Thickness>
     <Thickness x:Key="LfDividerBottom">0,0,0,1</Thickness>
+    <Thickness x:Key="LfDividerRight">0,0,1,0</Thickness>
 
     <!-- ===================== 圆角 ===================== -->
     <CornerRadius x:Key="LfRadiusControl">6</CornerRadius>
@@ -101,8 +108,34 @@
     <sys:Double x:Key="LfReferenceWidth">1366</sys:Double>
     <sys:Double x:Key="LfReferenceHeight">768</sys:Double>
 
+    <!--
+        "标签 : 值"两列布局中标签列的固定宽度。
+        工作台的运行环境、依赖状态、结果摘要都用它对齐，避免各页各写一个 120。
+        固定而非 Auto：值列需要左边界对齐，Auto 会让每一行的值起始位置随标签长度浮动。
+    -->
+    <GridLength x:Key="LfLabelColumnWidth">120</GridLength>
+
+    <!-- ===================== 壳层补充（阶段 03） ===================== -->
+    <!-- 导航项高度：规范 §3.1 要求可点击目标不小于 32，导航项取 36 更易命中。 -->
+    <sys:Double x:Key="LfNavItemHeight">36</sys:Double>
+    <sys:Double x:Key="LfNavItemIconSize">16</sys:Double>
+    <Thickness x:Key="LfNavItemPadding">12,0</Thickness>
+    <!-- 页面标题区：标题 + 用途说明，规范 §4.2 第 1 项。 -->
+    <Thickness x:Key="LfPageTitlePadding">24,20,24,12</Thickness>
+    <Thickness x:Key="LfContentPadding">24,0,24,24</Thickness>
+    <!-- 日志面板最小高度，与 AppSettingsStore.MinLogPanelHeight 保持一致。 -->
+    <sys:Double x:Key="LfLogPanelMinHeight">96</sys:Double>
+    <sys:Double x:Key="LfLogPanelDefaultHeight">200</sys:Double>
+    <sys:Double x:Key="LfSplitterThickness">4</sys:Double>
+
     <!-- ===================== 描边 ===================== -->
     <Thickness x:Key="LfBorderThickness">1</Thickness>
+    <!--
+        无描边：用于父级已经提供描边或分隔线的子控件（TreeView、ListBox 等）。
+        之所以不写字面量 0：静态守卫会把它当作硬编码视觉值，
+        且"零描边"本身也可能随主题或密度调整，仍应集中管理。
+    -->
+    <Thickness x:Key="LfBorderThicknessNone">0</Thickness>
     <Thickness x:Key="LfFocusThickness">2</Thickness>
     <sys:Double x:Key="LfNavSelectionIndicatorWidth">3</sys:Double>
 

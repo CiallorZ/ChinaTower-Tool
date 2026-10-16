@@ -52,15 +52,60 @@ public sealed class ThemeManager
     private const string DarkPaletteSource = "pack://application:,,,/LinkForge.App;component/Themes/Tokens/Palette.Dark.xaml";
 
     private readonly ResourceDictionary _root;
+    private readonly AppSettingsStore? _settingsStore;
+
+    /// <summary>
+    /// 防止"同步 WPF-UI 主题 -> 触发 Changed -> 再次同步"的递归。
+    /// </summary>
+    private bool _isSyncingWithWpfUi;
 
     /// <summary>
     /// 使用 WPF 应用程序资源作为根字典创建实例。
     /// </summary>
     /// <param name="root">通常为 <see cref="Application.Current"/> 的 <c>Resources</c>。</param>
-    public ThemeManager(ResourceDictionary root)
+    /// <param name="settingsStore">
+    /// 设置持久化；为 null 时不读写磁盘（单元测试与设计时使用）。
+    /// </param>
+    public ThemeManager(ResourceDictionary root, AppSettingsStore? settingsStore = null)
     {
         ArgumentNullException.ThrowIfNull(root);
         _root = root;
+        _settingsStore = settingsStore;
+    }
+
+    /// <summary>当前用户偏好（与 <see cref="CurrentTheme"/> 的区别：后者是解析后的实际主题）。</summary>
+    public LfThemePreference Preference { get; private set; } = LfThemePreference.FollowSystem;
+
+    /// <summary>
+    /// 从设置文件读取偏好并应用；无设置文件时使用默认值（跟随系统）。
+    /// </summary>
+    /// <returns>实际生效的主题。</returns>
+    public LfResolvedTheme ApplySavedPreference()
+    {
+        var settings = _settingsStore?.Load();
+        var preference = settings?.ThemePreference ?? LfThemePreference.FollowSystem;
+
+        return Apply(preference);
+    }
+
+    /// <summary>
+    /// 持久化当前偏好。
+    /// </summary>
+    /// <remarks>
+    /// 只保存主题偏好，其余字段沿用已存设置 ——
+    /// 否则切换主题会把导航折叠状态、面板高度一并重置，
+    /// 那是用户会立刻察觉的数据丢失。
+    /// </remarks>
+    public void PersistPreference()
+    {
+        if (_settingsStore is null)
+        {
+            return;
+        }
+
+        var settings = _settingsStore.Load();
+        settings.ThemePreference = Preference;
+        _settingsStore.Save(settings);
     }
 
     /// <summary>当前生效的主题。</summary>
@@ -111,9 +156,53 @@ public sealed class ThemeManager
     /// <returns>实际生效的主题。</returns>
     public LfResolvedTheme Apply(LfThemePreference preference)
     {
+        Preference = preference;
+
         var resolved = Resolve(preference);
         ApplyResolved(resolved);
         return resolved;
+    }
+
+    /// <summary>
+    /// WPF-UI 自行改动了应用主题（典型场景：系统主题变化，或 <c>SystemThemeWatcher</c> 首次注册）
+    /// 之后，把 LinkForge 设计令牌拉回用户偏好。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 为什么必须有这一步：<c>SystemThemeWatcher.Watch</c> 在注册第一个窗口时会调用
+    /// <c>ApplicationThemeManager.ApplySystemTheme</c>，系统主题变化时也会再次调用。
+    /// 它只切换 WPF-UI 自己的字典，<b>不会</b>替换 LinkForge 的 <c>Palette.*.xaml</c>。
+    /// 结果就是控件库那半边变了、<c>Lf*</c> 令牌那半边没变 —— 界面变成"半深半浅"，
+    /// 与 ADR-017 要修的缺陷同源，只是触发路径不同。
+    /// </para>
+    /// <para>
+    /// 用 <see cref="ApplyResolved"/> 而不是 <see cref="Apply"/>：后者会改写
+    /// <see cref="Preference"/>，把"跟随系统"意外固化成当时的系统主题。
+    /// </para>
+    /// <para>
+    /// 终止性：若当前偏好是显式浅色/深色，本方法会把 WPF-UI 主题改回去，
+    /// 而 <c>ApplicationThemeManager.Apply</c> 只在字典确实发生变化时才抛 <c>Changed</c>，
+    /// 第二次进入时偏好与实际一致、不再产生事件；<see cref="_isSyncingWithWpfUi"/> 是
+    /// 额外的硬保险，确保任何版本的控件库都不会把这里变成死循环。
+    /// </para>
+    /// </remarks>
+    public void SyncWithWpfUiTheme()
+    {
+        if (_isSyncingWithWpfUi)
+        {
+            return;
+        }
+
+        _isSyncingWithWpfUi = true;
+
+        try
+        {
+            ApplyResolved(Resolve(Preference));
+        }
+        finally
+        {
+            _isSyncingWithWpfUi = false;
+        }
     }
 
     /// <summary>
