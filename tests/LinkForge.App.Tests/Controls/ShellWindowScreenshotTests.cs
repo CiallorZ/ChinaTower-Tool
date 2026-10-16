@@ -4,6 +4,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using LinkForge.App.Services;
 using LinkForge.App.Tests.DesignTokens;
+using LinkForge.App.Tests.ViewModels;
 using LinkForge.App.ViewModels;
 using LinkForge.App.Views;
 
@@ -80,7 +81,7 @@ public class ShellWindowScreenshotTests
         ThemedHost.EnsureResources();
 
         // 用与生产相同的入口切换主题：ThemeManager 替换调色板字典。
-        var themeManager = new ThemeManager(Application.Current.Resources);
+        var themeManager = new ThemeManager(System.Windows.Application.Current.Resources);
         themeManager.Apply(paletteName == "Dark" ? LfThemePreference.Dark : LfThemePreference.Light);
 
         // 必须把同一个 ThemeManager 交给 ViewModel：
@@ -102,7 +103,7 @@ public class ShellWindowScreenshotTests
         var window = new ShellWindow(new ShellViewModel(
             themeManager,
             new AppSettingsStore(Path.Combine(scratchDirectory, "settings.json")),
-            new DashboardViewModel(new AppEnvironment(productionSettingsPath))))
+            new DashboardHarness().ViewModel))
         {
             Width = ReferenceWidth,
             Height = ReferenceHeight,

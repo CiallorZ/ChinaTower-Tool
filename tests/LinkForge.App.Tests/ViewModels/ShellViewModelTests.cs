@@ -410,7 +410,7 @@ public sealed class ShellViewModelTests : IDisposable
     {
         // 壳层把 Dashboard 交给内容区页面；若这里返回的不是注入的实例，
         // 页面上的"重新检测依赖"等命令就会作用在一个没人看的对象上。
-        var dashboard = new DashboardViewModel(new AppEnvironment());
+        var dashboard = new DashboardHarness().ViewModel;
         var viewModel = new ShellViewModel(dashboard: dashboard);
 
         viewModel.Dashboard.ShouldBeSameAs(dashboard);

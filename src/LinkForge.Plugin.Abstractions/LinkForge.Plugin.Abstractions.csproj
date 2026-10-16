@@ -6,4 +6,17 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <!--
+    契约以领域类型表达（DiagnosticStepResult / EvidenceArtifact）。
+
+    之所以允许这条依赖边：插件的产出物必须是宿主能直接消费的领域对象，
+    否则每个适配器都要把自己的 DTO 翻译一遍，翻译层一旦漏字段，
+    "Skipped 被当成 Failed" 这类状态口径问题就会在适配器边界重现。
+    Domain 仍是叶子节点（不引用任何项目），依赖方向没有成环。
+    见 docs/DECISIONS.md ADR-024。
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\LinkForge.Domain\LinkForge.Domain.csproj" />
+  </ItemGroup>
+
 </Project>

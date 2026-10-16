@@ -1,7 +1,11 @@
 using System.Windows;
+using LinkForge.App.Presentation;
 using LinkForge.App.Services;
 using LinkForge.App.ViewModels;
 using LinkForge.App.Views;
+using LinkForge.Application.Diagnostics;
+using LinkForge.Application.Environment;
+using LinkForge.Plugin.Abstractions;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LinkForge.App;
@@ -31,6 +35,9 @@ public partial class App : System.Windows.Application
     /// </summary>
     public ThemeManager ThemeManager { get; internal set; } = null!;
 
+    /// <summary>工作台视图模型；由 DI 容器提供（启动后加载真实数据）。</summary>
+    public DashboardViewModel Dashboard { get; private set; } = null!;
+
     /// <inheritdoc />
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -39,6 +46,7 @@ public partial class App : System.Windows.Application
         _services = BuildServiceProvider();
 
         ThemeManager = _services.GetRequiredService<ThemeManager>();
+        Dashboard = _services.GetRequiredService<DashboardViewModel>();
 
         // ADR-014：默认跟随系统主题；偏好从设置文件读取（阶段 03 起持久化）。
         //
@@ -47,10 +55,13 @@ public partial class App : System.Windows.Application
         var startupOverride = ResolveStartupPreference();
         ThemeManager.Apply(startupOverride ?? ThemeManager.Preference);
 
-        // 首个窗口关闭即退出：本应用是单窗口工具，
-        // 保留默认 OnLastWindowClose 语义即可（测试宿主另设为 OnExplicitShutdown）。
         var shell = _services.GetRequiredService<ShellWindow>();
         shell.Show();
+
+        // 窗口已显示后再加载：依赖探测会启动外部进程（ffmpeg --version 等），
+        // 放在 Show 之前会让用户看到一段没有内容的空白窗口。
+        // 不 await 也不阻塞：数据到达时由绑定自动刷新，首屏显示加载态。
+        _ = Dashboard.LoadAsync();
     }
 
     /// <inheritdoc />
@@ -64,8 +75,8 @@ public partial class App : System.Windows.Application
     /// 组装依赖注入容器。
     /// </summary>
     /// <remarks>
-    /// 阶段 03 只注册壳层真正需要的服务；业务模块的适配器在后续阶段按需加入。
-    /// 保持容器精简，避免"注册了一堆没人用的服务"掩盖真实的依赖关系。
+    /// 注册的服务都是当前真正被消费的：注册一堆没人用的服务会掩盖真实的依赖关系，
+    /// 也会让"这个模块到底依赖什么"失去意义。
     /// </remarks>
     private ServiceProvider BuildServiceProvider()
     {
@@ -82,9 +93,38 @@ public partial class App : System.Windows.Application
             return new ThemeManager(Current.Resources, store);
         });
 
-        // 环境信息：单例，只读探测。
+        // 环境信息：单例，只读取进程自身信息（同步且必然为真）。
         services.AddSingleton(static provider =>
             new AppEnvironment(provider.GetRequiredService<AppSettingsStore>().FilePath));
+
+        // 脱敏：Application 层定义契约，这里注入唯一实现（ADR-004）。
+        // 注册为 ITextRedactor 而不是具体类型，
+        // 是为了让"忘记注入真实实现"在解析期就失败，而不是在上线后泄漏明文。
+        services.AddSingleton<ITextRedactor, SecretTextRedactor>();
+
+        // 依赖探测：单例，无状态（每次探测现取）。
+        services.AddSingleton(static _ => new DependencyCatalog());
+
+        // 任务历史：文件级实现（LF-004 换 SQLite 时本接口不变）。
+        // 注册为接口而不是具体类型：消费方（DashboardViewModel）依赖的是契约，
+        // 若只注册具体类型，解析期就会报"无法解析 IRunHistoryStore"——
+        // 真实启动验证抓到过这个缺陷。
+        services.AddSingleton<IRunHistoryStore>(static provider =>
+            new JsonRunHistoryStore(
+                provider.GetRequiredService<AppEnvironment>().SettingsDirectory
+                ?? throw new InvalidOperationException("无法确定数据目录，任务历史不可用。")));
+
+        // 任务编排器：单例，无状态（取消/超时按次创建）。
+        services.AddSingleton(static provider =>
+            new DiagnosticTaskRunner(provider.GetRequiredService<ITextRedactor>()));
+
+        // 自检适配器：以适配器契约注册，
+        // 之后接入海康 / 大华等进程外适配器时，调用方（工作台）无需改动。
+        services.AddSingleton<IDiagnosticAdapter>(static provider =>
+            new EnvironmentSelfCheckAdapter(
+                provider.GetRequiredService<AppEnvironment>().SettingsDirectory
+                ?? throw new InvalidOperationException("无法确定数据目录，自检证据无法落盘。"),
+                provider.GetRequiredService<ITextRedactor>()));
 
         // 视图模型
         services.AddSingleton<ShellViewModel>();

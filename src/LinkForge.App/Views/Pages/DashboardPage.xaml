@@ -4,6 +4,8 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:controls="clr-namespace:LinkForge.App.Controls"
+             xmlns:domain="clr-namespace:LinkForge.Domain.Diagnostics;assembly=LinkForge.Domain"
+             xmlns:env="clr-namespace:LinkForge.Domain.Environment;assembly=LinkForge.Domain"
              xmlns:vm="clr-namespace:LinkForge.App.ViewModels"
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:DashboardViewModel}"
@@ -13,55 +15,30 @@
         工作台（UI 规范 §4.1）。
 
         红线：只显示真实数据。没有真实数据时显示空状态，绝不编造数值。
-        因此本页三块内容分别是：
-          1. 运行环境：直接读取进程/系统信息，必然为真。
-          2. 依赖探测：真实探测结果，缺失就写"未检测到"。
-          3. 项目与任务：尚无持久化，明确显示空状态并说明原因。
+
+        四块内容：
+          1. 快捷动作：只列已实现的动作（当前唯一真实能力是"运行环境自检"）。
+          2. 自检任务：进度 / 取消 / 步骤结论 / 证据 / 日志，全部来自真实执行。
+          3. 系统与依赖状态：真实探测，缺失就写"未检测到"。
+          4. 最近任务：来自真实历史文件；项目尚无持久化，明确显示空状态。
+
+        七类状态覆盖：
+          空（无历史）· 加载（IsLoading / IsProbingDependencies / IsLoadingHistory）
+          · 运行（IsSelfCheckRunning）· 成功 / 部分成功 / 失败（ResultSummary 按 TaskRunState）
+          · 取消（Cancelled）· 依赖缺失（DependencyMissingPanel）
     -->
 
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="LfBoolToVisibility" />
+    </UserControl.Resources>
+
     <ScrollViewer VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled"
                   Padding="{DynamicResource LfContentPadding}">
         <StackPanel>
 
-            <!-- ===== 运行环境 ===== -->
-            <TextBlock Text="运行环境"
-                       FontSize="{DynamicResource LfFontSizeSectionTitle}"
-                       FontWeight="SemiBold"
-                       Foreground="{DynamicResource LfBrushTextPrimary}" />
-
-            <Border Margin="{DynamicResource LfBlockSpacing}"
-                    Background="{DynamicResource LfBrushSurface}"
-                    BorderBrush="{DynamicResource LfBrushBorder}"
-                    BorderThickness="{DynamicResource LfBorderThickness}"
-                    CornerRadius="{DynamicResource LfRadiusPanel}"
-                    Padding="{DynamicResource LfCardPadding}">
-                <ItemsControl ItemsSource="{Binding EnvironmentFacts}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Grid Margin="{DynamicResource LfInlineSpacing}">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="{DynamicResource LfLabelColumnWidth}" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-
-                                <TextBlock Grid.Column="0"
-                                           Text="{Binding Label}"
-                                           Foreground="{DynamicResource LfBrushTextSecondary}" />
-
-                                <TextBlock Grid.Column="1"
-                                           Text="{Binding Value}"
-                                           TextWrapping="Wrap"
-                                           FontFamily="{DynamicResource LfFontFamilyMono}"
-                                           Foreground="{DynamicResource LfBrushTextPrimary}" />
-                            </Grid>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </Border>
-
-            <!-- ===== 依赖状态 ===== -->
-            <TextBlock Text="依赖状态"
-                       Margin="{DynamicResource LfSectionSpacing}"
+            <!-- ===== 1. 快捷动作 ===== -->
+            <TextBlock Text="快捷动作"
                        FontSize="{DynamicResource LfFontSizeSectionTitle}"
                        FontWeight="SemiBold"
                        Foreground="{DynamicResource LfBrushTextPrimary}" />
@@ -73,50 +50,320 @@
                     CornerRadius="{DynamicResource LfRadiusPanel}"
                     Padding="{DynamicResource LfCardPadding}">
                 <StackPanel>
-                    <ItemsControl ItemsSource="{Binding Dependencies}">
+                    <!--
+                        只放真实可用的动作。未实现的入口一律不出现：
+                        一排点了没反应的按钮比明确的空说明更糟（规范 §4.1）。
+                    -->
+                    <WrapPanel Orientation="Horizontal">
+                        <Button Content="运行环境自检"
+                                MinWidth="{DynamicResource LfActionButtonMinWidth}"
+                                Height="{DynamicResource LfControlHeight}"
+                                Command="{Binding RunSelfCheckCommand}"
+                                IsEnabled="{Binding CanStartSelfCheck}"
+                                ToolTip="检查工作目录可写性、磁盘空间、抓包组件并导出环境证据"
+                                AutomationProperties.Name="运行环境自检" />
+                    </WrapPanel>
+
+                    <TextBlock Margin="{DynamicResource LfInlineSpacing}"
+                               FontSize="{DynamicResource LfFontSizeCaption}"
+                               Foreground="{DynamicResource LfBrushTextSecondary}"
+                               TextWrapping="Wrap"
+                               Text="其余诊断能力（视频接入 / IoT / 网络 / API）将在后续阶段交付，届时会在此出现入口。" />
+                </StackPanel>
+            </Border>
+
+            <!-- ===== 2. 自检任务 ===== -->
+            <TextBlock Text="运行环境自检"
+                       Margin="{DynamicResource LfSectionSpacing}"
+                       FontSize="{DynamicResource LfFontSizeSectionTitle}"
+                       FontWeight="SemiBold"
+                       Foreground="{DynamicResource LfBrushTextPrimary}" />
+
+            <!-- 运行中 / 准备中：阶段 + 耗时 + 取消入口（规范 §4.2 第 5 项）。 -->
+            <controls:TaskProgressPanel Margin="{DynamicResource LfBlockSpacing}"
+                                        TaskState="{Binding SelfCheckState}"
+                                        Stage="{Binding CurrentStage}"
+                                        ElapsedText="{Binding ElapsedText}"
+                                        CancelCommand="{Binding CancelSelfCheckCommand}"
+                                        Visibility="{Binding IsSelfCheckRunning,
+                                                             Converter={StaticResource LfBoolToVisibility}}" />
+
+            <!-- 结论：必须先于原始日志（规范 §4.2 第 6 项）。 -->
+            <controls:ResultSummary Margin="{DynamicResource LfBlockSpacing}"
+                                    TaskState="{Binding SelfCheckState}"
+                                    Conclusion="{Binding Conclusion}"
+                                    Note="{Binding ConclusionNote}"
+                                    Items="{Binding SummaryItems}"
+                                    Visibility="{Binding HasSelfCheckResult,
+                                                         Converter={StaticResource LfBoolToVisibility}}" />
+
+            <!-- 步骤明细：每项含状态标签、耗时、摘要与建议。 -->
+            <Border Margin="{DynamicResource LfBlockSpacing}"
+                    Background="{DynamicResource LfBrushSurface}"
+                    BorderBrush="{DynamicResource LfBrushBorder}"
+                    BorderThickness="{DynamicResource LfBorderThickness}"
+                    CornerRadius="{DynamicResource LfRadiusPanel}"
+                    Padding="{DynamicResource LfCardPadding}"
+                    Visibility="{Binding HasSelfCheckResult,
+                                         Converter={StaticResource LfBoolToVisibility}}">
+                <StackPanel>
+                    <TextBlock Text="步骤明细"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource LfBrushTextPrimary}" />
+
+                    <!--
+                        上限高度而不是无限增长：步骤数固定（4 项），
+                        但摘要可能换行很多行，不限高会把"最近任务"挤到看不见。
+                    -->
+                    <ScrollViewer Margin="{DynamicResource LfInlineSpacing}"
+                                  MaxHeight="{DynamicResource LfStepListMaxHeight}"
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled">
+                        <ItemsControl ItemsSource="{Binding SelfCheckSteps}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type domain:DiagnosticStepResult}">
+                                    <Border Margin="{DynamicResource LfRowSpacing}"
+                                            BorderBrush="{DynamicResource LfBrushDivider}"
+                                            BorderThickness="{DynamicResource LfDividerTop}"
+                                            Padding="{DynamicResource LfInlineSpacing}">
+                                        <StackPanel>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <controls:StatusBadge Grid.Column="0"
+                                                                      DiagnosticStatus="{Binding Status}"
+                                                                      VerticalAlignment="Center"
+                                                                      Margin="{DynamicResource LfLabelSpacing}" />
+
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding Name}"
+                                                           VerticalAlignment="Center"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           Foreground="{DynamicResource LfBrushTextPrimary}" />
+
+                                                <TextBlock Grid.Column="2"
+                                                           Text="{Binding DurationText}"
+                                                           VerticalAlignment="Center"
+                                                           FontFamily="{DynamicResource LfFontFamilyMono}"
+                                                           FontSize="{DynamicResource LfFontSizeCaption}"
+                                                           Foreground="{DynamicResource LfBrushTextSecondary}" />
+                                            </Grid>
+
+                                            <TextBlock Text="{Binding Summary}"
+                                                       Margin="{DynamicResource LfInlineSpacing}"
+                                                       TextWrapping="Wrap"
+                                                       Foreground="{DynamicResource LfBrushTextSecondary}" />
+
+                                            <!-- 跳过原因单独一行：跳过的步骤没有耗时，用户需要知道为什么没做。 -->
+                                            <TextBlock Text="{Binding SkipReason}"
+                                                       Margin="{DynamicResource LfInlineSpacing}"
+                                                       TextWrapping="Wrap"
+                                                       FontSize="{DynamicResource LfFontSizeCaption}"
+                                                       Foreground="{DynamicResource LfBrushTextMuted}"
+                                                       Visibility="{Binding RequiresSkipReason,
+                                                                            Converter={StaticResource LfBoolToVisibility}}" />
+
+                                            <!-- 建议只在有内容时出现（规范 §5.6：错误必须给出下一步）。 -->
+                                            <TextBlock Text="{Binding NextStepSuggestion}"
+                                                       Margin="{DynamicResource LfInlineSpacing}"
+                                                       TextWrapping="Wrap"
+                                                       FontSize="{DynamicResource LfFontSizeCaption}"
+                                                       Foreground="{DynamicResource LfBrushTextSecondary}"
+                                                       Visibility="{Binding HasSuggestion,
+                                                                            Converter={StaticResource LfBoolToVisibility}}" />
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </StackPanel>
+            </Border>
+
+            <!-- 原始日志：可查看但不作为唯一输出（规范 §4.2 第 7 项）。 -->
+            <Border Margin="{DynamicResource LfBlockSpacing}"
+                    BorderBrush="{DynamicResource LfBrushBorder}"
+                    BorderThickness="{DynamicResource LfBorderThickness}"
+                    CornerRadius="{DynamicResource LfRadiusPanel}"
+                    Visibility="{Binding HasSelfCheckResult,
+                                         Converter={StaticResource LfBoolToVisibility}}">
+                <controls:LogViewer Height="{DynamicResource LfLogPanelDefaultHeight}"
+                                    Entries="{Binding SelfCheckLogs}" />
+            </Border>
+
+            <!-- 未运行时的说明：不留空白，也不假装已有结论。 -->
+            <controls:EmptyState Margin="{DynamicResource LfBlockSpacing}"
+                                 Title="尚未运行自检"
+                                 Description="点击上方“运行环境自检”，可检查工作目录可写性、磁盘空间与抓包组件，并导出环境证据。">
+                <!--
+                    必须基于隐式样式：本地 Style 会整体替换隐式样式，
+                    只写 Visibility 的话模板会丢失，渲染结果是空白 ——
+                    阶段 04 截图验证真实抓到过这个缺陷。
+                -->
+                <controls:EmptyState.Style>
+                    <Style TargetType="controls:EmptyState"
+                           BasedOn="{StaticResource {x:Type controls:EmptyState}}">
+                        <Setter Property="Visibility" Value="Visible" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding HasSelfCheckResult}" Value="True">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding IsSelfCheckRunning}" Value="True">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </controls:EmptyState.Style>
+            </controls:EmptyState>
+
+            <!-- ===== 3. 系统与依赖状态 ===== -->
+            <TextBlock Text="系统与依赖状态"
+                       Margin="{DynamicResource LfSectionSpacing}"
+                       FontSize="{DynamicResource LfFontSizeSectionTitle}"
+                       FontWeight="SemiBold"
+                       Foreground="{DynamicResource LfBrushTextPrimary}" />
+
+            <!-- 依赖缺失：必须区别于普通失败，用独立控件（规范 §5.6）。 -->
+            <ItemsControl ItemsSource="{Binding MissingDependencies}"
+                          Margin="{DynamicResource LfBlockSpacing}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="{x:Type env:DependencyProbe}">
+                        <controls:DependencyMissingPanel Margin="{DynamicResource LfInlineSpacing}"
+                                                         DependencyName="{Binding Name}"
+                                                         Impact="依赖该组件的诊断步骤将被跳过，结论会标注为“已跳过”而非失败。"
+                                                         Guidance="{Binding Detail}" />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <Border Margin="{DynamicResource LfBlockSpacing}"
+                    Background="{DynamicResource LfBrushSurface}"
+                    BorderBrush="{DynamicResource LfBrushBorder}"
+                    BorderThickness="{DynamicResource LfBorderThickness}"
+                    CornerRadius="{DynamicResource LfRadiusPanel}"
+                    Padding="{DynamicResource LfCardPadding}">
+                <StackPanel>
+                    <TextBlock Text="运行环境"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource LfBrushTextPrimary}" />
+
+                    <ItemsControl ItemsSource="{Binding EnvironmentFacts}"
+                                  Margin="{DynamicResource LfInlineSpacing}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
+                                <Grid Margin="{DynamicResource LfInlineSpacing}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="{DynamicResource LfLabelColumnWidth}" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <TextBlock Grid.Column="0"
+                                               Text="{Binding Label}"
+                                               Foreground="{DynamicResource LfBrushTextSecondary}" />
+
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding Value}"
+                                               TextWrapping="Wrap"
+                                               FontFamily="{DynamicResource LfFontFamilyMono}"
+                                               Foreground="{DynamicResource LfBrushTextPrimary}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <TextBlock Text="外部依赖"
+                               Margin="{DynamicResource LfBlockSpacing}"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource LfBrushTextPrimary}" />
+
+                    <!-- 探测中的加载态：不显示"0 个依赖"，那会被读成环境干净。 -->
+                    <controls:LoadingState Message="正在检测外部依赖…"
+                                           Detail="读取系统目录与 PATH，并查询已安装工具的版本。"
+                                           Visibility="{Binding IsProbingDependencies,
+                                                                Converter={StaticResource LfBoolToVisibility}}" />
+
+                    <ItemsControl ItemsSource="{Binding Dependencies}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type env:DependencyProbe}">
                                 <Grid Margin="{DynamicResource LfInlineSpacing}">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto" />
                                         <ColumnDefinition Width="{DynamicResource LfLabelColumnWidth}" />
                                         <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
 
-                                    <!-- 状态用图标 + 文字双重表达，不只用颜色 -->
-                                    <TextBlock Grid.Column="0"
-                                               FontFamily="{DynamicResource LfIconFontFamily}"
-                                               FontSize="{DynamicResource LfIconSizeSm}"
-                                               VerticalAlignment="Center"
-                                               Margin="{DynamicResource LfLabelSpacing}">
-                                        <TextBlock.Style>
-                                            <Style TargetType="TextBlock">
-                                                <Setter Property="Text" Value="&#xEA39;" />
-                                                <Setter Property="Foreground" Value="{DynamicResource LfBrushDanger}" />
+                                    <!-- 可用/不可用用图标 + 状态标签双重表达，不只用颜色。 -->
+                                    <controls:StatusBadge Grid.Column="0"
+                                                          VerticalAlignment="Center"
+                                                          Margin="{DynamicResource LfLabelSpacing}">
+                                        <controls:StatusBadge.Style>
+                                            <!-- 基于隐式样式，否则模板丢失（见上方 EmptyState 的说明）。 -->
+                                            <Style TargetType="controls:StatusBadge"
+                                                   BasedOn="{StaticResource {x:Type controls:StatusBadge}}">
+                                                <Setter Property="DependencyName" Value="{Binding Name}" />
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding IsAvailable}" Value="True">
-                                                        <Setter Property="Text" Value="&#xE73E;" />
-                                                        <Setter Property="Foreground" Value="{DynamicResource LfBrushSuccess}" />
+                                                        <Setter Property="DependencyName" Value="{x:Null}" />
+                                                        <Setter Property="DiagnosticStatus"
+                                                                Value="{x:Static domain:DiagnosticStatus.Passed}" />
                                                     </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
-                                        </TextBlock.Style>
-                                    </TextBlock>
+                                        </controls:StatusBadge.Style>
+                                    </controls:StatusBadge>
 
                                     <TextBlock Grid.Column="1"
                                                Text="{Binding Name}"
                                                VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"
                                                Foreground="{DynamicResource LfBrushTextPrimary}" />
 
                                     <TextBlock Grid.Column="2"
                                                Text="{Binding Detail}"
                                                VerticalAlignment="Center"
                                                TextWrapping="Wrap"
-                                               Foreground="{DynamicResource LfBrushTextSecondary}" />
+                                               Foreground="{DynamicResource LfBrushTextSecondary}"
+                                               Margin="{DynamicResource LfLabelSpacing}" />
+
+                                    <TextBlock Grid.Column="3"
+                                               Text="{Binding Id}"
+                                               VerticalAlignment="Center"
+                                               FontFamily="{DynamicResource LfFontFamilyMono}"
+                                               FontSize="{DynamicResource LfFontSizeCaption}"
+                                               Foreground="{DynamicResource LfBrushTextMuted}" />
                                 </Grid>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
+
+                    <!--
+                        尚未探测时的说明：不显示"0 个依赖"（会被读成环境干净），
+                        也不留空白。探测中由 LoadingState 接管，这里只在两个都不成立时出现。
+                    -->
+                    <TextBlock Margin="{DynamicResource LfInlineSpacing}"
+                               FontSize="{DynamicResource LfFontSizeCaption}"
+                               Foreground="{DynamicResource LfBrushTextSecondary}"
+                               Text="尚未检测。点击下方按钮开始，或等待启动时自动检测。">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <MultiDataTrigger>
+                                        <MultiDataTrigger.Conditions>
+                                            <Condition Binding="{Binding Dependencies.Count}" Value="0" />
+                                            <Condition Binding="{Binding IsProbingDependencies}" Value="False" />
+                                        </MultiDataTrigger.Conditions>
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </MultiDataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
 
                     <Button Content="重新检测依赖"
                             Margin="{DynamicResource LfBlockSpacing}"
@@ -128,7 +375,124 @@
                 </StackPanel>
             </Border>
 
-            <!-- ===== 最近项目（空状态） ===== -->
+            <!-- ===== 4. 最近任务 ===== -->
+            <TextBlock Text="最近任务"
+                       Margin="{DynamicResource LfSectionSpacing}"
+                       FontSize="{DynamicResource LfFontSizeSectionTitle}"
+                       FontWeight="SemiBold"
+                       Foreground="{DynamicResource LfBrushTextPrimary}" />
+
+            <!-- 读取失败：给出原因与重试入口，不静默留空。 -->
+            <controls:ErrorPanel Margin="{DynamicResource LfBlockSpacing}"
+                                 Message="{Binding LoadErrorMessage}"
+                                 IsRecoverable="True"
+                                 RetryCommand="{Binding RefreshDependenciesCommand}"
+                                 Visibility="{Binding LoadErrorMessage,
+                                                      Converter={StaticResource LfBoolToVisibility}}" />
+
+            <controls:LoadingState Margin="{DynamicResource LfBlockSpacing}"
+                                   Message="正在读取任务历史…"
+                                   Visibility="{Binding IsLoadingHistory,
+                                                        Converter={StaticResource LfBoolToVisibility}}" />
+
+            <Border Margin="{DynamicResource LfBlockSpacing}"
+                    Background="{DynamicResource LfBrushSurface}"
+                    BorderBrush="{DynamicResource LfBrushBorder}"
+                    BorderThickness="{DynamicResource LfBorderThickness}"
+                    CornerRadius="{DynamicResource LfRadiusPanel}"
+                    Padding="{DynamicResource LfCardPadding}"
+                    Visibility="{Binding HasRecentRuns,
+                                         Converter={StaticResource LfBoolToVisibility}}">
+                <StackPanel>
+                    <ScrollViewer MaxHeight="{DynamicResource LfHistoryListMaxHeight}"
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled">
+                        <ItemsControl ItemsSource="{Binding RecentRuns}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type domain:DiagnosticRunResult}">
+                                    <Border Margin="{DynamicResource LfRowSpacing}"
+                                            BorderBrush="{DynamicResource LfBrushDivider}"
+                                            BorderThickness="{DynamicResource LfDividerTop}"
+                                            Padding="{DynamicResource LfInlineSpacing}">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <controls:StatusBadge Grid.Column="0"
+                                                                  TaskState="{Binding State}"
+                                                                  VerticalAlignment="Center"
+                                                                  Margin="{DynamicResource LfLabelSpacing}" />
+
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding DisplayName}"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           Foreground="{DynamicResource LfBrushTextPrimary}" />
+                                                <TextBlock Text="{Binding StartedAtText}"
+                                                           FontSize="{DynamicResource LfFontSizeCaption}"
+                                                           Foreground="{DynamicResource LfBrushTextSecondary}" />
+                                            </StackPanel>
+
+                                            <TextBlock Grid.Column="2"
+                                                       Text="{Binding StepSummaryText}"
+                                                       VerticalAlignment="Center"
+                                                       TextWrapping="Wrap"
+                                                       MaxWidth="260"
+                                                       FontSize="{DynamicResource LfFontSizeCaption}"
+                                                       Foreground="{DynamicResource LfBrushTextSecondary}"
+                                                       Margin="{DynamicResource LfLabelSpacing}" />
+
+                                            <TextBlock Grid.Column="3"
+                                                       Text="{Binding DurationText}"
+                                                       VerticalAlignment="Center"
+                                                       FontFamily="{DynamicResource LfFontFamilyMono}"
+                                                       FontSize="{DynamicResource LfFontSizeCaption}"
+                                                       Foreground="{DynamicResource LfBrushTextMuted}" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+
+                    <Button Content="清空历史"
+                            Margin="{DynamicResource LfBlockSpacing}"
+                            MinWidth="{DynamicResource LfButtonMinWidth}"
+                            Height="{DynamicResource LfControlHeight}"
+                            HorizontalAlignment="Left"
+                            Command="{Binding ClearHistoryCommand}"
+                            ToolTip="删除全部任务历史记录（不含证据文件）" />
+                </StackPanel>
+            </Border>
+
+            <controls:EmptyState Margin="{DynamicResource LfBlockSpacing}"
+                                 Title="尚无任务记录"
+                                 Description="{Binding RunsEmptyDescription}">
+                <!--
+                    显隐只能由样式触发器决定：若同时在元素上写 Visibility 属性，
+                    本地值优先级高于样式设置器，触发器将完全失效（WPF 依赖属性优先级）。
+                -->
+                <!-- 同上：必须基于隐式样式，否则模板丢失渲染为空白。 -->
+                <controls:EmptyState.Style>
+                    <Style TargetType="controls:EmptyState"
+                           BasedOn="{StaticResource {x:Type controls:EmptyState}}">
+                        <Setter Property="Visibility" Value="Visible" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding HasRecentRuns}" Value="True">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding IsLoadingHistory}" Value="True">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </controls:EmptyState.Style>
+            </controls:EmptyState>
+
+            <!-- ===== 5. 最近项目 ===== -->
             <TextBlock Text="最近项目"
                        Margin="{DynamicResource LfSectionSpacing}"
                        FontSize="{DynamicResource LfFontSizeSectionTitle}"
@@ -138,17 +502,6 @@
             <controls:EmptyState Margin="{DynamicResource LfBlockSpacing}"
                                  Title="尚无项目"
                                  Description="{Binding ProjectsEmptyDescription}" />
-
-            <!-- ===== 最近任务（空状态） ===== -->
-            <TextBlock Text="最近任务"
-                       Margin="{DynamicResource LfSectionSpacing}"
-                       FontSize="{DynamicResource LfFontSizeSectionTitle}"
-                       FontWeight="SemiBold"
-                       Foreground="{DynamicResource LfBrushTextPrimary}" />
-
-            <controls:EmptyState Margin="{DynamicResource LfBlockSpacing}"
-                                 Title="尚无任务记录"
-                                 Description="{Binding RunsEmptyDescription}" />
 
         </StackPanel>
     </ScrollViewer>

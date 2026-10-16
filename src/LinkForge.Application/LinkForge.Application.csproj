@@ -2,6 +2,12 @@
 
   <ItemGroup>
     <ProjectReference Include="..\LinkForge.Domain\LinkForge.Domain.csproj" />
+    <!--
+      任务编排器要执行 IDiagnosticAdapter，因此 Application 必须能看到契约。
+      LF-001 已明确依赖方向为「App → Application/Infrastructure；Application → Domain/抽象」，
+      本引用即其中的「抽象」边。见 docs/DECISIONS.md ADR-024。
+    -->
+    <ProjectReference Include="..\LinkForge.Plugin.Abstractions\LinkForge.Plugin.Abstractions.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

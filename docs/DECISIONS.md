@@ -516,3 +516,52 @@ ClearType 的子像素抗锯齿结果不同，同一主题的两张截图产生�
 - 已知限制（如实声明）：即使固定位置，跨**进程**运行仍可能因
   首帧字形缓存预热产生极小差异（实测 0.87%，集中在按钮边框与文字边缘）。
   因此截图用于**人工目视比对**，不作为字节级回归基线。
+
+
+## ADR-024 Plugin.Abstractions 依赖 Domain；Application 依赖 Plugin.Abstractions
+
+**状态**：已采纳（阶段 04 实施期间发现既有依赖边缺失）
+
+**背景**
+
+阶段 04 引入 `IDiagnosticAdapter`（Plugin.Abstractions）与 `DiagnosticTaskRunner`（Application）。
+两个实际问题必须在编译期解决：
+
+1. 适配器的 `Plan` / `ExecuteStepAsync` 需要返回 `DiagnosticStepResult`、引用 `DiagnosticStatus`、
+   `EvidenceArtifact`——这些类型都在 Domain。
+2. Application 的编排器要消费适配器返回的领域结论，必须引用 Plugin.Abstractions。
+
+原架构文档的依赖图只写了 `App → Application → Domain` 与 `App → Plugin.Abstractions`，
+没有覆盖这两条边，导致按原文实现会出现"契约引用不到领域类型"或"编排器引用不到契约"的编译错误。
+
+**决策**
+
+两条新依赖边正式纳入架构约束：
+
+- `LinkForge.Plugin.Abstractions → LinkForge.Domain`（契约必须能表达领域结论）
+- `LinkForge.Application → LinkForge.Plugin.Abstractions`（编排器消费契约）
+
+依赖图（完整）：
+
+```
+LinkForge.App
+  ├→ LinkForge.Application
+  │    ├→ LinkForge.Domain
+  │    └→ LinkForge.Plugin.Abstractions ─→ LinkForge.Domain
+  ├→ LinkForge.Domain
+  └→ LinkForge.Plugin.Abstractions
+```
+
+**约束**
+
+- Domain 仍然是叶子：不得引用任何其他项目（`ArchitectureTests` 已锁定）。
+- Plugin.Abstractions 只允许引用 Domain，不得反向引入 Application / App。
+- Application 不得引用 WPF 程序集（`ArchitectureTests.Application_assembly_should_not_reference_wpf_assemblies` 已锁定）。
+
+**配套实现约束（阶段 04 竞态缺陷沉淀）**
+
+Application 层编排器与 App 层视图模型共享一条红线：
+**凡是"投递/通知"之后还要读取被改集合的调用点，投递必须可等待。**
+fire-and-forget 的 UI 投递（`SynchronizationContext.Post` 不等待）会让编排器读到旧依赖快照、
+让"清空历史后列表仍有数据"——这类缺陷编译期无感知，测试能暴露但容易被误判为"偶发"。
+`DashboardViewModel.PostAsync` 以 `TaskCompletionSource` 实现；后续业务页面沿用同一模式。

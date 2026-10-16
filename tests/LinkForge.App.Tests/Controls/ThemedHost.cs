@@ -33,7 +33,7 @@ internal static class ThemedHost
     /// </summary>
     internal static void EnsureResources()
     {
-        var resources = Application.Current.Resources;
+        var resources = System.Windows.Application.Current.Resources;
 
         if (resources.MergedDictionaries.Count > 0)
         {
@@ -84,7 +84,7 @@ internal static class ThemedHost
 
         // 必须递归：调色板字典藏在 ThemeResources.xaml 的 MergedDictionaries 里，
         // 只在顶层扫一遍会找不到它，主题切换也就静默失效了。
-        ReplacePalette(Application.Current.Resources, paletteName);
+        ReplacePalette(System.Windows.Application.Current.Resources, paletteName);
     }
 
     private static void ReplacePalette(ResourceDictionary parent, string paletteName)

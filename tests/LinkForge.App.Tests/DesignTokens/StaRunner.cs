@@ -73,7 +73,7 @@ internal static class StaRunner
                 // 在没有合并生产字典的测试宿主里会抛"未找到调色板"。
                 // 基类没有 OnStartup 逻辑，安全性更高；
                 // MainWindow 读取 ThemeManager 的路径由 Screenshot 测试单独验证。
-                _ = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+                _ = new System.Windows.Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
                 dispatcher = Dispatcher.CurrentDispatcher;
             }
             catch (Exception ex)

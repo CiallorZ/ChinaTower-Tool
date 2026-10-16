@@ -65,7 +65,7 @@ public class ComponentStylesTests
             var control = (Control)Activator.CreateInstance(componentType)!;
             ThemedHost.Host(control);
 
-            return control.Style ?? Application.Current.TryFindResource(componentType);
+            return control.Style ?? System.Windows.Application.Current.TryFindResource(componentType);
         });
 
         style.ShouldNotBeNull(

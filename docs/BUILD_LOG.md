@@ -311,3 +311,64 @@ pwsh -File scripts/run.ps1
 - 未做键盘焦点环与 Tab 顺序人工走查（阶段 06）。
 - 截图存在跨进程的微小像素差异（约 0.87%，集中在按钮边框与文字边缘，源于字形缓存预热与 ClearType），因此截图仅用于人工目视比对，**未**作为字节级回归基线。
 - x86 运行未通过，原因已定位为缺少 x86 .NET 10 运行时，非代码缺陷（见 `REVIEW_V1.0.md` D-08）。
+
+## 阶段 04 · 工作台（2026-10-17）
+
+### 1. 交付物
+
+| 类别 | 内容 |
+| --- | --- |
+| 领域模型 | `Domain/Diagnostics`（步骤/任务结论、状态映射、证据元数据）、`Domain/Environment/DependencyProbe`（含稳定标识 Id）、`Domain/Projects`、`Domain/Assets`、`Domain/Secrets/SecretReference` |
+| 插件契约 | `Plugin.Abstractions/IDiagnosticAdapter.cs`（步骤计划 / 执行上下文 / 进度事件 / 取消令牌） |
+| 应用层 | `Diagnostics/DiagnosticTaskRunner`（编排器：依赖跳过、前置步骤跳过、单步超时、总超时、用户取消、异常映射，结论先脱敏再上报）；`Diagnostics/EnvironmentSelfCheckAdapter`（真实自检：写探测文件 / 读磁盘 / 探测 Npcap / 导出证据 + SHA-256）；`Diagnostics/JsonRunHistoryStore`（原子写入、损坏隔离、上限 200 条）；`Diagnostics/ITextRedactor` + `DiagnosticRunOptions`；`Environment/DependencyCatalog`（异步可取消依赖探测）；`Diagnostics/StepProgressRelay`（同步进度转发，避免乱序） |
+| UI 工作台 | `Views/Pages/DashboardPage.xaml` 重写：快捷动作（仅列已实现项）、自检任务（进度/取消/步骤明细/日志/结果摘要）、系统与依赖状态（缺失用 DependencyMissingPanel 区别于失败）、最近任务（真实历史）、最近项目（明确空状态） |
+| 视图模型 | `ViewModels/DashboardViewModel.cs` 重写：`LoadAsync` / `RefreshDependenciesCommand` / `RunSelfCheckCommand` / `CancelSelfCheckCommand` / `ClearHistoryCommand`；进度经 `Progress<T>` 回 UI 线程；UI 投递可等待（`PostAsync`），消除"读旧集合"竞态 |
+| 服务 | `Services/AppEnvironment.cs` 精简（删除与 Domain 冲突的 `DependencyProbe` 定义与同步探测，保留进程自身事实 + `SettingsDirectory`）；`Presentation/SecretTextRedactor`（桥接 Application 层脱敏契约与 `SecretRedactor` 唯一实现） |
+| DI | `App.xaml.cs` 注册 `ITextRedactor` / `DependencyCatalog` / `IRunHistoryStore` / `DiagnosticTaskRunner` / `IDiagnosticAdapter`（自检适配器） |
+| 令牌 | `Dimensions.xaml` 新增 `LfRowSpacing` / `LfStepListMaxHeight` / `LfHistoryListMaxHeight` / `LfActionButtonMinWidth` / `LfDividerBlockTop` |
+| 测试 | Domain +17（步骤/任务结论）；Application +20（编排器/超时/取消/跳过）；App +17（`DashboardViewModelTests` 12 个状态用例、`DashboardPageTests` 4 个渲染/截图用例、`DashboardHarness` 夹具） |
+
+### 2. 本阶段发现并修复的真实缺陷
+
+| # | 现象 | 根因 | 处理 |
+| --- | --- | --- | --- |
+| 1 | **应用启动即崩**（`Unable to resolve IRunHistoryStore`） | DI 注册了具体类型 `JsonRunHistoryStore`，而 `DashboardViewModel` 依赖接口 `IRunHistoryStore`；编译期无感知，运行期解析才炸 | 改为 `AddSingleton<IRunHistoryStore>(...)`。真实启动 + 退出码 0 验证通过 |
+| 2 | **"清空历史后列表仍有数据"**（测试捕获） | `Post` 是 fire-and-forget：历史加载/依赖刷新投递集合变更后立即返回，调用方继续读集合时可能拿到旧内容；`RunSelfCheck` 里编排器也可能读到上一次的依赖快照 | `Post` 改为可等待的 `PostAsync`（`TaskCompletionSource`）；所有"投递后还要读集合"的调用点全部 `await`。沉淀为 ADR-024 配套实现约束 |
+| 3 | **EmptyState 渲染为空白**（截图验证捕获） | 本地 `Style` 整体替换隐式样式，只写 `Visibility` 时模板丢失 | 本地样式一律 `BasedOn="{StaticResource {x:Type controls:EmptyState}}"`（StatusBadge 同理） |
+| 4 | **进度先于脱敏**（上半场发现，沿用修复） | 编排器先 `Report` 后 `Redact`，明文经进度事件进入 UI/日志 | 改为先 `Redact` 再 `Report`；依赖跳过原因同样过脱敏 |
+| 5 | **AppEnvironment 与 Domain 的 DependencyProbe 冲突** | App 层 3 参数（无 Id）与 Domain 层 4 参数（含 Id）并存，工作台与诊断各用一套 | 删除 App 层定义，统一用 Domain 版；App 层不再做依赖探测，委托 `DependencyCatalog` |
+| 6 | **依赖探测阻塞 UI 线程** | 原 `AppEnvironment.ProbeDependencies()` 同步启动外部进程（ffmpeg --version 等），卡住会冻住界面 | 全部走 `DependencyCatalog.ProbeAllAsync`（3 秒超时、可取消） |
+
+### 3. Mutation / 竞态验证记录
+
+| 验证项 | 操作 | 结果 |
+| --- | --- | --- |
+| DI 接口注册守卫 | （缺陷 1）以具体类型注册、接口消费 | 真实启动即崩，退出码 -532462766；修复后启动成功、退出码 0 |
+| UI 投递竞态守卫 | （缺陷 2）`PostAsync` 退回 fire-and-forget 的 `Post` | `Clearing_history_should_empty_the_list_and_the_file` **失败**（`HasRecentRuns` 为 True）；恢复后通过 |
+| 基于隐式样式守卫 | （缺陷 3）移除 `BasedOn` | `Dashboard_page_should_render_a_non_blank_bitmap` 仍通过但人工目视发现 EmptyState 空白；修复后截图正常。**已知限制**：非空断言无法拦截"局部空白"，此缺陷依赖人工目视发现，自动化守卫待补 |
+| Skipped ≠ Failed | 断言自检步骤中跳过项不计失败、必须写原因 | `Skipped_steps_must_never_be_counted_as_failures` 通过（真实自检在无 Npcap 环境下 capture 步骤被跳过） |
+| 证据落盘 | 断言证据文件存在、SHA-256 长度 64、`IsRedacted` 为 true | `Self_check_should_export_real_evidence` 通过 |
+
+### 4. 阶段验收
+
+| 验证项 | 结果 |
+| --- | --- |
+| 全解决方案构建（`pwsh scripts/build.ps1`，`-warnaserror`） | 通过，0 警告 0 错误 |
+| 全解决方案测试 | **353 / 353 通过**（Domain 54 + Application 25 + App 274） |
+| 应用真实启动 + 关闭 | 成功；依赖注入解析正常，**退出码 0** |
+| 浅色截图 | `screenshots/stage04-dashboard-light.png`（人工目视确认：快捷动作/自检空态/环境事实/依赖未检测提示/最近任务空态/最近项目空态齐全） |
+| 深色截图 | `screenshots/stage04-dashboard-dark.png`（人工目视确认：令牌正确、可读性良好） |
+| 自检任务 | 测试内真实执行：4 步全走通、历史落盘、证据文件存在、取消/竞态守卫通过 |
+| 七类状态覆盖 | 空（EmptyState）· 加载（LoadingState × 2）· 运行（TaskProgressPanel + 进度）· 成功/部分成功/失败（ResultSummary 按 TaskRunState）· 取消（Cancelled）· 依赖缺失（DependencyMissingPanel）· 读取失败（ErrorPanel + 重试） |
+| 脱敏 | 自检结论经 `SecretTextRedactor`（即 `SecretRedactor` 正则）脱敏后才落历史与日志；`Logs_should_never_contain_plaintext_secrets` 锁定 |
+| 令牌漂移 | `VisualHardcodingTests` 通过；新令牌全部进 `Dimensions.xaml` |
+
+### 5. 尚未验证（如实声明）
+
+- **自检总超时（90 秒）与单步超时（30 秒）的触发路径**：单元测试用假时钟覆盖了编排器的超时逻辑，但工作台的真实 UI 上没有人为制造过"自检超过 90 秒"的场景（真实自检在测试机上秒级完成）。
+- **`ErrorPanel` 的读取失败路径**：`Load_failure_should_be_surfaced_not_swallowed` 用注入的 `FailingRunHistoryStore` 验证了 ViewModel 行为，但真实 UI 上未人为制造"历史文件不可读"的场景（需要手动锁文件或设只读后人工目视）。
+- **键盘 Tab 顺序 / 焦点环**：未做人工走查（阶段 06）。
+- **高 DPI（125% / 150% / 200%）**：未实测。
+- **Windows 10 真机**：本机 Windows 11 build 26300，未在 Win10 上验证。
+- **x86 运行**：仍受 D-08 约束（本机无 x86 .NET 10 运行时），构建可通过（`-IncludeX86`），运行未验证。
+- **阶段 05 的业务页面**：本阶段只交付工作台与任务框架；视频 / IoT / 网络 / API 等页面按计划属阶段 05，未实现。

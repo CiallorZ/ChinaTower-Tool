@@ -5,6 +5,7 @@ using System.Windows.Media;
 using LinkForge.App.Navigation;
 using LinkForge.App.Services;
 using LinkForge.App.Tests.DesignTokens;
+using LinkForge.App.Tests.ViewModels;
 using LinkForge.App.ViewModels;
 using LinkForge.App.Views;
 
@@ -143,7 +144,7 @@ public class ShellWindowTests
         {
             ThemedHost.EnsureResources();
 
-            var dashboard = new DashboardViewModel(new AppEnvironment());
+            var dashboard = new DashboardHarness().ViewModel;
             var window = new ShellWindow(new ShellViewModel(dashboard: dashboard));
 
             window.Show();
@@ -172,7 +173,7 @@ public class ShellWindowTests
             ThemedHost.EnsureResources();
 
             var viewModel = new ShellViewModel(
-                dashboard: new DashboardViewModel(new AppEnvironment()));
+                dashboard: new DashboardHarness().ViewModel);
             var window = new ShellWindow(viewModel);
 
             window.Show();
@@ -206,7 +207,7 @@ public class ShellWindowTests
         {
             ThemedHost.EnsureResources();
 
-            var viewModel = new ShellViewModel(dashboard: new DashboardViewModel(new AppEnvironment()));
+            var viewModel = new ShellViewModel(dashboard: new DashboardHarness().ViewModel);
             var window = new ShellWindow(viewModel);
 
             window.Show();
@@ -263,8 +264,8 @@ public class ShellWindowTests
             var result = (
                 before,
                 after,
-                (double)Application.Current.Resources["LfNavWidth"],
-                (double)Application.Current.Resources["LfNavWidthCompact"]);
+                (double)System.Windows.Application.Current.Resources["LfNavWidth"],
+                (double)System.Windows.Application.Current.Resources["LfNavWidthCompact"]);
 
             window.Close();
             PumpDispatcher();
@@ -385,7 +386,7 @@ public class ShellWindowTests
         ThemedHost.EnsureResources();
 
         var window = new ShellWindow(new ShellViewModel(
-            dashboard: new DashboardViewModel(new AppEnvironment())))
+            dashboard: new DashboardHarness().ViewModel))
         {
             Width = width,
             Height = height

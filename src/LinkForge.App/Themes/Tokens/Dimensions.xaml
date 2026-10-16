@@ -128,6 +128,20 @@
     <sys:Double x:Key="LfLogPanelDefaultHeight">200</sys:Double>
     <sys:Double x:Key="LfSplitterThickness">4</sys:Double>
 
+    <!-- ===================== 工作台补充（阶段 04） ===================== -->
+    <!--
+        工作台是滚动页，行内元素需要"上下都有留白"的通用间距，
+        既有的 LfInlineSpacing 只有上边距，不能用于步骤行之间的分隔。
+    -->
+    <Thickness x:Key="LfRowSpacing">0,8</Thickness>
+    <!-- 步骤明细与历史列表的最大高度：超出后内部滚动，避免把整页撑得过长。 -->
+    <sys:Double x:Key="LfStepListMaxHeight">260</sys:Double>
+    <sys:Double x:Key="LfHistoryListMaxHeight">220</sys:Double>
+    <!-- 快捷动作按钮：规范 §5.1 要求明确的动词文案，按钮需容纳较长文案。 -->
+    <sys:Double x:Key="LfActionButtonMinWidth">140</sys:Double>
+    <!-- 结论区与日志区之间的分隔线（放在块上方）。 -->
+    <Thickness x:Key="LfDividerBlockTop">0,16,0,0</Thickness>
+
     <!-- ===================== 描边 ===================== -->
     <Thickness x:Key="LfBorderThickness">1</Thickness>
     <!--

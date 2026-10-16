@@ -202,6 +202,7 @@
 | 进程级 WPF 全局状态 | `ApplicationThemeManager` 与 `Application.Resources` 都是进程级，xunit 并行执行会让截图结果不可复现 | 已关闭测试集合并行（`xunit.runner.json`）；截图窗口固定 `Left`/`Top` 以消除 ClearType 子像素相位差异 |
 | 两套图标字体码表不通用 | `SymbolRegular.Home24` = `0xF481` 存在于 `Segoe Fluent Icons`、**缺失**于 `segmdl2.ttf` | 图标码位集中管理并用双字体存在性测试锁定，见 ADR-022 |
 
+**阶段 04 期间新增验证约束**：`ArchitectureTests` 已扩展覆盖 ADR-024 的两条依赖边
 **D-08 / D-09 / D-10 状态不变**：三者均阻塞阶段 05（业务页面 / 厂商 SDK / 安全中心），
 不阻塞阶段 04（工作台），故本轮保持"待确认"。
 ## 7. 本轮未做与原因
