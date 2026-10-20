@@ -111,7 +111,7 @@ public static class NavigationCatalog
             "网络诊断",
             LfGlyph.Network,
             "连通性、路径、DNS 与端口排查。",
-            LfModuleAvailability.NotImplemented,
+            LfModuleAvailability.Available,
             []),
 
         new(

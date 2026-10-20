@@ -565,3 +565,47 @@ Application 层编排器与 App 层视图模型共享一条红线：
 fire-and-forget 的 UI 投递（`SynchronizationContext.Post` 不等待）会让编排器读到旧依赖快照、
 让"清空历史后列表仍有数据"——这类缺陷编译期无感知，测试能暴露但容易被误判为"偶发"。
 `DashboardViewModel.PostAsync` 以 `TaskCompletionSource` 实现；后续业务页面沿用同一模式。
+
+## ADR-025 网络适配器独立成项目并统一经过任务编排器
+
+**状态**：已采纳（阶段 05 / LF-006）
+
+**背景**
+
+网络基础诊断需要 Ping/ICMP、TCP、DNS、本机网卡/路由和 Traceroute。
+如果把这些系统 API 直接写进 WPF 页面或视图模型，会出现三个问题：
+
+1. UI 线程可能被同步的系统调用或进程启动阻塞；
+2. 每个页面都要自行处理超时、取消、异常和状态映射，口径容易漂移；
+3. 测试只能依赖真实网卡、公网或系统 `tracert.exe`，不可稳定复现。
+
+**决策**
+
+1. 新增 `LinkForge.Adapters.Network`，由 `WindowsNetworkProbe` 封装系统边界，
+   `NetworkDiagnosticAdapter` 只负责把观察结果映射为领域步骤结论。
+2. `LinkForge.App` 只注入具体适配器，网络页通过
+   `DiagnosticTaskRunner` 执行，不直接调用 `Ping`、`Dns`、`TcpClient` 或 `Process`。
+3. 本机网络快照必须在线程池读取；所有网络操作必须响应取消令牌。
+4. 结构化事实与原始输出在进入 UI、复制、导出前统一脱敏；
+   `LogEntry.TargetId` 同样在构造时脱敏。
+5. ICMP 无响应、Traceroute 中间跳点无响应只能得到 `Unknown`，
+   不得自动升级为“主机离线”或“目标失败”。
+
+**依赖边**
+
+```text
+LinkForge.App
+  ├→ LinkForge.Adapters.Network
+  │    ├→ LinkForge.Domain
+  │    └→ LinkForge.Plugin.Abstractions ─→ LinkForge.Domain
+  ├→ LinkForge.Application ─→ LinkForge.Plugin.Abstractions
+  └→ LinkForge.Domain
+```
+
+**约束**
+
+- Adapters.Network 不得引用 App 或 Application。
+- UI 不得绕过编排器直接执行探测。
+- 外部目标必须显式授权；默认只执行用户选择的单个工具，
+  不自动扩大端口或网段范围。
+- 新增网络能力必须同时补成功、失败、超时、取消和未知结论测试。

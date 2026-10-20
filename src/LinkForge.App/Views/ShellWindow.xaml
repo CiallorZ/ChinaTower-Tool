@@ -256,16 +256,23 @@
                     -->
                     <pages:DashboardPage x:Name="DashboardContent"
                                          DataContext="{Binding Dashboard}"
-                                         Visibility="{Binding DataContext.IsCurrentModuleImplemented,
+                                         Visibility="{Binding DataContext.IsDashboardSelected,
                                                               RelativeSource={RelativeSource AncestorType=Window},
                                                               Converter={StaticResource LfBoolToVisibility}}" />
+
+                    <pages:NetworkDiagnosticsPage x:Name="NetworkDiagnosticsContent"
+                                                  DataContext="{Binding NetworkDiagnostics}"
+                                                  Visibility="{Binding DataContext.IsNetworkDiagnosticsSelected,
+                                                                       RelativeSource={RelativeSource AncestorType=Window},
+                                                                       Converter={StaticResource LfBoolToVisibility}}" />
 
                     <!-- 未实现模块：明确的占位状态，不伪造功能 -->
                     <controls:EmptyState x:Name="NotImplementedContent"
                                          Title="{Binding CurrentTitle}"
                                          Description="{Binding CurrentUnavailableReason}">
                         <controls:EmptyState.Style>
-                            <Style TargetType="controls:EmptyState">
+                            <Style TargetType="controls:EmptyState"
+                                   BasedOn="{StaticResource {x:Type controls:EmptyState}}">
                                 <Setter Property="Visibility" Value="Collapsed" />
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding IsCurrentModuleImplemented}" Value="False">

@@ -180,7 +180,7 @@ public class ShellWindowTests
             PumpDispatcher();
             Layout(window, ReferenceWidth, ReferenceHeight);
 
-            viewModel.NavigateTo(NavigationCatalog.Find("network"));
+            viewModel.NavigateTo(NavigationCatalog.Find("security"));
             PumpDispatcher();
             window.UpdateLayout();
 
@@ -196,6 +196,48 @@ public class ShellWindowTests
 
         dashboard.ShouldBe(Visibility.Collapsed);
         placeholder.ShouldBe(Visibility.Visible);
+    }
+
+    [Fact]
+    public void Selecting_network_should_show_the_network_page_and_hide_dashboard()
+    {
+        var (dashboard, network, placeholder, dataContext) = StaRunner.Run(() =>
+        {
+            ThemedHost.EnsureResources();
+
+            using var networkHarness = new NetworkDiagnosticsHarness();
+            var viewModel = new ShellViewModel(
+                dashboard: new DashboardHarness().ViewModel,
+                networkDiagnostics: networkHarness.ViewModel);
+            var window = new ShellWindow(viewModel);
+
+            window.Show();
+            PumpDispatcher();
+            Layout(window, ReferenceWidth, ReferenceHeight);
+
+            viewModel.NavigateTo(NavigationCatalog.Find("network"));
+            PumpDispatcher();
+            window.UpdateLayout();
+
+            var dashboardPage = (FrameworkElement)window.FindName("DashboardContent")!;
+            var networkPage = (FrameworkElement)window.FindName("NetworkDiagnosticsContent")!;
+            var emptyState = (FrameworkElement)window.FindName("NotImplementedContent")!;
+            var result = (
+                dashboardPage.Visibility,
+                networkPage.Visibility,
+                emptyState.Visibility,
+                networkPage.DataContext);
+
+            window.Close();
+            PumpDispatcher();
+
+            return result;
+        });
+
+        dashboard.ShouldBe(Visibility.Collapsed);
+        network.ShouldBe(Visibility.Visible);
+        placeholder.ShouldBe(Visibility.Collapsed);
+        dataContext.ShouldBeOfType<NetworkDiagnosticsViewModel>();
     }
 
     [Fact]

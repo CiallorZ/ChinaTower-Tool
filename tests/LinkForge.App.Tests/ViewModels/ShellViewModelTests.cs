@@ -88,16 +88,16 @@ public sealed class ShellViewModelTests : IDisposable
     {
         var viewModel = new ShellViewModel();
 
-        viewModel.NavigateTo(NavigationCatalog.Find("network"));
+        viewModel.NavigateTo(NavigationCatalog.Find("security"));
 
-        viewModel.CurrentTitle.ShouldBe("网络诊断");
+        viewModel.CurrentTitle.ShouldBe("安全中心");
         viewModel.IsCurrentModuleImplemented.ShouldBeFalse();
         viewModel.CurrentUnavailableReason.ShouldNotBeNullOrWhiteSpace();
 
         // 文案必须说清是"尚未实现"而不是含糊的"不可用"，
         // 否则用户会误以为是自己环境的问题（规范 §5.6 要求区分二者）。
         viewModel.CurrentUnavailableReason.ShouldContain("尚未实现");
-        viewModel.CurrentUnavailableReason.ShouldContain("网络诊断");
+        viewModel.CurrentUnavailableReason.ShouldContain("安全中心");
     }
 
     [Fact]
@@ -128,7 +128,7 @@ public sealed class ShellViewModelTests : IDisposable
         // 从"未实现"模块切回工作台后，残留的原因文案会出现在工作台上。
         var viewModel = new ShellViewModel();
 
-        viewModel.NavigateTo(NavigationCatalog.Find("network"));
+        viewModel.NavigateTo(NavigationCatalog.Find("security"));
         viewModel.NavigateTo(NavigationCatalog.Find("dashboard"));
 
         viewModel.IsCurrentModuleImplemented.ShouldBeTrue();
@@ -414,6 +414,17 @@ public sealed class ShellViewModelTests : IDisposable
         var viewModel = new ShellViewModel(dashboard: dashboard);
 
         viewModel.Dashboard.ShouldBeSameAs(dashboard);
+    }
+
+    [Fact]
+    public void Exposed_network_diagnostics_should_be_the_injected_instance()
+    {
+        // 网络页与工作台一样，必须拿到壳层持有的同一个实例；
+        // 否则页面操作的是另一个视图模型，导航后看不到刚运行的结果。
+        using var harness = new NetworkDiagnosticsHarness();
+        var viewModel = new ShellViewModel(networkDiagnostics: harness.ViewModel);
+
+        viewModel.NetworkDiagnostics.ShouldBeSameAs(harness.ViewModel);
     }
 
 }

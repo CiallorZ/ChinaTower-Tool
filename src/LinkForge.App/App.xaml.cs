@@ -1,4 +1,5 @@
 using System.Windows;
+using LinkForge.Adapters.Network;
 using LinkForge.App.Presentation;
 using LinkForge.App.Services;
 using LinkForge.App.ViewModels;
@@ -118,6 +119,11 @@ public partial class App : System.Windows.Application
         services.AddSingleton(static provider =>
             new DiagnosticTaskRunner(provider.GetRequiredService<ITextRedactor>()));
 
+        // 网络探测：系统 API 与 tracert 的真实实现；测试通过接口替换系统边界。
+        services.AddSingleton<INetworkProbe, WindowsNetworkProbe>();
+        services.AddSingleton<NetworkDiagnosticAdapter>();
+        services.AddSingleton<INetworkResultExporter, NetworkResultExporter>();
+
         // 自检适配器：以适配器契约注册，
         // 之后接入海康 / 大华等进程外适配器时，调用方（工作台）无需改动。
         services.AddSingleton<IDiagnosticAdapter>(static provider =>
@@ -129,6 +135,7 @@ public partial class App : System.Windows.Application
         // 视图模型
         services.AddSingleton<ShellViewModel>();
         services.AddSingleton<DashboardViewModel>();
+        services.AddSingleton<NetworkDiagnosticsViewModel>();
 
         // 视图
         services.AddSingleton<ShellWindow>();

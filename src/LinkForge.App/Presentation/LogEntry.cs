@@ -73,7 +73,7 @@ public sealed class LogEntry
         Level = level;
         Module = module;
         RunId = runId;
-        TargetId = targetId;
+        TargetId = SecretRedactor.Redact(targetId);
         Message = SecretRedactor.Redact(originalMessage) ?? string.Empty;
     }
 

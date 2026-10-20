@@ -142,6 +142,20 @@
     <!-- 结论区与日志区之间的分隔线（放在块上方）。 -->
     <Thickness x:Key="LfDividerBlockTop">0,16,0,0</Thickness>
 
+    <!-- ===================== 业务页面补充（阶段 05） ===================== -->
+    <!-- 表单两列布局的列间距；固定 GridLength，避免页面各写一个 16/24。 -->
+    <GridLength x:Key="LfFormColumnGap">16</GridLength>
+    <!-- 网络结果事实表的标签列；比工作台的 120 略宽以容纳“第 12 跳”等中文标签。 -->
+    <GridLength x:Key="LfFactLabelColumnWidth">140</GridLength>
+    <!-- 网络结果列表上限；日志/跳点很多时内部滚动，不把主操作挤出屏幕。 -->
+    <sys:Double x:Key="LfBusinessResultMaxHeight">280</sys:Double>
+    <!-- 原始输出上限；大输出不撑高页面。 -->
+    <sys:Double x:Key="LfRawOutputMaxHeight">220</sys:Double>
+    <!-- 授权确认提示区与字段区的间距。 -->
+    <Thickness x:Key="LfAuthorizationSpacing">0,16,0,0</Thickness>
+    <!-- 网络工具选项说明与标题之间的间距。 -->
+    <Thickness x:Key="LfOptionHintSpacing">0,2,0,0</Thickness>
+
     <!-- ===================== 描边 ===================== -->
     <Thickness x:Key="LfBorderThickness">1</Thickness>
     <!--

@@ -100,6 +100,17 @@
 - ICMP 被阻断时提示“ICMP 无响应，不能单独证明主机不可达”。
 - Traceroute 不可用时给出平台限制说明。
 
+**阶段 05 验收记录（2026-10-20）**
+
+- [x] Ping/ICMP、TCP、DNS、本机网卡/路由、Traceroute 已实现。
+- [x] 统一使用 `DiagnosticTaskRunner` 的超时、取消、异常映射与脱敏。
+- [x] `ProcessStartInfo.ArgumentList` 调用 `tracert.exe`，无 shell 拼接。
+- [x] 外部目标授权确认；本机/回环目标不额外打断。
+- [x] 成功、拒绝、超时、DNS 不存在、取消、Unknown 有自动化测试。
+- [x] 网络页覆盖空、运行、成功、失败、未知和取消状态。
+- [x] 全解决方案构建/测试通过；真实启动/关闭退出码 0。
+- [ ] 厂商 SDK 接入（D-09）与安全扫描/抓包/攻防能力（D-10）仍待边界确认。
+
 ### LF-007：HTTP/API 工作台
 任务：
 - 请求方法、URL、Query、Headers、JSON/文本 Body。

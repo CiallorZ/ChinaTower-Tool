@@ -323,9 +323,17 @@ public sealed class DiagnosticTaskRunner
         TimeSpan duration) =>
         result with
         {
+            Name = _redactor.Redact(result.Name) ?? string.Empty,
             Summary = _redactor.Redact(result.Summary) ?? string.Empty,
             NextStepSuggestion = _redactor.Redact(result.NextStepSuggestion),
             SkipReason = _redactor.Redact(result.SkipReason),
+            Facts = result.FactItems
+                .Select(fact => new DiagnosticFact(
+                    _redactor.Redact(fact.Label) ?? string.Empty,
+                    _redactor.Redact(fact.Value) ?? string.Empty,
+                    fact.Status))
+                .ToArray(),
+            RawOutput = _redactor.Redact(result.RawOutput),
             StartedAt = result.StartedAt ?? startedAt,
             Duration = duration
         };

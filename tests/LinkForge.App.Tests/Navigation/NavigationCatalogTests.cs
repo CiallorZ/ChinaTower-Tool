@@ -204,9 +204,9 @@ public sealed class NavigationCatalogTests
     }
 
     [Fact]
-    public void Dashboard_should_be_the_only_implemented_module_at_this_stage()
+    public void Implemented_modules_should_match_the_current_stage_delivery()
     {
-        // 阶段 03 只交付壳层。此断言的意义不是"限制功能"，而是防止
+        // 阶段 05 已交付网络基础诊断。此断言的意义不是"限制功能"，而是防止
         // 有人为了好看把未实现模块标成 Available —— 那会让导航指向空白页，
         // 属于"用假状态伪装真实功能"。
         var available = NavigationCatalog.Enumerate()
@@ -214,7 +214,7 @@ public sealed class NavigationCatalogTests
             .Select(node => node.Id)
             .ToArray();
 
-        available.ShouldBe(["dashboard"]);
+        available.ShouldBe(["dashboard", "network"]);
     }
 
     [Fact]

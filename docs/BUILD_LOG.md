@@ -372,3 +372,53 @@ pwsh -File scripts/run.ps1
 - **Windows 10 真机**：本机 Windows 11 build 26300，未在 Win10 上验证。
 - **x86 运行**：仍受 D-08 约束（本机无 x86 .NET 10 运行时），构建可通过（`-IncludeX86`），运行未验证。
 - **阶段 05 的业务页面**：本阶段只交付工作台与任务框架；视频 / IoT / 网络 / API 等页面按计划属阶段 05，未实现。
+
+## 阶段 05 · 网络基础诊断（LF-006，2026-10-20）
+
+### 1. 交付物
+
+| 类别 | 内容 |
+| --- | --- |
+| 网络适配器 | `src/LinkForge.Adapters.Network/`：`WindowsNetworkProbe`（Ping/TCP/DNS/本机网络/tracert）与 `NetworkDiagnosticAdapter` |
+| 领域结果 | `DiagnosticFact`、`DiagnosticStepResult.Facts/RawOutput`，保留结构化事实并区分原始输出 |
+| 视图模型 | `NetworkDiagnosticsViewModel`：字段校验、授权门禁、异步运行/取消、状态与摘要、脱敏复制/导出 |
+| 页面 | `NetworkDiagnosticsPage.xaml`：目标与工具、高级参数、授权、运行、结果、原始日志、空状态 |
+| 导航/DI | 网络诊断改为 `Available`；注册真实 `INetworkProbe`、适配器、导出器与页面视图模型 |
+| 令牌 | `Dimensions.xaml` 新增表单列宽、事实列宽、结果区高度、授权间距与提示间距 |
+| 测试 | 网络适配器 10 项；App 新增网络视图模型、页面渲染/截图、Shell 导航互斥与日志目标脱敏测试 |
+
+### 2. 本阶段发现并修复的真实缺陷
+
+| # | 现象 | 根因 | 处理 |
+| --- | --- | --- | --- |
+| 1 | 网络页可能执行成“环境自检” | DI 同时注册了 `IDiagnosticAdapter` 自检适配器和具体网络适配器，页面按接口注入会命中自检 | 视图模型改为注入具体 `NetworkDiagnosticAdapter`；保留具体类型注册 |
+| 2 | 读取本机网卡/路由可能阻塞 UI | `WindowsNetworkProbe.LocalAsync` 在调用线程同步执行 P/Invoke 与网卡枚举 | 改为 `Task.Run` 读取快照，并保留取消检查 |
+| 3 | 未实现模块占位可能空白 | Shell 的局部 `EmptyState` 样式未继承隐式模板 | 补 `BasedOn="{StaticResource {x:Type controls:EmptyState}}"` |
+| 4 | 网络结论的事实/原始输出可能残留秘密 | 编排器只脱敏摘要、建议与跳过原因 | 统一脱敏步骤名称、事实标签/值和原始输出；`LogEntry.TargetId` 也在构造时脱敏 |
+| 5 | 页面截图出现高级参数大块留白 | 当前工具不适用字段按设计 `Collapsed`，旧断言把折叠字段误判为 0 高度 | 量测只检查可见字段；同时保留 1366×768 与主题截图断言 |
+
+### 3. 验证记录
+
+| 验证项 | 结果 |
+| --- | --- |
+| `pwsh -NoProfile -File scripts/build.ps1` | 通过，0 警告 0 错误 |
+| Domain 测试 | 54 / 54 |
+| Application 测试 | 25 / 25 |
+| Network Adapter 测试 | 10 / 10 |
+| App 测试 | 304 / 304 |
+| 全解决方案测试 | **393 / 393 通过** |
+| 真实启动 + 关闭 | 成功；窗口标题 `LinkForge`，退出码 **0** |
+| 浅色截图 | `screenshots/stage05-network-light.png` |
+| 深色截图 | `screenshots/stage05-network-dark.png` |
+| 页面布局 | 1366×768 渲染通过；可见字段高度 > 0；空/运行/结果组件真实可见 |
+| 主题差异 | 浅色与深色截图差异 > 5% |
+| 脱敏 | 复制、JSON 导出、日志目标与结构化事实均断言不含测试秘密 |
+
+### 4. 尚未验证（如实声明）
+
+- Windows 10 真机、125%/150%/200% 高 DPI 与键盘 Tab/焦点环仍属阶段 06。
+- x86 运行仍受 D-08 缺少 x86 .NET 10 运行时约束；本阶段仅验证 x64。
+- 海康/大华 SDK、RTSP/媒体解码、抓包、安全扫描/渗透攻防未在本阶段接入；
+  D-09 / D-10 边界未关闭前不以占位或假数据冒充已实现。
+- Traceroute 的真实公网路径结果依赖系统 `tracert.exe` 与网络环境；
+  自动化测试覆盖了平台不可用、无最终回应与取消等语义，未固定公网跳点。

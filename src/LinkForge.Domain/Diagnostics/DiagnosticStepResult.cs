@@ -37,13 +37,24 @@ public sealed record DiagnosticStepResult(
     string Summary,
     string? NextStepSuggestion = null,
     string? SkipReason = null,
-    IReadOnlyList<EvidenceArtifact>? Evidence = null)
+    IReadOnlyList<EvidenceArtifact>? Evidence = null,
+    IReadOnlyList<DiagnosticFact>? Facts = null,
+    string? RawOutput = null)
 {
     /// <summary>证据文件列表（永不为 null）。</summary>
     public IReadOnlyList<EvidenceArtifact> EvidenceArtifacts => Evidence ?? [];
 
+    /// <summary>结构化事实列表（永不为 null）。</summary>
+    public IReadOnlyList<DiagnosticFact> FactItems => Facts ?? [];
+
     /// <summary>是否存在证据文件。</summary>
     public bool HasEvidence => Evidence is { Count: > 0 };
+
+    /// <summary>是否存在结构化事实。</summary>
+    public bool HasFacts => Facts is { Count: > 0 };
+
+    /// <summary>是否存在原始输出。</summary>
+    public bool HasRawOutput => !string.IsNullOrWhiteSpace(RawOutput);
 
     /// <summary>是否提供了下一步建议。</summary>
     public bool HasSuggestion => !string.IsNullOrWhiteSpace(NextStepSuggestion);
@@ -75,8 +86,21 @@ public static class DiagnosticStepResults
         string summary,
         DateTimeOffset startedAt,
         TimeSpan duration,
-        IReadOnlyList<EvidenceArtifact>? evidence = null) =>
-        new(stepId, name, DiagnosticStatus.Passed, startedAt, duration, summary, null, null, evidence);
+        IReadOnlyList<EvidenceArtifact>? evidence = null,
+        IReadOnlyList<DiagnosticFact>? facts = null,
+        string? rawOutput = null) =>
+        new(
+            stepId,
+            name,
+            DiagnosticStatus.Passed,
+            startedAt,
+            duration,
+            summary,
+            null,
+            null,
+            evidence,
+            facts,
+            rawOutput);
 
     /// <summary>构造"警告"结论：通过但需关注，不计入失败。</summary>
     public static DiagnosticStepResult Warning(
@@ -86,8 +110,21 @@ public static class DiagnosticStepResults
         DateTimeOffset startedAt,
         TimeSpan duration,
         string? suggestion = null,
-        IReadOnlyList<EvidenceArtifact>? evidence = null) =>
-        new(stepId, name, DiagnosticStatus.Warning, startedAt, duration, summary, suggestion, null, evidence);
+        IReadOnlyList<EvidenceArtifact>? evidence = null,
+        IReadOnlyList<DiagnosticFact>? facts = null,
+        string? rawOutput = null) =>
+        new(
+            stepId,
+            name,
+            DiagnosticStatus.Warning,
+            startedAt,
+            duration,
+            summary,
+            suggestion,
+            null,
+            evidence,
+            facts,
+            rawOutput);
 
     /// <summary>构造"失败"结论。</summary>
     public static DiagnosticStepResult Failed(
@@ -97,8 +134,21 @@ public static class DiagnosticStepResults
         DateTimeOffset startedAt,
         TimeSpan duration,
         string? suggestion = null,
-        IReadOnlyList<EvidenceArtifact>? evidence = null) =>
-        new(stepId, name, DiagnosticStatus.Failed, startedAt, duration, summary, suggestion, null, evidence);
+        IReadOnlyList<EvidenceArtifact>? evidence = null,
+        IReadOnlyList<DiagnosticFact>? facts = null,
+        string? rawOutput = null) =>
+        new(
+            stepId,
+            name,
+            DiagnosticStatus.Failed,
+            startedAt,
+            duration,
+            summary,
+            suggestion,
+            null,
+            evidence,
+            facts,
+            rawOutput);
 
     /// <summary>
     /// 构造"跳过"结论。
@@ -128,8 +178,21 @@ public static class DiagnosticStepResults
         string summary,
         DateTimeOffset? startedAt,
         TimeSpan duration,
-        string? suggestion = null) =>
-        new(stepId, name, DiagnosticStatus.Unknown, startedAt, duration, summary, suggestion);
+        string? suggestion = null,
+        IReadOnlyList<DiagnosticFact>? facts = null,
+        string? rawOutput = null) =>
+        new(
+            stepId,
+            name,
+            DiagnosticStatus.Unknown,
+            startedAt,
+            duration,
+            summary,
+            suggestion,
+            null,
+            null,
+            facts,
+            rawOutput);
 
     /// <summary>构造"超时"结论。</summary>
     /// <param name="stepId">步骤标识。</param>

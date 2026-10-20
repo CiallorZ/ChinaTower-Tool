@@ -133,6 +133,20 @@ docs/
   CODEX_TASKS.md
 ```
 
+### 4.1 网络适配器依赖边（阶段 05）
+
+网络基础诊断采用 `App → Adapters.Network → Domain / Plugin.Abstractions`：
+
+- `LinkForge.Adapters.Network` 只实现 `INetworkProbe` 与
+  `NetworkDiagnosticAdapter`，不引用 App，也不持有 UI 状态。
+- `LinkForge.App` 负责注入 `WindowsNetworkProbe`、适配器、结果导出器和
+  `NetworkDiagnosticsViewModel`。
+- 超时、取消、异常映射、状态聚合与脱敏仍由
+  `LinkForge.Application.Diagnostics.DiagnosticTaskRunner` 统一执行。
+
+因此网络页可以独立测试系统边界（Ping/TCP/DNS/本机网络/tracert），
+而 UI 不直接持有 `System.Net.NetworkInformation` 或 `Process`。
+
 ## 5. 关键领域模型
 - Project：项目元数据与 SchemaVersion。
 - EnvironmentProfile：环境变量、代理引用、超时策略。

@@ -82,6 +82,20 @@ public class LogEntryTests
     }
 
     [Fact]
+    public void Target_identifier_should_be_redacted_on_construction()
+    {
+        // 目标字段也可能带 userinfo（例如从粘贴的 URL 中误带入），
+        // 不能只脱敏消息而把目标列原样显示在日志表里。
+        var entry = Create(
+            LfLogLevel.Information,
+            "连接失败",
+            "rtsp://admin:Passw0rd!23@10.0.0.1:554/live");
+
+        entry.TargetId.ShouldNotBeNull().ShouldNotContain("Passw0rd!23");
+        entry.TargetText.ShouldNotContain("Passw0rd!23");
+    }
+
+    [Fact]
     public void Timestamp_text_should_be_time_only_and_culture_invariant()
     {
         // 强制 InvariantCulture：否则在部分区域设置下小数点会变成逗号，

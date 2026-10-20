@@ -28,11 +28,13 @@ public sealed partial class ShellViewModel : ObservableObject
     public ShellViewModel(
         ThemeManager? themeManager = null,
         AppSettingsStore? settingsStore = null,
-        DashboardViewModel? dashboard = null)
+        DashboardViewModel? dashboard = null,
+        NetworkDiagnosticsViewModel? networkDiagnostics = null)
     {
         _themeManager = themeManager;
         _settingsStore = settingsStore;
         Dashboard = dashboard;
+        NetworkDiagnostics = networkDiagnostics;
 
         NavigationItems = new ObservableCollection<NavigationNode>(NavigationCatalog.TopLevel);
 
@@ -60,6 +62,9 @@ public sealed partial class ShellViewModel : ObservableObject
     /// </remarks>
     public DashboardViewModel? Dashboard { get; }
 
+    /// <summary>网络诊断页面视图模型；为 null 时页面显示明确不可用状态。</summary>
+    public NetworkDiagnosticsViewModel? NetworkDiagnostics { get; }
+
     /// <summary>当前选中的导航节点。</summary>
     [ObservableProperty]
     public partial NavigationNode? SelectedNode { get; set; }
@@ -71,6 +76,16 @@ public sealed partial class ShellViewModel : ObservableObject
     /// <summary>当前页面用途说明（规范 §4.2 第 1 项：标题 + 一句话用途）。</summary>
     [ObservableProperty]
     public partial string CurrentPurpose { get; set; } = string.Empty;
+
+    /// <summary>当前页面标识。</summary>
+    [ObservableProperty]
+    public partial string CurrentPageId { get; set; } = string.Empty;
+
+    /// <summary>是否显示工作台。</summary>
+    public bool IsDashboardSelected => CurrentPageId == "dashboard";
+
+    /// <summary>是否显示网络诊断。</summary>
+    public bool IsNetworkDiagnosticsSelected => CurrentPageId == "network";
 
     /// <summary>当前页面是否已实现（false 时内容区显示明确的未实现状态）。</summary>
     [ObservableProperty]
@@ -122,6 +137,7 @@ public sealed partial class ShellViewModel : ObservableObject
         }
 
         SelectedNode = node;
+        CurrentPageId = node.Id;
         CurrentTitle = node.Title;
         CurrentPurpose = node.Purpose;
         IsCurrentModuleImplemented = node.Availability == LfModuleAvailability.Available;
@@ -135,6 +151,8 @@ public sealed partial class ShellViewModel : ObservableObject
         };
 
         UpdateStatusText();
+        OnPropertyChanged(nameof(IsDashboardSelected));
+        OnPropertyChanged(nameof(IsNetworkDiagnosticsSelected));
     }
 
     /// <summary>切换导航栏展开/折叠。</summary>
