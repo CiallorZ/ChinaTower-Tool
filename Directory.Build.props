@@ -1,0 +1,13 @@
+<Project>
+  <PropertyGroup>
+    <VersionPrefix>0.5.0</VersionPrefix>
+    <VersionSuffix>preview.1</VersionSuffix>
+    <Product>LinkForge 视联网调试工具箱</Product>
+    <Company>CiallorZ</Company>
+    <Authors>CiallorZ</Authors>
+    <RepositoryUrl>https://github.com/CiallorZ/ChinaTower-Tool</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <Deterministic>true</Deterministic>
+    <IncludeSourceRevisionInInformationalVersion>true</IncludeSourceRevisionInInformationalVersion>
+  </PropertyGroup>
+</Project>

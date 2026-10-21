@@ -41,6 +41,9 @@ internal sealed class FakeAdapter : IDiagnosticAdapter
     /// <summary>实际被执行的步骤标识（用于断言“未执行的步骤真的没被执行”）。</summary>
     public List<string> ExecutedSteps { get; } = [];
 
+    /// <summary>观察编排器传给适配器的进度接收器。</summary>
+    public Action<IProgress<DiagnosticProgress>>? ProgressObserver { get; set; }
+
     /// <inheritdoc />
     public string Id => "test.fake";
 
@@ -63,6 +66,7 @@ internal sealed class FakeAdapter : IDiagnosticAdapter
         CancellationToken cancellationToken)
     {
         ExecutedSteps.Add(context.StepId);
+        ProgressObserver?.Invoke(progress);
         return _behavior(context, cancellationToken);
     }
 

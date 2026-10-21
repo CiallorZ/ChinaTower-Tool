@@ -246,7 +246,10 @@ public sealed class DiagnosticTaskRunner
         try
         {
             var result = await adapter
-                .ExecuteStepAsync(context, stepProgress!, stepCts.Token)
+                .ExecuteStepAsync(
+                    context,
+                    (IProgress<DiagnosticProgress>?)stepProgress ?? NullDiagnosticProgress.Instance,
+                    stepCts.Token)
                 .ConfigureAwait(false);
 
             // 必须先脱敏再上报进度：进度事件会立刻进入 UI、日志面板与任务历史，
@@ -374,5 +377,14 @@ public sealed class DiagnosticTaskRunner
             message,
             now,
             now - runStartedAt));
+    }
+
+    private sealed class NullDiagnosticProgress : IProgress<DiagnosticProgress>
+    {
+        public static NullDiagnosticProgress Instance { get; } = new();
+
+        public void Report(DiagnosticProgress value)
+        {
+        }
     }
 }

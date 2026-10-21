@@ -14,10 +14,13 @@
 | 开发步骤规范 | 已起草，见 `docs/DEV_STANDARDS.md` |
 | UI 强约束规范 | 已归档，见 `docs/LinkForge_UI_Design_Guidelines_V1.1.md` |
 | UI 分阶段实施计划 | 已起草，见 `docs/UI_IMPLEMENTATION_PLAN.md` |
-| 解决方案骨架（6 个项目） | 已建立，构建通过 |
-| 设计令牌 / 基础组件 / 应用壳层 / 业务页面 | **未开始** |
+| 解决方案骨架与业务模块 | 12 个源码项目、11 个测试项目，Debug/Release 构建均通过 |
+| 设计令牌 / 基础组件 / 应用壳层 | 已完成 |
+| 项目资产、网络、HTTP、MQTT、RTSP、日志、报告、开发者工具、插件页 | 已完成真实实现与本地验证 |
+| 发布工程（LF-013） | **部分完成**：未签名 `win-x64` 自包含便携 ZIP、依赖清单、SBOM、SHA-256 与干净构建脚本已落地 |
 
-> UI 未开始编码是刻意安排：按 UI 规范 §11 阶段 A 与 `docs/CODEX_TASKS.md` 约束，先完成勘察、差异识别与实施计划，再进入设计令牌。
+> 当前版本为 `0.5.0-preview.1`。便携 ZIP 不是安装器且未签名；Windows 10 真机、
+> 高 DPI、x86 运行、厂商 SDK 与抓包/安全扫描边界仍未完成，详见 `docs/RELEASE.md`。
 
 ## 文档索引
 
@@ -37,8 +40,8 @@
 | `docs/LinkForge_UI_Design_Guidelines_V1.1.md` | UI 开发强约束规范 |
 | `docs/CODEX_START_PROMPT.md` | 启动提示词存档 |
 | `docs/UI_IMPLEMENTATION_PLAN.md` | 六个阶段的分阶段实施计划 |
-| `docs/DEV_STANDARDS.md` | 编码、测试、安全、提交流程规范 |
-| `docs/ROADMAP.md` | 里程碑、任务映射与验收口径 |
+| `docs/RELEASE.md` | 便携包、版本、依赖清单、SBOM、签名与未完成项 |
+| `CHANGELOG.md` | 当前预览版本变更摘要 |
 
 ## 环境要求（目标）
 
@@ -49,6 +52,13 @@
 
 ## 下一步
 
-1. 确认 `docs/REVIEW_V1.0.md` 第 6 节待决事项，优先 D-01（是否 `git init`）与 D-03（默认主题）。
-2. 进入阶段 01：设计令牌（浅/深色资源字典 + 令牌完整性测试）。
-3. 每阶段结束运行 `dotnet build` / `dotnet test` 并报告真实结果。
+1. 在 Windows 10 x64 真机执行安装、启动、升级替换与卸载残留验收。
+2. 评估代码签名证书、时间戳、MSIX/WiX/Inno Setup 与升级失败回滚。
+3. 关闭 D-08（x86 运行时）、D-09（海康/大华 SDK 许可）与 D-10（抓包/安全扫描授权边界）。
+
+发布命令：
+
+```powershell
+pwsh -NoProfile -File scripts/publish.ps1
+pwsh -NoProfile -File scripts/verify-clean-checkout.ps1
+```

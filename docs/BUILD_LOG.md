@@ -910,3 +910,55 @@ pwsh -File scripts/run.ps1
 - Windows 10 真机、高 DPI、键盘 Tab 顺序与焦点环仍属阶段 06。
 - x86 运行仍受 D-08 缺少 x86 .NET 10 运行时约束；本阶段仅验证 x64。
 - 海康 / 大华开放平台 SDK（D-09）、抓包与安全扫描 / 渗透攻防（D-10）仍未接入。
+
+## 阶段 06 · 发布工程增量（LF-013，2026-10-22）
+
+### 1. 交付物
+
+- `Directory.Build.props`：统一 `0.5.0-preview.1`、产品/公司/仓库与确定性构建元数据。
+- `CHANGELOG.md`：当前预览版本的能力、安全边界与已知限制。
+- `scripts/publish.ps1`：默认执行 Release 全量测试门禁，发布 `win-x64` 自包含
+  便携 ZIP，生成 `release.json`、`VERSION.txt`、依赖/许可证清单、
+  CycloneDX 1.5 SBOM、包内 `SHA256SUMS.txt` 与 ZIP SHA-256。
+- `scripts/verify-clean-checkout.ps1`：克隆已提交 `HEAD` 到临时目录并重新执行
+  还原、构建和测试。
+- `tests/LinkForge.App.Tests/Services/OperationsWorkflowEndToEndTests.cs`：
+  SQLite 项目/资产 → TCP 诊断 → JSONL 日志 → HTML 报告的真实组件链路。
+- `docs/RELEASE.md`：便携包、版本、依赖、签名、升级/卸载和未完成项说明。
+
+### 2. 本阶段发现并修复的真实缺陷
+
+| # | 现象 | 根因 | 处理 |
+| --- | --- | --- | --- |
+| 1 | 端到端诊断被误判为 `Failed`，摘要为 `NullReferenceException` | 编排器在调用方未提供进度回调时，把 `null` 传给适配器的非空 `IProgress<T>` 契约 | 编排器统一注入无操作进度器；新增 `DiagnosticTaskRunner` 回归测试 |
+| 2 | 发布脚本启动即报 `The term 'if' is not recognized` | `Get-ConfiguredVersion` 使用 `return if (...) { ... }`，PowerShell 将 `if` 当作命令 | 改为显式 `if` 块 + `return` |
+| 3 | `VERSION.txt` 的 `-join` 可能被解析成函数参数 | `Write-Utf8NoBom` 调用中直接混写数组与 `-join` | 先构造 `$versionLines`，再显式 `-join` |
+| 4 | SBOM 每次生成随机 UUID | 使用 `[Guid]::NewGuid()` | 由版本与提交派生稳定 UUID，不宣称 bit-for-bit 可复现 |
+
+### 3. 验证记录
+
+| 验证项 | 结果 |
+| --- | --- |
+| Debug `pwsh -NoProfile -File scripts/build.ps1` | 通过，0 警告 0 错误 |
+| Release `pwsh -NoProfile -File scripts/build.ps1 -Configuration Release` | 通过，0 警告 0 错误 |
+| Domain / Application / Persistence 测试 | 54 / 141 / 41 |
+| Network / HTTP / MQTT / Video Adapter 测试 | 10 / 15 / 8 / 17 |
+| DeveloperTools / Reporting / Plugin.Hosting 测试 | 41 / 42 / 30 |
+| App 测试 | 538 / 538 |
+| **全解决方案测试（Debug 与 Release 分别执行）** | **937 / 937 通过** |
+| 发布脚本本地诊断包 | `publish.ps1 -AllowDirty -SkipTests` 成功生成 `.dirty` 便携 ZIP |
+| 依赖清单 | 25 个 NuGet 组件，许可证声明可解析 |
+| SBOM | CycloneDX 1.5 可解析；25 个组件；序列号由版本/提交确定 |
+| 包内 SHA-256 | 逐文件复核 0 失败；ZIP 另行生成 `.sha256` |
+| 自包含程序启动 | `LinkForge.App.exe` 真实启动，关闭退出码 **0** |
+
+### 4. 尚未验证（如实声明）
+
+- 当前是 `0.5.0-preview.1`，不是 V1.0 正式版。
+- 便携 ZIP **未签名、不是安装器**；未完成代码签名、时间戳、SmartScreen、
+  MSIX/WiX/Inno Setup、升级失败回滚与卸载残留测试。
+- 未完成 Windows 10 真机、高 DPI、键盘焦点与可访问性最终验收。
+- x86 运行仍受 D-08 约束；本阶段只发布并验证 `win-x64`。
+- 厂商 SDK（D-09）、抓包、安全扫描与渗透攻防（D-10）未接入。
+- 依赖许可证清单只反映 NuGet nuspec 声明，不替代法律审查。
+- 干净 checkout 验证脚本已交付；结果需在提交后对已提交 `HEAD` 执行并补记。

@@ -48,6 +48,43 @@ public class DiagnosticTaskRunnerTests
     }
 
     [Fact]
+    public async Task Adapter_progress_should_not_fail_when_caller_does_not_supply_a_sink()
+    {
+        IProgress<DiagnosticProgress>? receivedProgress = null;
+        var adapter = new FakeAdapter((context, _) =>
+        {
+            // Adapters are allowed to report progress without checking for null:
+            // the orchestrator contract supplies a non-null IProgress instance.
+            receivedProgress!.Report(new DiagnosticProgress(
+                context.RunId,
+                context.StepId,
+                DiagnosticStepPhase.Running,
+                "运行中",
+                context.StartedAt,
+                TimeSpan.Zero));
+
+            return Task.FromResult(DiagnosticStepResults.Passed(
+                context.StepId,
+                context.Name,
+                "通过",
+                context.StartedAt,
+                TimeSpan.Zero));
+        });
+        adapter.ProgressObserver = progress => receivedProgress = progress;
+
+        var result = await Runner().RunAsync(
+            adapter,
+            Request(),
+            [],
+            Options(),
+            cancellationToken: CancellationToken.None);
+
+        result.State.ShouldBe(TaskRunState.Completed);
+        result.Steps.ShouldHaveSingleItem().Status.ShouldBe(DiagnosticStatus.Passed);
+        receivedProgress.ShouldNotBeNull();
+    }
+
+    [Fact]
     public async Task One_failure_among_passes_should_be_partially_succeeded()
     {
         var adapter = new FakeAdapter(

@@ -298,6 +298,22 @@
 - 生成可追溯版本号、变更日志、依赖清单。
 - 发布包在目标 Windows 版本上完成安装验收。
 
+**阶段 06 / LF-013 验收记录（2026-10-22，部分完成）**
+
+- [x] 新增真实组件端到端测试：SQLite 项目/资产 → TCP 诊断 → JSONL 日志 → HTML 报告。
+- [x] 编排器在无进度接收器时注入无操作 `IProgress<T>`，避免适配器 `Report` 触发空引用并误记为失败。
+- [x] 统一版本 `0.5.0-preview.1`、产品/公司/仓库元数据与确定性构建开关。
+- [x] `scripts/publish.ps1` 默认执行 Release 全量测试门禁，发布 `win-x64` 自包含便携 ZIP。
+- [x] 包内生成 `release.json`、`VERSION.txt`、`DEPENDENCIES.txt`、`THIRD-PARTY-NOTICES.md`、CycloneDX 1.5 SBOM、`SHA256SUMS.txt` 与 ZIP SHA-256。
+- [x] 包内 25 个 NuGet 组件许可证声明可解析；SBOM 序列号由版本/提交确定；包内校验和复核 0 失败。
+- [x] 发布目录 `LinkForge.App.exe` 真实启动并关闭，退出码 `0`。
+- [x] `scripts/verify-clean-checkout.ps1` 已提供，待提交后对已提交 `HEAD` 执行并补记结果。
+- [x] Debug 与 Release 均构建 0 警告 0 错误；全解决方案 937 / 937 测试通过。
+- [ ] 当前产物未签名、不是安装器；未完成代码签名、时间戳和 SmartScreen 验证。
+- [ ] 未完成 MSIX/WiX/Inno Setup、升级失败回滚、卸载残留与 Windows 10 真机安装验收。
+- [ ] Windows 10、高 DPI、键盘焦点与可访问性最终验收未完成。
+- [ ] x86 运行仍受 D-08；厂商 SDK、抓包、安全扫描与渗透攻防仍受 D-09/D-10。
+
 ## 2. Codex 单任务提示词模板
 
 ```text

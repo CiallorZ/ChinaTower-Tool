@@ -173,12 +173,19 @@ Windows Credential Manager（P/Invoke `CredWrite`）：跨用户共享更好，�
 
 ## ADR-012 打包与分发
 
-**状态：待定（LF-013 关闭）**
+**状态：已关闭（2026-10-22，MVP 预览阶段采用便携 ZIP；安装器待后续版本评估）**
 
 候选：
 1. 便携 zip（MVP 首选，无需管理员权限）
 2. MSIX（需签名证书，更新体验好）
 3. WiX/Inno Setup（传统安装器，卸载与升级可控）
+
+**决策**
+- 当前 LF-013 只交付未签名的 `win-x64` 自包含便携 ZIP，不把 ZIP 包装成安装器。
+- 当前版本为 `0.5.0-preview.1`，升级方式是退出后替换程序目录；用户数据位于
+  `%LOCALAPPDATA%\LinkForge`，不随程序目录替换自动删除。
+- 安装器、代码签名、时间戳、SmartScreen、升级失败回滚与卸载残留验收留待正式
+  V1.0 发布前完成。
 
 约束：抓包驱动（Pktmon/Npcap）不得成为 MVP 的强制依赖；若引入必须明示管理员权限与卸载残留。
 
@@ -1021,3 +1028,45 @@ LinkForge.App 不直接写日志文件
 - 不得把读取失败显示成“没有历史日志”。
 - 不得把取消导出记为失败，也不得在导出失败时留下半成品文件。
 - 新增日志字段时必须同步更新脱敏、筛选、复制、导出与测试。
+
+## ADR-034：预览发布采用可追溯便携 ZIP 与干净检出验证（LF-013）
+
+**背景**
+
+当前目标是把已实现的调试能力形成可分发、可追溯的 Windows 预览包，而不是提前
+承诺安装器、代码签名和自动更新。若直接把未签名 ZIP 描述为“正式安装包”，用户会
+无法区分“能运行”“发布者已验证”“可安全升级”这三件事。
+
+**决策**
+
+1. **发布形态**：未签名、自包含、免安装的 `win-x64` 便携 ZIP；当前不发布 x86。
+2. **版本来源**：根目录 `Directory.Build.props` 统一维护 `0.5.0-preview.1`；
+   `InformationalVersion` 与 `release.json` 记录提交号，脏工作区必须显式
+   `-AllowDirty` 并在文件名、元数据中标记 `.dirty`。
+3. **门禁**：`scripts/publish.ps1` 默认先执行 Release 全量构建与测试；
+   `-SkipTests` 只能用于本地诊断，不能作为交付证据。
+4. **追溯材料**：包内生成版本文件、依赖/许可证清单、CycloneDX 1.5 SBOM、
+   全文件 SHA-256 和 ZIP SHA-256。许可证只按 NuGet nuspec 声明提取，
+   不替代法律审查。
+5. **确定性边界**：启用确定性编译并让 SBOM 序列号由版本/提交派生；
+   但包内含构建时间等元数据，不宣称 bit-for-bit 可复现。
+6. **干净检出**：`scripts/verify-clean-checkout.ps1` 克隆已提交 `HEAD`，
+   重新还原、构建与测试，防止未跟踪文件或本机缓存掩盖缺失引用。
+7. **安装边界**：当前没有 MSIX/WiX/Inno Setup、代码签名、时间戳、SmartScreen、
+   升级回滚与卸载残留验收。
+
+**依赖边**
+
+```text
+scripts/publish.ps1 → LinkForge.App（Release publish）
+scripts/verify-clean-checkout.ps1 → scripts/build.ps1
+发布元数据 → Git HEAD + Directory.Build.props
+```
+
+**约束**
+
+- 不得把 `.dirty` 诊断包当作正式发布产物。
+- 不得在未签名时显示“已验证发布者”或暗示 SmartScreen 信任。
+- 不得把 NuGet 声明许可证清单称为已完成法律审查。
+- 变更发布字段、SBOM 结构或打包流程时必须同步更新 `docs/RELEASE.md`、
+  `CHANGELOG.md` 与构建记录。
