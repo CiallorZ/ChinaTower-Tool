@@ -66,6 +66,7 @@
                                     MinWidth="{DynamicResource LfButtonMinWidth}"
                                     Height="{DynamicResource LfControlHeight}"
                                     HorizontalAlignment="Center"
+                                    AutomationProperties.Name="{TemplateBinding ActionText}"
                                     Visibility="{Binding HasAction,
                                                          RelativeSource={RelativeSource TemplatedParent},
                                                          Converter={StaticResource LfBoolToVisibility}}" />

@@ -1,0 +1,604 @@
+<UserControl x:Class="LinkForge.App.Views.Pages.AssetCatalogPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="clr-namespace:LinkForge.App.Controls"
+             xmlns:presentation="clr-namespace:LinkForge.App.Presentation"
+             xmlns:vm="clr-namespace:LinkForge.App.ViewModels"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:AssetCatalogViewModel}"
+             Background="Transparent">
+
+    <!--
+        设备与资产页（LF-004，UI 规范 4.2 / 4.6 / 5.6 / 9）。
+
+        三栏：项目与环境 | 资产列表 | 资产表单。
+        页面上的每一条信息都来自本地数据库的真实记录：
+        没有示例项目、没有预置的假设备、没有占位数据。
+    -->
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="LfBoolToVisibility" />
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- ===== 顶部：工具条 ===== -->
+        <Border Grid.Row="0"
+                Background="{DynamicResource LfBrushSurface}"
+                BorderBrush="{DynamicResource LfBrushBorder}"
+                BorderThickness="{DynamicResource LfBorderThickness}"
+                CornerRadius="{DynamicResource LfRadiusPanel}"
+                Padding="{DynamicResource LfCardPadding}"
+                Margin="{DynamicResource LfContentPadding}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" Orientation="Horizontal">
+                    <Button Content="导入 CSV"
+                            Command="{Binding ImportCsvCommand}"
+                            MinWidth="{DynamicResource LfActionButtonMinWidth}"
+                            Height="{DynamicResource LfControlHeight}"
+                            ToolTip="从 CSV 文件批量导入资产；无效行会逐行给出原因"
+                            AutomationProperties.Name="导入 CSV" />
+
+                    <Button Content="导出 CSV"
+                            Command="{Binding ExportCsvCommand}"
+                            MinWidth="{DynamicResource LfButtonMinWidth}"
+                            Height="{DynamicResource LfControlHeight}"
+                            Margin="{DynamicResource LfInlineSpacingLeading}"
+                            ToolTip="把当前筛选后可见的资产导出为 CSV；只含凭据引用键"
+                            AutomationProperties.Name="导出 CSV" />
+
+                    <Button Content="刷新"
+                            Command="{Binding RefreshCommand}"
+                            MinWidth="{DynamicResource LfButtonMinWidth}"
+                            Height="{DynamicResource LfControlHeight}"
+                            Margin="{DynamicResource LfInlineSpacingLeading}"
+                            ToolTip="重新读取数据库"
+                            AutomationProperties.Name="刷新资产" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="1"
+                            Orientation="Horizontal"
+                            VerticalAlignment="Center"
+                            Margin="{DynamicResource LfInlineSpacingLeading}">
+                    <TextBlock Text="存储位置"
+                               VerticalAlignment="Center"
+                               FontSize="{DynamicResource LfFontSizeCaption}"
+                               Foreground="{DynamicResource LfBrushTextMuted}" />
+
+                    <TextBlock Text="{Binding StorageLocation}"
+                               VerticalAlignment="Center"
+                               Margin="{DynamicResource LfLabelSpacing}"
+                               FontFamily="{DynamicResource LfFontFamilyMono}"
+                               FontSize="{DynamicResource LfFontSizeCaption}"
+                               Foreground="{DynamicResource LfBrushTextSecondary}"
+                               TextTrimming="CharacterEllipsis"
+                               ToolTip="{Binding StorageLocation}" />
+                </StackPanel>
+
+                <TextBlock Grid.Column="2"
+                           Text="{Binding ActionFeedback}"
+                           VerticalAlignment="Center"
+                           Margin="{DynamicResource LfInlineSpacingLeading}"
+                           FontSize="{DynamicResource LfFontSizeCaption}"
+                           Foreground="{DynamicResource LfBrushTextSecondary}"
+                           TextWrapping="Wrap"
+                           MaxWidth="{DynamicResource LfAssetFeedbackMaxWidth}" />
+            </Grid>
+        </Border>
+
+        <!-- ===== 加载 / 失败（覆盖整页） ===== -->
+        <controls:LoadingState Grid.Row="1"
+                               Margin="{DynamicResource LfContentPadding}"
+                               Message="正在读取本地数据库…"
+                               Detail="读取项目、环境与资产记录；数据库不存在时会先创建。"
+                               Visibility="{Binding IsLoading,
+                                                    Converter={StaticResource LfBoolToVisibility}}" />
+
+        <controls:ErrorPanel Grid.Row="1"
+                             Margin="{DynamicResource LfContentPadding}"
+                             Message="无法读取本地数据库"
+                             Detail="{Binding LoadErrorMessage}"
+                             IsRecoverable="True"
+                             RetryCommand="{Binding RefreshCommand}"
+                             Visibility="{Binding HasLoadFailure,
+                                                  Converter={StaticResource LfBoolToVisibility}}" />
+
+        <!--
+            ===== 主工作区 =====
+
+            三栏内容在 1366×768 下比一屏高（左栏的"环境"卡片最容易被裁掉）。
+            因此这里用页面级 ScrollViewer 承载，与其它业务页保持一致：
+            高度不足时滚动，而不是把"创建环境"按钮截断到看不见。
+            加载态与失败态仍覆盖在 Row=1 上，不参与滚动。
+        -->
+        <ScrollViewer x:Name="WorkspaceScroll"
+                      Grid.Row="1"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled"
+                      Padding="{DynamicResource LfContentPadding}">
+        <Grid VerticalAlignment="Top">
+            <Grid.RowDefinitions>
+                <!--
+                    必须显式声明 Auto 行：没有 RowDefinitions 时 Grid 会创建一个默认的 * 行，
+                    而在 ScrollViewer 里 * 行会被解析成"视口高度"，
+                    于是内容被压到一屏高、底部直接裁掉，滚动条也永远不出现。
+
+                    行的 Auto 高度取所有列里最高的一列：
+                    左栏（固定 280px）内容最多，右栏与中栏是 * 宽度、内容更矮，
+                    因此左栏决定了整行高度，不会被中栏压扁。
+                -->
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="{DynamicResource LfAssetSideColumnWidth}" />
+                <ColumnDefinition Width="{DynamicResource LfGridGapLength}" />
+                <ColumnDefinition Width="{DynamicResource LfAssetListColumnWidth}" />
+                <ColumnDefinition Width="{DynamicResource LfGridGapLength}" />
+                <ColumnDefinition Width="{DynamicResource LfAssetFormColumnWidth}" />
+            </Grid.ColumnDefinitions>
+
+            <!-- ===== 左：项目与环境 ===== -->
+            <StackPanel Grid.Column="0">
+                <Border Background="{DynamicResource LfBrushSurface}"
+                        BorderBrush="{DynamicResource LfBrushBorder}"
+                        BorderThickness="{DynamicResource LfBorderThickness}"
+                        CornerRadius="{DynamicResource LfRadiusPanel}"
+                        Padding="{DynamicResource LfCardPadding}">
+                    <StackPanel>
+                        <TextBlock Text="项目"
+                                   FontSize="{DynamicResource LfFontSizeSectionTitle}"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource LfBrushTextPrimary}" />
+
+                        <ComboBox Margin="{DynamicResource LfInlineSpacing}"
+                                  ItemsSource="{Binding Projects}"
+                                  SelectedItem="{Binding SelectedProject}"
+                                  DisplayMemberPath="Name"
+                                  MinHeight="{DynamicResource LfControlHeight}"
+                                  ToolTip="切换项目；资产与环境都按项目隔离"
+                                  AutomationProperties.Name="当前项目" />
+
+                        <controls:LabeledTextBox Label="新建项目名称"
+                                                 Text="{Binding NewProjectName}"
+                                                 Placeholder="例如 东门视频项目"
+                                                 Margin="{DynamicResource LfInlineSpacing}"
+                                                 AutomationProperties.Name="新建项目名称" />
+
+                        <controls:LabeledTextBox Label="项目描述（可选）"
+                                                 Text="{Binding NewProjectDescription}"
+                                                 Placeholder="现场位置、负责人等"
+                                                 Margin="{DynamicResource LfInlineSpacing}"
+                                                 AutomationProperties.Name="项目描述" />
+
+                        <WrapPanel Margin="{DynamicResource LfInlineSpacing}">
+                            <Button Content="创建项目"
+                                    Command="{Binding CreateProjectCommand}"
+                                    MinWidth="{DynamicResource LfActionButtonMinWidth}"
+                                    Height="{DynamicResource LfControlHeight}"
+                                    AutomationProperties.Name="创建项目" />
+
+                            <Button Content="删除项目"
+                                    Command="{Binding DeleteProjectCommand}"
+                                    MinWidth="{DynamicResource LfActionButtonMinWidth}"
+                                    Height="{DynamicResource LfControlHeight}"
+                                    Margin="{DynamicResource LfInlineSpacingLeading}"
+                                    ToolTip="删除项目会一并删除其环境与资产"
+                                    AutomationProperties.Name="删除项目" />
+                        </WrapPanel>
+                    </StackPanel>
+                </Border>
+
+                <Border Margin="{DynamicResource LfBlockSpacing}"
+                        Background="{DynamicResource LfBrushSurface}"
+                        BorderBrush="{DynamicResource LfBrushBorder}"
+                        BorderThickness="{DynamicResource LfBorderThickness}"
+                        CornerRadius="{DynamicResource LfRadiusPanel}"
+                        Padding="{DynamicResource LfCardPadding}"
+                        Visibility="{Binding HasCurrentProject,
+                                             Converter={StaticResource LfBoolToVisibility}}">
+                    <StackPanel>
+                        <TextBlock Text="环境"
+                                   FontSize="{DynamicResource LfFontSizeSectionTitle}"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource LfBrushTextPrimary}" />
+
+                        <ComboBox Margin="{DynamicResource LfInlineSpacing}"
+                                  ItemsSource="{Binding Environments}"
+                                  SelectedItem="{Binding SelectedEnvironment}"
+                                  DisplayMemberPath="Name"
+                                  MinHeight="{DynamicResource LfControlHeight}"
+                                  ToolTip="环境只保存非秘密配置（变量、代理、超时）"
+                                  AutomationProperties.Name="当前环境" />
+
+                        <controls:LabeledTextBox Label="新建环境名称"
+                                                 Text="{Binding NewEnvironmentName}"
+                                                 Placeholder="例如 测试环境"
+                                                 Margin="{DynamicResource LfInlineSpacing}"
+                                                 AutomationProperties.Name="新建环境名称" />
+
+                        <controls:LabeledTextBox Label="代理地址（可选）"
+                                                 Text="{Binding NewEnvironmentProxyUrl}"
+                                                 Placeholder="http://proxy:8080"
+                                                 Margin="{DynamicResource LfInlineSpacing}"
+                                                 AutomationProperties.Name="环境代理地址" />
+
+                        <controls:LabeledTextBox Label="环境变量（每行 KEY=VALUE）"
+                                                 Text="{Binding NewEnvironmentVariables}"
+                                                 Placeholder="DEVICE_PORT=554"
+                                                 Hint="仅非秘密配置；变量名含 password/token 会被拒绝"
+                                                 Margin="{DynamicResource LfInlineSpacing}"
+                                                 AutomationProperties.Name="环境变量" />
+
+                        <WrapPanel Margin="{DynamicResource LfInlineSpacing}">
+                            <Button Content="创建环境"
+                                    Command="{Binding CreateEnvironmentCommand}"
+                                    MinWidth="{DynamicResource LfActionButtonMinWidth}"
+                                    Height="{DynamicResource LfControlHeight}"
+                                    AutomationProperties.Name="创建环境" />
+
+                            <Button Content="设为当前"
+                                    Command="{Binding ActivateEnvironmentCommand}"
+                                    MinWidth="{DynamicResource LfActionButtonMinWidth}"
+                                    Height="{DynamicResource LfControlHeight}"
+                                    Margin="{DynamicResource LfInlineSpacingLeading}"
+                                    ToolTip="同一项目下只有一个当前环境"
+                                    AutomationProperties.Name="设为当前环境" />
+                        </WrapPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- 没有项目时提示：环境与资产都依附于项目。 -->
+                <controls:EmptyState Margin="{DynamicResource LfBlockSpacing}"
+                                     Title="尚未选择项目"
+                                     Description="环境与资产都归属到项目。请先在上方创建或选择一个项目。"
+                                     Visibility="{Binding HasCurrentProject,
+                                                          Converter={StaticResource LfInverseBoolToVisibility}}" />
+            </StackPanel>
+
+            <!-- ===== 中：资产列表 ===== -->
+            <StackPanel Grid.Column="2">
+                <Border Background="{DynamicResource LfBrushSurface}"
+                        BorderBrush="{DynamicResource LfBrushBorder}"
+                        BorderThickness="{DynamicResource LfBorderThickness}"
+                        CornerRadius="{DynamicResource LfRadiusPanel}"
+                        Padding="{DynamicResource LfCardPadding}">
+                    <StackPanel>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Column="0"
+                                       Text="资产"
+                                       FontSize="{DynamicResource LfFontSizeSectionTitle}"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource LfBrushTextPrimary}" />
+
+                            <TextBlock Grid.Column="1"
+                                       VerticalAlignment="Center"
+                                       FontSize="{DynamicResource LfFontSizeCaption}"
+                                       Foreground="{DynamicResource LfBrushTextSecondary}">
+                                <Run Text="显示" />
+                                <Run Text="{Binding VisibleAssetCount, Mode=OneWay}" />
+                                <Run Text=" / 共" />
+                                <Run Text="{Binding Assets.Count, Mode=OneWay}" />
+                                <Run Text=" 条" />
+                            </TextBlock>
+                        </Grid>
+
+                        <Grid Margin="{DynamicResource LfInlineSpacing}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBox Grid.Column="0"
+                                     Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                                     MinHeight="{DynamicResource LfControlHeight}"
+                                     ToolTip="按名称、主机、厂商或标签搜索"
+                                     AutomationProperties.Name="搜索资产" />
+
+                            <ComboBox Grid.Column="1"
+                                      Margin="{DynamicResource LfInlineSpacingLeading}"
+                                      Width="{DynamicResource LfAssetKindFilterWidth}"
+                                      ItemsSource="{Binding KindOptions}"
+                                      SelectedItem="{Binding SelectedKindOption}"
+                                      DisplayMemberPath="Title"
+                                      MinHeight="{DynamicResource LfControlHeight}"
+                                      AutomationProperties.Name="按类型筛选" />
+
+                            <CheckBox Grid.Column="2"
+                                      Margin="{DynamicResource LfInlineSpacingLeading}"
+                                      VerticalAlignment="Center"
+                                      Content="按标签分组"
+                                      IsChecked="{Binding IsGroupByTag}"
+                                      AutomationProperties.Name="按标签分组" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- 尚未加载：如实说明，而不是显示一个空列表。 -->
+                <controls:EmptyState Margin="{DynamicResource LfBlockSpacing}"
+                                     Title="正在准备资产列表"
+                                     Description="读取本地数据库后这里会显示当前项目的资产。"
+                                     Visibility="{Binding IsInitialEmpty,
+                                                          Converter={StaticResource LfBoolToVisibility}}" />
+
+                <!-- 已加载但没有资产：与"还没加载"是两种状态。 -->
+                <controls:EmptyState Margin="{DynamicResource LfBlockSpacing}"
+                                     Title="当前项目还没有资产"
+                                     Description="清空下方表单后填写名称与主机即可新建，或用“导入 CSV”批量导入。资产只会保存在本地数据库里。"
+                                     ActionText="清空表单"
+                                     ActionCommand="{Binding ResetAssetFormCommand}"
+                                     Visibility="{Binding IsEmptyAfterLoad,
+                                                          Converter={StaticResource LfBoolToVisibility}}" />
+
+                <ListBox x:Name="AssetList"
+                         Margin="{DynamicResource LfBlockSpacing}"
+                         ItemsSource="{Binding AssetRows}"
+                         MaxHeight="{DynamicResource LfAssetListMaxHeight}"
+                         ItemContainerStyle="{StaticResource LfAssetListBoxItemStyle}"
+                         HorizontalContentAlignment="Stretch"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         Background="Transparent"
+                         BorderThickness="{DynamicResource LfBorderThicknessNone}"
+                         Visibility="{Binding HasVisibleAssets,
+                                              Converter={StaticResource LfBoolToVisibility}}"
+                         AutomationProperties.Name="资产列表">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate DataType="{x:Type presentation:AssetListItem}">
+                            <Grid>
+                                <!--
+                                    分组头行：与资产行同一列表，但不可选中。
+                                    高度更矮、前景更弱，避免用户误以为它是一台设备。
+                                -->
+                                <Grid Visibility="{Binding IsGroupHeader,
+                                                   Converter={StaticResource LfBoolToVisibility}}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <TextBlock Grid.Column="0"
+                                               Text="{Binding GroupTitle}"
+                                               Height="{DynamicResource LfAssetGroupHeaderHeight}"
+                                               VerticalAlignment="Center"
+                                               FontSize="{DynamicResource LfFontSizeCaption}"
+                                               FontWeight="SemiBold"
+                                               Foreground="{DynamicResource LfBrushTextMuted}" />
+
+                                    <Separator Grid.Column="1"
+                                               Margin="{DynamicResource LfLabelSpacing}"
+                                               VerticalAlignment="Center"
+                                               Background="{DynamicResource LfBrushDivider}" />
+                                </Grid>
+
+                                <!-- 资产行：名称、目标、类型、凭据状态。 -->
+                                <Grid MinHeight="{DynamicResource LfAssetRowMinHeight}"
+                                      Visibility="{Binding IsAssetRow,
+                                                   Converter={StaticResource LfBoolToVisibility}}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Asset.Name}"
+                                                   FontWeight="SemiBold"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   Foreground="{DynamicResource LfBrushTextPrimary}" />
+
+                                        <TextBlock Margin="{DynamicResource LfInlineSpacingXxs}"
+                                                   FontFamily="{DynamicResource LfFontFamilyMono}"
+                                                   FontSize="{DynamicResource LfFontSizeCaption}"
+                                                   Foreground="{DynamicResource LfBrushTextSecondary}"
+                                                   TextTrimming="CharacterEllipsis">
+                                            <Run Text="{Binding Asset.TargetText, Mode=OneWay}" />
+                                            <Run Text=" · " />
+                                            <Run Text="{Binding Asset.KindText, Mode=OneWay}" />
+                                            <Run Text=" · " />
+                                            <Run Text="{Binding Asset.CredentialText, Mode=OneWay}" />
+                                        </TextBlock>
+                                    </StackPanel>
+
+                                    <TextBlock Grid.Column="1"
+                                               VerticalAlignment="Center"
+                                               Margin="{DynamicResource LfLabelSpacing}"
+                                               FontSize="{DynamicResource LfFontSizeCaption}"
+                                               Foreground="{DynamicResource LfBrushTextMuted}"
+                                               Text="{Binding Asset.TagsText}" />
+                                </Grid>
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </StackPanel>
+
+            <!-- ===== 右：资产表单与导入结论 ===== -->
+            <StackPanel Grid.Column="4">
+                <Border Background="{DynamicResource LfBrushSurface}"
+                        BorderBrush="{DynamicResource LfBrushBorder}"
+                        BorderThickness="{DynamicResource LfBorderThickness}"
+                        CornerRadius="{DynamicResource LfRadiusPanel}"
+                        Padding="{DynamicResource LfCardPadding}">
+                    <StackPanel>
+                        <TextBlock Text="资产信息"
+                                   FontSize="{DynamicResource LfFontSizeSectionTitle}"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource LfBrushTextPrimary}" />
+
+                        <TextBlock Margin="{DynamicResource LfInlineSpacing}"
+                                   FontSize="{DynamicResource LfFontSizeCaption}"
+                                   Foreground="{DynamicResource LfBrushTextSecondary}"
+                                   TextWrapping="Wrap">
+                            <Run Text="凭据只填" />
+                            <Run Text="引用键" />
+                            <Run Text="（如 asset.cam-01.password），不填密码本身。" />
+                        </TextBlock>
+
+                        <controls:LabeledTextBox Label="名称"
+                                                 Text="{Binding AssetName}"
+                                                 Placeholder="例如 东门摄像机 A"
+                                                 IsRequired="True"
+                                                 Margin="{DynamicResource LfInlineSpacing}"
+                                                 AutomationProperties.Name="资产名称" />
+
+                        <controls:LabeledTextBox Label="主机"
+                                                 Text="{Binding AssetHost}"
+                                                 Placeholder="10.0.0.8 或 cam.example.com"
+                                                 IsRequired="True"
+                                                 Margin="{DynamicResource LfInlineSpacing}"
+                                                 AutomationProperties.Name="资产主机" />
+
+                        <Grid Margin="{DynamicResource LfInlineSpacing}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="{DynamicResource LfGridGapLengthCompact}" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <controls:LabeledTextBox Grid.Column="0"
+                                                     Label="端口（可选）"
+                                                     Text="{Binding AssetPort}"
+                                                     Placeholder="554"
+                                                     AutomationProperties.Name="资产端口" />
+
+                            <ComboBox Grid.Column="2"
+                                      VerticalAlignment="Bottom"
+                                      ItemsSource="{Binding KindOptions}"
+                                      SelectedItem="{Binding AssetKind}"
+                                      DisplayMemberPath="Title"
+                                      MinHeight="{DynamicResource LfControlHeight}"
+                                      AutomationProperties.Name="资产类型" />
+                        </Grid>
+
+                        <controls:LabeledTextBox Label="厂商（可选）"
+                                                 Text="{Binding AssetVendor}"
+                                                 Placeholder="海康 / 大华"
+                                                 Margin="{DynamicResource LfInlineSpacing}"
+                                                 AutomationProperties.Name="资产厂商" />
+
+                        <controls:LabeledTextBox Label="标签（用分号分隔）"
+                                                 Text="{Binding AssetTags}"
+                                                 Placeholder="园区; 一号楼"
+                                                 Margin="{DynamicResource LfInlineSpacing}"
+                                                 AutomationProperties.Name="资产标签" />
+
+                        <controls:LabeledTextBox Label="凭据引用键（可选）"
+                                                 Text="{Binding AssetCredentialReference}"
+                                                 Placeholder="asset.cam-01.password"
+                                                 Hint="仅引用键，不是密码"
+                                                 ErrorText="{Binding AssetFormError}"
+                                                 Margin="{DynamicResource LfInlineSpacing}"
+                                                 AutomationProperties.Name="资产凭据引用键" />
+
+                        <controls:LabeledTextBox Label="备注（可选）"
+                                                 Text="{Binding AssetNote}"
+                                                 Placeholder="安装位置、责任人等"
+                                                 Margin="{DynamicResource LfInlineSpacing}"
+                                                 AutomationProperties.Name="资产备注" />
+
+                        <WrapPanel Margin="{DynamicResource LfInlineSpacing}">
+                            <Button Content="保存资产"
+                                    Command="{Binding SaveAssetCommand}"
+                                    MinWidth="{DynamicResource LfActionButtonMinWidth}"
+                                    Height="{DynamicResource LfControlHeight}"
+                                    AutomationProperties.Name="保存资产" />
+
+                            <Button Content="清空表单"
+                                    Command="{Binding ResetAssetFormCommand}"
+                                    MinWidth="{DynamicResource LfActionButtonMinWidth}"
+                                    Height="{DynamicResource LfControlHeight}"
+                                    Margin="{DynamicResource LfInlineSpacingLeading}"
+                                    AutomationProperties.Name="清空资产表单" />
+
+                            <Button Content="删除资产"
+                                    Command="{Binding DeleteAssetCommand}"
+                                    MinWidth="{DynamicResource LfActionButtonMinWidth}"
+                                    Height="{DynamicResource LfControlHeight}"
+                                    Margin="{DynamicResource LfInlineSpacingLeading}"
+                                    ToolTip="删除当前选中的资产"
+                                    AutomationProperties.Name="删除资产" />
+                        </WrapPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- 导入结论：成功 / 部分成功 / 失败是三种不同的真实状态。 -->
+                <Border Margin="{DynamicResource LfBlockSpacing}"
+                        Background="{DynamicResource LfBrushSurface}"
+                        BorderBrush="{DynamicResource LfBrushBorder}"
+                        BorderThickness="{DynamicResource LfBorderThickness}"
+                        CornerRadius="{DynamicResource LfRadiusPanel}"
+                        Padding="{DynamicResource LfCardPadding}"
+                        Visibility="{Binding HasImportResult,
+                                             Converter={StaticResource LfBoolToVisibility}}">
+                    <StackPanel>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <controls:StatusBadge Grid.Column="0"
+                                                  TextOverride="{Binding ImportStatusText}"
+                                                  VerticalAlignment="Center"
+                                                  Margin="{DynamicResource LfLabelSpacing}" />
+
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding ImportSummary}"
+                                       VerticalAlignment="Center"
+                                       TextWrapping="Wrap"
+                                       Foreground="{DynamicResource LfBrushTextPrimary}" />
+                        </Grid>
+
+                        <ItemsControl ItemsSource="{Binding ImportIssues}"
+                                      Margin="{DynamicResource LfInlineSpacing}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}"
+                                               Margin="{DynamicResource LfRowSpacing}"
+                                               FontSize="{DynamicResource LfFontSizeCaption}"
+                                               Foreground="{DynamicResource LfBrushTextSecondary}"
+                                               TextWrapping="Wrap" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <!-- 导入进行中：给出可取消入口。 -->
+                <controls:LoadingState Margin="{DynamicResource LfBlockSpacing}"
+                                       Message="正在导入资产…"
+                                       Detail="解析 CSV 并写入本地数据库。"
+                                       Visibility="{Binding IsImporting,
+                                                            Converter={StaticResource LfBoolToVisibility}}" />
+
+                <Button Content="取消导入"
+                        Command="{Binding CancelImportCommand}"
+                        MinWidth="{DynamicResource LfActionButtonMinWidth}"
+                        Height="{DynamicResource LfControlHeight}"
+                        Margin="{DynamicResource LfBlockSpacing}"
+                        HorizontalAlignment="Left"
+                        ToolTip="取消正在进行的 CSV 导入"
+                        AutomationProperties.Name="取消导入"
+                        Visibility="{Binding IsImporting,
+                                             Converter={StaticResource LfBoolToVisibility}}" />
+            </StackPanel>
+        </Grid>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

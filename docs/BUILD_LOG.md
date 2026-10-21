@@ -775,3 +775,79 @@ pwsh -File scripts/run.ps1
 - 未验证：Windows 10 真机、125% / 150% / 200% 高 DPI、键盘 Tab 顺序与焦点环（阶段 06）。
 - x86 运行仍受 D-08 缺少 x86 .NET 10 运行时约束；本阶段仅验证 x64。
 - 抓包与安全扫描 / 渗透攻防（D-10）仍未接入。
+
+## 阶段 05 · 项目持久化与资产管理（LF-004，2026-10-22）
+
+### 1. 交付物
+
+- `src/LinkForge.Persistence/`（`net10.0`，零 WPF 依赖）
+  - `LinkForgeDbContext` / `LinkForgeDatabase` / `SqliteContextFactory`
+  - `SqliteProjectStore` / `SqliteAssetStore` / `SqliteEnvironmentStore`
+  - EF Core 迁移 `20261021193558_InitialCreate`（结构升级走迁移，不手工改表）
+  - 数据库默认路径 `%LOCALAPPDATA%\LinkForge\linkforge.db`
+- `src/LinkForge.Application/` 存储契约与纯逻辑
+  - `Projects/IProjectStore` / `IEnvironmentStore`、`Assets/IAssetStore`（全异步 + 取消令牌）
+  - `Storage/StorageException` / `IStorageInitializer` / `DatabaseInitializationResult`
+  - `Assets/AssetCsvCodec`（RFC 4180 手写实现、UTF-8 BOM + CRLF）
+  - `Assets/AssetCredentialReference`（引用键白名单）、`Assets/AssetTagText`
+  - `Projects/EnvironmentVariableText`（`KEY=VALUE` 解析 + 秘密语义拒绝）
+- `src/LinkForge.App/`
+  - `Services/AssetCsvImportService` / `AssetCsvExportService` / `AssetCsvFileService`
+  - `ViewModels/AssetCatalogViewModel`（项目/环境/资产 CRUD、筛选、分组、导入导出）
+  - `Views/Pages/AssetCatalogPage.xaml`（三栏：项目与环境 | 资产列表 | 资产表单）
+  - 导航 `assets` 由 `NotImplemented` 改为 `Available`
+
+### 2. 本阶段发现并修复的真实缺陷
+
+| # | 现象 | 根因 | 处理 |
+| --- | --- | --- | --- |
+| 1 | **筛选下拉框显示为空白** | `SelectedKindOption`（筛选）从未初始化，而 `SelectedItem` 为 null 的 ComboBox 只渲染空框 | 构造函数显式选中"全部类型"，并加回归测试 |
+| 2 | **左栏"创建环境"按钮被裁到视口外** | 页面是三栏里唯一没有页面级 `ScrollViewer` 的业务页，内容超出后直接裁掉 | 加页面级 `ScrollViewer` + 显式 `Auto` 行 + `VerticalAlignment="Top"` |
+| 3 | ScrollViewer 加了仍不滚动 | 内层 Grid 只有 `ColumnDefinitions`，隐式行是 `*`，在 ScrollViewer 里被解析成视口高度 | 显式声明 `<RowDefinition Height="Auto" />` |
+| 4 | **"读不到数据库"被显示成"当前项目还没有资产"** | `IsEmptyAfterLoad` 未排除加载失败 | 空状态排除 `HasLoadFailure`，错误改由 `ErrorPanel` 呈现 |
+| 5 | **环境变量 `TOKENIZER` / `COOKIEJAR` 被误判为凭据** | 秘密检测用整串子串匹配 | 改为按分隔符与驼峰切词段后逐段比对，并补"相邻段拼接"检查 |
+| 6 | **环境变量行号整体错位、往返不稳定** | `Parse` 把 `\r` 与 `\n` 当两个独立分隔符切，CRLF 会多切出空行 | 改为按 `\r\n` / `\r` / `\n` 整体切 |
+| 7 | `Environment.NewLine` 编译不过 | `LinkForge.Application.Environment` 命名空间遮蔽了 `Environment` 类型 | 全限定为 `System.Environment.NewLine` |
+| 8 | `AssetCsvCodec` 里的标识符校验被误删 | 拆分 `IsValidIdentifier` 时连带删掉了资产 id 校验 | 拆成 `IsValidAssetId`（白名单 `.` `_` `-`，≤64，不含 `:`）+ 复用 `AssetCredentialReference.IsValidKey` |
+| 9 | 页面按钮可访问性断言误报 | `EmptyState` 无主操作时按钮是 `Collapsed`，折叠按钮不在无障碍树里 | 断言跳过非 `Visible` 按钮 |
+| 10 | 首轮全量构建报 `Plugin.Hosting.Tests` 编译错误 | 新增 `ProjectReference` 后 `--no-restore` 用了过期还原产物 | 先跑还原再构建；改动 `csproj` 后必须还原 |
+| 11 | **工作台谎称"项目管理功能将在后续阶段交付"** | `HasProjects` 在阶段 04 被硬编码为 `false`，文案写死"后续阶段交付" | 改为读取真实项目数量，文案改为引导到"设备与资产"页；读不到时写错误面板而非显示"没有项目" |
+| 12 | **工作台谎称"视频接入 / IoT / 网络 / API 将在后续阶段交付"** | 快捷动作区的说明文字写于阶段 04，一直没随交付更新 | 改为列出已交付模块并指向左侧导航 |
+
+### 3. 验证记录
+
+| 验证项 | 结果 |
+| --- | --- |
+| `pwsh -NoProfile -File scripts/build.ps1` | 通过，0 警告 0 错误 |
+| Domain 测试 | 54 / 54 |
+| Application 测试（含 Persistence 架构守卫） | 133 / 133 |
+| **Persistence 测试（真实 SQLite 文件）** | **41 / 41** |
+| Network / HTTP / MQTT / Video Adapter 测试 | 10 / 15 / 8 / 17 |
+| DeveloperTools 测试 | 41 / 41 |
+| Reporting 测试 | 42 / 42 |
+| Plugin.Hosting 测试 | 30 / 30 |
+| App 测试 | 519 / 519 |
+| 全解决方案测试 | **910 / 910 通过** |
+| 真实启动 + 关闭 | 成功；退出码 **0** |
+| 依赖注入装配 | 30 个已注册服务逐一强制解析，全部成功 |
+| 浅色截图 | `screenshots/stage05-assets-light.png` |
+| 深色截图 | `screenshots/stage05-assets-dark.png` |
+| 页面布局 | 1366×768 渲染通过；三栏可达，超高内容可滚动而非裁切 |
+| 主题差异 | 浅色与深色截图差异 > 5% |
+| 状态语义 | 未加载 / 加载中 / 读取失败 / 空库 / 有资产 / 导入部分成功 / 导入失败 / 导出失败 / 取消 分别表达 |
+| 存储语义 | 唯一冲突映射为可读 `StorageException`；删除项目级联清除资产；批量写入事务化 |
+| 凭据边界 | 资产只存引用键；环境变量名含密码/令牌语义时拒绝该行；明文不进入模型、数据库、CSV、日志 |
+| 架构守卫 | `Persistence` 不引用 App / WPF / 任何适配器；`App` 必须引用 `Persistence` |
+
+### 4. 尚未验证（如实声明）
+
+- 已实现：SQLite + EF Core 迁移、数据库损坏隔离（改名保留并重建）、项目/环境/资产 CRUD、
+  资产目录页、CSV 导入导出（部分成功逐行报告）、凭据引用键校验、环境变量秘密语义拒绝。
+- **未实现**：数据库加密（当前数据库文件本身不加密，只是不存明文凭据）；
+  项目导入导出（当前只有资产 CSV）；资产凭据存储本体（只有引用键，没有对应的凭据库）；
+  多用户 / 多机同步；数据库备份与恢复界面。
+- **凭据边界**：`CredentialReference` 只是一个指针，实际凭据库尚未实现 ——
+  填入引用键不会让应用自动取到密码，这是当前的设计事实，不得对外表述为"已接入凭据管理"。
+- 未验证：Windows 10 真机、125% / 150% / 200% 高 DPI、键盘 Tab 顺序与焦点环（阶段 06）。
+- x86 运行仍受 D-08 缺少 x86 .NET 10 运行时约束；本阶段仅验证 x64。
+- 海康 / 大华开放平台 SDK（D-09）、抓包与安全扫描 / 渗透攻防（D-10）仍未接入。

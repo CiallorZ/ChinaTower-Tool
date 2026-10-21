@@ -1,0 +1,272 @@
+using LinkForge.App.Services;
+using LinkForge.App.ViewModels;
+using LinkForge.Application.Assets;
+using LinkForge.Application.Projects;
+using LinkForge.Application.Storage;
+using LinkForge.Domain.Assets;
+using LinkForge.Domain.Projects;
+
+namespace LinkForge.App.Tests.ViewModels;
+
+/// <summary>
+/// 构造 <see cref="AssetCatalogViewModel"/> 的测试夹具（LF-004）。
+/// </summary>
+/// <remarks>
+/// 替换的只有“文件对话框”与“存储实现”两个边界：
+/// 视图模型、CSV 编解码、标签/凭据/环境变量的校验规则仍是生产实现。
+/// 真实的 SQLite 落库由 <c>LinkForge.Persistence.Tests</c> 验证。
+/// </remarks>
+internal sealed class AssetCatalogHarness
+{
+    public AssetCatalogHarness()
+    {
+        Projects = new FakeProjectStore();
+        Assets = new FakeAssetStore();
+        Environments = new FakeEnvironmentStore();
+        Storage = new FakeStorageInitializer();
+        Files = new FakeAssetCsvFileService();
+
+        ViewModel = new AssetCatalogViewModel(
+            Projects,
+            Assets,
+            Environments,
+            Storage,
+            Files,
+            new AssetCsvImportService(Assets),
+            new AssetCsvExportService());
+    }
+
+    public FakeProjectStore Projects { get; }
+
+    public FakeAssetStore Assets { get; }
+
+    public FakeEnvironmentStore Environments { get; }
+
+    public FakeStorageInitializer Storage { get; }
+
+    public FakeAssetCsvFileService Files { get; }
+
+    public AssetCatalogViewModel ViewModel { get; }
+}
+
+/// <summary>内存项目存储：行为可编排，不碰磁盘。</summary>
+internal sealed class FakeProjectStore : IProjectStore
+{
+    public List<Project> Items { get; } = [];
+
+    public Exception? ListFailure { get; set; }
+
+    public Exception? UpsertFailure { get; set; }
+
+    public Task<IReadOnlyList<Project>> ListAsync(CancellationToken cancellationToken = default)
+    {
+        if (ListFailure is not null)
+        {
+            return Task.FromException<IReadOnlyList<Project>>(ListFailure);
+        }
+
+        return Task.FromResult<IReadOnlyList<Project>>(Items.ToArray());
+    }
+
+    public Task<Project?> FindAsync(string projectId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Items.FirstOrDefault(p => p.Id == projectId));
+
+    public Task<Project> UpsertAsync(Project project, CancellationToken cancellationToken = default)
+    {
+        if (UpsertFailure is not null)
+        {
+            return Task.FromException<Project>(UpsertFailure);
+        }
+
+        var persisted = project with { UpdatedAt = DateTimeOffset.Now };
+        var index = Items.FindIndex(p => p.Id == persisted.Id);
+
+        if (index >= 0)
+        {
+            Items[index] = persisted;
+        }
+        else
+        {
+            Items.Add(persisted);
+        }
+
+        return Task.FromResult(persisted);
+    }
+
+    public Task<bool> DeleteAsync(string projectId, CancellationToken cancellationToken = default)
+    {
+        var removed = Items.RemoveAll(p => p.Id == projectId);
+        return Task.FromResult(removed > 0);
+    }
+}
+
+/// <summary>内存资产存储：行为可编排，不碰磁盘。</summary>
+internal sealed class FakeAssetStore : IAssetStore
+{
+    public List<Asset> Items { get; } = [];
+
+    public Exception? ListFailure { get; set; }
+
+    public int UpsertCallCount { get; private set; }
+
+    public Task<IReadOnlyList<Asset>> ListAsync(string projectId, CancellationToken cancellationToken = default)
+    {
+        if (ListFailure is not null)
+        {
+            return Task.FromException<IReadOnlyList<Asset>>(ListFailure);
+        }
+
+        return Task.FromResult<IReadOnlyList<Asset>>(
+            Items.Where(a => a.ProjectId == projectId).OrderBy(a => a.Name).ToArray());
+    }
+
+    public Task<Asset?> FindAsync(string assetId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Items.FirstOrDefault(a => a.Id == assetId));
+
+    public Task UpsertAsync(Asset asset, CancellationToken cancellationToken = default) =>
+        UpsertRangeAsync([asset], cancellationToken);
+
+    public Task<int> UpsertRangeAsync(IReadOnlyList<Asset> assets, CancellationToken cancellationToken = default)
+    {
+        UpsertCallCount++;
+
+        foreach (var asset in assets)
+        {
+            var persisted = asset with { UpdatedAt = DateTimeOffset.Now };
+            var index = Items.FindIndex(a => a.Id == persisted.Id);
+
+            if (index >= 0)
+            {
+                Items[index] = persisted;
+            }
+            else
+            {
+                Items.Add(persisted);
+            }
+        }
+
+        return Task.FromResult(assets.Count);
+    }
+
+    public Task<bool> DeleteAsync(string assetId, CancellationToken cancellationToken = default)
+    {
+        var removed = Items.RemoveAll(a => a.Id == assetId);
+        return Task.FromResult(removed > 0);
+    }
+}
+
+/// <summary>内存环境存储：行为可编排，不碰磁盘。</summary>
+internal sealed class FakeEnvironmentStore : IEnvironmentStore
+{
+    public List<EnvironmentProfile> Items { get; } = [];
+
+    public Task<IReadOnlyList<EnvironmentProfile>> ListAsync(
+        string projectId,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<EnvironmentProfile>>(
+            Items.Where(e => e.ProjectId == projectId).OrderBy(e => e.Name).ToArray());
+
+    public Task UpsertAsync(EnvironmentProfile profile, CancellationToken cancellationToken = default)
+    {
+        var index = Items.FindIndex(e => e.Id == profile.Id);
+
+        if (index >= 0)
+        {
+            Items[index] = profile;
+        }
+        else
+        {
+            Items.Add(profile);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public Task<bool> DeleteAsync(string environmentId, CancellationToken cancellationToken = default)
+    {
+        var removed = Items.RemoveAll(e => e.Id == environmentId);
+        return Task.FromResult(removed > 0);
+    }
+
+    public Task<bool> SetActiveAsync(
+        string projectId,
+        string environmentId,
+        CancellationToken cancellationToken = default)
+    {
+        var target = Items.FirstOrDefault(e => e.Id == environmentId && e.ProjectId == projectId);
+
+        if (target is null)
+        {
+            return Task.FromResult(false);
+        }
+
+        for (var index = 0; index < Items.Count; index++)
+        {
+            Items[index] = Items[index] with { IsActive = Items[index].Id == environmentId };
+        }
+
+        return Task.FromResult(true);
+    }
+}
+
+/// <summary>总是成功的存储初始化器。</summary>
+internal sealed class FakeStorageInitializer : IStorageInitializer
+{
+    public Exception? Failure { get; set; }
+
+    public DatabaseInitializationResult Result { get; set; } =
+        new(DatabaseInitializationOutcome.AlreadyCurrent, @"C:\fake\linkforge.db", null);
+
+    public int InitializeCallCount { get; private set; }
+
+    public string Location => Result.Location;
+
+    public Task<DatabaseInitializationResult> InitializeAsync(CancellationToken cancellationToken = default)
+    {
+        InitializeCallCount++;
+
+        return Failure is null
+            ? Task.FromResult(Result)
+            : Task.FromException<DatabaseInitializationResult>(Failure);
+    }
+}
+
+/// <summary>记录导入导出内容，不触碰剪贴板与真实文件对话框。</summary>
+internal sealed class FakeAssetCsvFileService : IAssetCsvFileService
+{
+    public byte[]? ImportContent { get; set; }
+
+    public string ImportFileName { get; set; } = "assets.csv";
+
+    public byte[]? WrittenContent { get; private set; }
+
+    public string? WrittenFileName { get; private set; }
+
+    public bool WriteResult { get; set; } = true;
+
+    public Exception? ImportFailure { get; set; }
+
+    public Task<AssetCsvImportFile?> PickAndReadAsync(CancellationToken cancellationToken = default)
+    {
+        if (ImportFailure is not null)
+        {
+            return Task.FromException<AssetCsvImportFile?>(ImportFailure);
+        }
+
+        return ImportContent is null
+            ? Task.FromResult<AssetCsvImportFile?>(null)
+            : Task.FromResult<AssetCsvImportFile?>(new AssetCsvImportFile(ImportFileName, ImportContent));
+    }
+
+    public Task<bool> PickAndWriteAsync(
+        string suggestedFileName,
+        byte[] content,
+        CancellationToken cancellationToken = default)
+    {
+        WrittenFileName = suggestedFileName;
+        WrittenContent = content;
+
+        return Task.FromResult(WriteResult);
+    }
+}
+

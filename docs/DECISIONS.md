@@ -897,3 +897,72 @@ LinkForge.Plugin.Hosting 不引用 App / Application / WPF，且零 NuGet 依赖
 - 厂商 SDK（D-09）、ONVIF、RTP 与媒体解码不得以占位或假结果冒充已实现。
 - 新增插件能力必须同时覆盖：清单非法、API 不兼容、哈希不符、入口越界、
   崩溃、静默超时、取消、未知状态与秘密回传九类路径。
+
+## ADR-032：项目持久化采用 SQLite + EF Core 迁移，凭据只存引用键（LF-004）
+
+**背景**
+
+阶段 04 落地了 `Project` / `EnvironmentProfile` / `Asset` 三个领域模型，
+但它们只是内存里的对象：应用一关，用户建的项目、配置的环境、登记的设备全部消失。
+本阶段要解决的是"数据能落下去、重启还在、坏了能救回来"。
+
+同时，工具箱类应用天然会接触到摄像头密码、Broker 口令这类东西，
+所以"存什么"和"怎么存"必须一起设计，不能等写完存储再补过滤。
+
+**决策**
+
+1. **存储用 SQLite + EF Core 10.0.13**，文件位于
+   `%LOCALAPPDATA%\LinkForge\linkforge.db`。
+   选 SQLite 而不是 JSON 文件：资产要支持查询、排序、级联删除与唯一约束，
+   这些在 JSON 上都得自己手写，且写一半崩溃就会损坏整个文件。
+2. **结构升级走 EF Core 迁移**（首个迁移 `20261021193558_InitialCreate`），
+   不手工改表。迁移使"旧版本数据库能被新版打开"成为可测事实。
+3. **每次操作新建 DbContext**。DbContext 不是线程安全的，
+   而诊断任务与界面会并发读写存储；共用长生命周期上下文会出现
+   "另一个线程正在使用此上下文"这类只在现场偶发的中断。
+   不用 `AddDbContext` / `IDbContextFactory`，是为了让生命周期语义留在本层，
+   而不是取决于容器注册方式。
+4. **契约在 Application，实现在 Persistence**。
+   视图模型依赖 `IProjectStore` / `IEnvironmentStore` / `IAssetStore` 三个契约；
+   换存储实现时不需要改任何调用方。
+5. **数据库损坏必须隔离而非静默重建**：损坏文件改名为
+   `linkforge.db.corrupt-<时间戳>` 保留现场，然后重建，并**如实告知用户**原数据已隔离。
+   但"磁盘满 / 无权限 / 文件被占用"**不**当作损坏处理 —— 把这些错误当成数据损坏去重建是破坏性行为。
+6. **凭据只存引用键**。领域模型与数据库表都不含任何秘密字段；
+   资产的 `credential` 列只接受白名单键（字母、数字与 `.` `_` `-` `:`，≤128），
+   真实密码几乎必然含白名单之外的字符，会在保存前被拦下。
+   因此"项目数据里没有明文密码"是结构保证，而不是靠导出代码记得过滤。
+7. **环境变量拒绝秘密语义**。变量名按分隔符与驼峰切成词段后比对，
+   命中 `password` / `token` / `secret` / `key` 等词段的整行被拒绝并说明原因；
+   命中判定是**按词段**而不是整串子串，否则 `TOKENIZER`、`COOKIEJAR` 会被误杀，
+   逼用户给变量改名 —— 那比漏拦更难排查。
+8. **CSV 手写 RFC 4180 编解码**，UTF-8 BOM + CRLF。
+   导入的 URL 与裸 `userinfo` 凭据被剥离并给出警告；
+   无效行给出行号与原因，成功行照常入库（部分成功是显式结论，不是异常路径）。
+9. **资产 id 用独立白名单**（`.` `_` `-`，≤64，**不含** `:`），
+   与凭据引用键分开校验：两者字符集不同，混用会导致其中一方被放宽。
+
+**依赖边**
+
+```text
+LinkForge.App ─→ LinkForge.Persistence ─→ { LinkForge.Application, LinkForge.Domain }
+LinkForge.Persistence 不引用 App / WPF / 任何适配器
+LinkForge.Application 与 LinkForge.Domain 都不依赖 EF Core
+```
+
+**剩余风险（明确接受）**
+
+- 数据库文件本身**不加密**。只是不存明文凭据，不等于文件被保护。
+- 损坏隔离靠"改名保留"，占用的是同一目录；磁盘满时隔离也会失败，此时直接抛可读错误。
+- `CredentialReference` 只是指针，本阶段**没有**凭据库本体，
+  填入引用键不会让应用自动取到密码。
+
+**约束**
+
+- 不得让界面直接 `new DbContext`；统一经由 `SqliteContextFactory`。
+- 不得在持久化层引入 WPF 或任何适配器依赖。
+- 不得把唯一约束冲突的原始 SQL 透给用户；必须映射为可读的 `StorageException`。
+- 不得为图方便把明文口令塞进 `Project` / `EnvironmentProfile` / `Asset` 的字段。
+- 不得把"磁盘满 / 无权限"当成"文件损坏"处理。
+- 改动 `*.csproj` 的 `ProjectReference` 后必须先还原再构建，
+  否则 `--no-restore` 会用过期产物报出与本次改动无关的编译错误。

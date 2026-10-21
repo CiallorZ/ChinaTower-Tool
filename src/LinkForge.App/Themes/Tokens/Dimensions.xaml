@@ -216,6 +216,29 @@
     <!-- 行的最小高度：低于此高度时插件名与状态标签会挤在一起；高于此高度时随内容增长。 -->
     <sys:Double x:Key="LfPluginRowMinHeight">58</sys:Double>
 
+    <!-- ===================== 设备与资产页（阶段 05 · LF-004） ===================== -->
+    <!--
+        三栏布局的列宽：项目与环境（窄） | 资产列表（中） | 资产表单（宽）。
+        用 GridLength 令牌而不是写死数值：调整密度时只改这一处。
+    -->
+    <GridLength x:Key="LfAssetSideColumnWidth">280</GridLength>
+    <GridLength x:Key="LfAssetListColumnWidth">2*</GridLength>
+    <GridLength x:Key="LfAssetFormColumnWidth">3*</GridLength>
+    <!-- 资产列表上限高度：条目多时内部滚动，不把表单挤出首屏。 -->
+    <sys:Double x:Key="LfAssetListMaxHeight">420</sys:Double>
+    <!-- 分组头行高度：与资产行明显不同，避免用户误以为它是一台设备。 -->
+    <sys:Double x:Key="LfAssetGroupHeaderHeight">26</sys:Double>
+    <!-- 资产行最小高度：名称、目标、类型与状态标签在同一行内不互相挤压。 -->
+    <sys:Double x:Key="LfAssetRowMinHeight">56</sys:Double>
+    <!-- 导入问题清单的最大高度：逐行问题很多时内部滚动。 -->
+    <sys:Double x:Key="LfAssetIssueListMaxHeight">200</sys:Double>
+    <!-- 环境变量编辑框高度：多行 KEY=VALUE 的输入区。 -->
+    <sys:Double x:Key="LfAssetVariableEditorHeight">120</sys:Double>
+    <!-- 类型筛选下拉宽度：中文名最长是“MQTT Broker”，留足宽度避免截断。 -->
+    <sys:Double x:Key="LfAssetKindFilterWidth">140</sys:Double>
+    <!-- 顶部反馈文案的最大宽度：太长会把工具条按钮挤出可视区。 -->
+    <sys:Double x:Key="LfAssetFeedbackMaxWidth">320</sys:Double>
+
     <!-- ===================== 描边 ===================== -->
     <Thickness x:Key="LfBorderThickness">1</Thickness>
     <!--

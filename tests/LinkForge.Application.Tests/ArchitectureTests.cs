@@ -26,6 +26,62 @@ public class ArchitectureTests
     ];
 
     [Fact]
+    public void Persistence_project_should_stay_below_the_ui_layer()
+    {
+        // LF-004：Persistence 只允许依赖 Domain / Application。
+        // 一旦它引用 App，数据库层就会开始触碰对话框与窗口状态，
+        // 之后任何单测都必须起一个 WPF 应用才能验证存储。
+        var references = ProjectFile.ReadProjectReferences(
+            "src/LinkForge.Persistence/LinkForge.Persistence.csproj");
+
+        references.ShouldNotContain("LinkForge.App");
+        references.ShouldContain("LinkForge.Application");
+
+        var persistence = typeof(LinkForge.Persistence.LinkForgeDatabase).Assembly;
+        var forbidden = persistence
+            .GetReferencedAssemblies()
+            .Select(a => a.Name ?? string.Empty)
+            .Where(name => ForbiddenAssemblyPrefixes.Any(
+                forbiddenPrefix => name.StartsWith(forbiddenPrefix, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+
+        forbidden.ShouldBeEmpty(
+            $"Persistence 不得引用 WPF 程序集，实际引用：{string.Join(", ", forbidden)}");
+    }
+
+    [Fact]
+    public void Persistence_must_not_reference_any_adapter()
+    {
+        // 适配器是诊断能力的实现，持久化是资产数据的存储。
+        // 两者耦合后，"读一个项目"就会拉进 RTSP/MQTT/HTTP 依赖，
+        // 打开资产管理页的启动成本会被协议库的无谓初始化吃掉。
+        var references = ProjectFile.ReadProjectReferences(
+            "src/LinkForge.Persistence/LinkForge.Persistence.csproj");
+
+        foreach (var adapter in new[]
+                 {
+                     "LinkForge.Adapters.Http",
+                     "LinkForge.Adapters.Mqtt",
+                     "LinkForge.Adapters.Network",
+                     "LinkForge.Adapters.Video"
+                 })
+        {
+            references.ShouldNotContain(adapter);
+        }
+    }
+
+    [Fact]
+    public void App_project_should_reference_persistence()
+    {
+        // 界面必须通过持久化项目拿数据，而不是自己 new 一个 DbContext：
+        // 后者会让连接与迁移策略散落在各个页面里。
+        var references = ProjectFile.ReadProjectReferences(
+            "src/LinkForge.App/LinkForge.App.csproj");
+
+        references.ShouldContain("LinkForge.Persistence");
+    }
+
+    [Fact]
     public void Application_assembly_should_not_reference_wpf_assemblies()
     {
         var application = Assembly.Load("LinkForge.Application");

@@ -477,6 +477,46 @@ public class ShellWindowTests
     }
 
     [Fact]
+    public void Selecting_asset_catalog_should_show_the_page_and_hide_other_pages()
+    {
+        // 资产目录挂在一级导航下：既要用真实 ViewModel 作为 DataContext，
+        // 也必须验证工作台被收起 —— 否则用户会同时看到两套互相矛盾的内容。
+        var harness = new AssetCatalogHarness();
+        var (assets, dashboard, placeholder, dataContext) = StaRunner.Run(() =>
+        {
+            ThemedHost.EnsureResources();
+
+            var viewModel = new ShellViewModel(
+                dashboard: new DashboardHarness().ViewModel,
+                assetCatalog: harness.ViewModel);
+            var window = new ShellWindow(viewModel);
+
+            window.Show();
+            PumpDispatcher();
+            Layout(window, ReferenceWidth, ReferenceHeight);
+
+            viewModel.NavigateTo(NavigationCatalog.Find("assets"));
+            PumpDispatcher();
+            window.UpdateLayout();
+
+            var result = (
+                ((FrameworkElement)window.FindName("AssetCatalogContent")!).Visibility,
+                ((FrameworkElement)window.FindName("DashboardContent")!).Visibility,
+                ((FrameworkElement)window.FindName("NotImplementedContent")!).Visibility,
+                ((FrameworkElement)window.FindName("AssetCatalogContent")!).DataContext);
+
+            window.Close();
+            PumpDispatcher();
+            return result;
+        });
+
+        assets.ShouldBe(Visibility.Visible);
+        dashboard.ShouldBe(Visibility.Collapsed);
+        placeholder.ShouldBe(Visibility.Collapsed);
+        dataContext.ShouldBeOfType<AssetCatalogViewModel>();
+    }
+
+    [Fact]
     public void Selecting_plugin_manager_should_show_the_page_and_hide_other_pages()
     {
         // 插件管理挂在"设置"分组下：必须验证二级项导航真的把页面切出来，

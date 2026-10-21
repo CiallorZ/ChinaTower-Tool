@@ -207,7 +207,7 @@ public sealed class NavigationCatalogTests
     [Fact]
     public void Implemented_modules_should_match_the_current_stage_delivery()
     {
-        // 阶段 05 已交付网络/API/MQTT/RTSP 诊断、报告页、开发者工具与插件管理。断言防止
+        // 阶段 05 已交付网络/API/MQTT/RTSP 诊断、报告页、开发者工具、插件管理与资产目录。断言防止
         // 有人为了好看把未实现模块标成 Available —— 那会让导航指向空白页，
         // 属于"用假状态伪装真实功能"。
         var available = NavigationCatalog.Enumerate()
@@ -218,6 +218,7 @@ public sealed class NavigationCatalogTests
         available.ShouldBe(
             [
                 "dashboard",
+                "assets",
                 "connect.video",
                 "connect.iot",
                 "connect.api",
@@ -260,6 +261,7 @@ public sealed class NavigationCatalogTests
             ["connect.api"] = ("ApiWorkbenchViewModel", "ApiWorkbenchContent"),
             ["connect.iot"] = ("MqttWorkbenchViewModel", "MqttWorkbenchContent"),
             ["connect.video"] = ("RtspDiagnosticsViewModel", "RtspDiagnosticsContent"),
+            ["assets"] = ("AssetCatalogViewModel", "AssetCatalogContent"),
             ["reports"] = ("ReportPageViewModel", "ReportContent"),
             ["developer"] = ("DeveloperToolsViewModel", "DeveloperToolsContent"),
             ["settings.plugins"] = ("PluginManagerViewModel", "PluginManagerContent")

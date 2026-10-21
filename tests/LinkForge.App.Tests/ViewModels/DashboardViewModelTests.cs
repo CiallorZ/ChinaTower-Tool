@@ -3,6 +3,7 @@ using LinkForge.App.Presentation;
 using LinkForge.App.Services;
 using LinkForge.App.ViewModels;
 using LinkForge.Domain.Diagnostics;
+using LinkForge.Domain.Projects;
 
 namespace LinkForge.App.Tests.ViewModels;
 
@@ -262,6 +263,31 @@ public class DashboardViewModelTests
     }
 
     [Fact]
+    public async Task Project_state_should_reflect_the_real_store_instead_of_a_hardcoded_false()
+    {
+        // 回归：LF-004 交付项目持久化之前，工作台的 HasProjects 恒为 false，
+        // 空状态文案还写着"项目管理功能将在后续阶段交付"——
+        // 功能交付后那句话就是假的，必须跟着真实数据走。
+        using var harness = new DashboardHarness();
+
+        harness.ViewModel.HasProjects.ShouldBeFalse("还没有项目时必须是空状态。");
+        harness.ViewModel.ProjectsEmptyDescription
+            .Contains("将在后续阶段交付", StringComparison.Ordinal)
+            .ShouldBeFalse("空状态文案不得再宣称项目管理未交付。");
+
+        harness.ProjectStore.Items.Add(new Project
+        {
+            Id = "prj-1",
+            Name = "东门视频项目",
+            CreatedAt = DateTimeOffset.Now
+        });
+
+        await harness.ViewModel.LoadAsync();
+
+        harness.ViewModel.HasProjects.ShouldBeTrue("库里已经有项目，工作台不应再说“没有项目”。");
+    }
+
+    [Fact]
     public async Task Load_failure_should_be_surfaced_not_swallowed()
     {
         using var harness = new DashboardHarness();
@@ -273,6 +299,7 @@ public class DashboardViewModelTests
             new AppEnvironment(harness.SettingsPath),
             new LinkForge.Application.Environment.DependencyCatalog(),
             new FailingRunHistoryStore(),
+            harness.ProjectStore,
             harness.Adapter,
             harness.Runner);
 

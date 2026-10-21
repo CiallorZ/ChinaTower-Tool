@@ -82,8 +82,8 @@ public static class NavigationCatalog
             "assets",
             "设备与资产",
             LfGlyph.Assets,
-            "管理视频设备、IoT 设备与网关资产。",
-            LfModuleAvailability.NotImplemented,
+            "管理项目、环境与视频、IoT 设备资产，支持 CSV 导入导出。",
+            LfModuleAvailability.Available,
             []),
 
         new(

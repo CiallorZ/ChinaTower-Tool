@@ -68,7 +68,7 @@
                                FontSize="{DynamicResource LfFontSizeCaption}"
                                Foreground="{DynamicResource LfBrushTextSecondary}"
                                TextWrapping="Wrap"
-                               Text="其余诊断能力（视频接入 / IoT / 网络 / API）将在后续阶段交付，届时会在此出现入口。" />
+                               Text="视频接入 / IoT / 网络 / API / 资产目录 / 报告 / 开发者工具 / 插件管理均已交付，从左侧导航进入。" />
                 </StackPanel>
             </Border>
 

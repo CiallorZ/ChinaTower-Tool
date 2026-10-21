@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      SQLite 单文件存储（ADR-003）。刻意不使用 EF Core 的 AddDbContext 扩展：
+      本项目的 DbContext 生命周期由 App 显式管理，避免把 DI 容器耦合进持久化层。
+    -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.13" />
+
+    <!--
+      仅设计时依赖：dotnet ef migrations add 需要它解析设计时 DbContext 工厂。
+      PrivateAssets=all 保证它不会被上层项目传递引用，也不进入应用运行时分发（ADR-032）。
+    -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.13">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LinkForge.Application\LinkForge.Application.csproj" />
+    <ProjectReference Include="..\LinkForge.Domain\LinkForge.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

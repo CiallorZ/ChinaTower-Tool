@@ -5,6 +5,8 @@ using LinkForge.App.Services;
 using LinkForge.App.ViewModels;
 using LinkForge.Application.Diagnostics;
 using LinkForge.Application.Environment;
+using LinkForge.Application.Projects;
+using LinkForge.Domain.Projects;
 using LinkForge.Plugin.Abstractions;
 
 namespace LinkForge.App.Tests.ViewModels;
@@ -47,15 +49,20 @@ internal sealed class DashboardHarness : IDisposable
         HistoryStore = new JsonRunHistoryStore(_directory);
         Adapter = new EnvironmentSelfCheckAdapter(_directory, new SecretTextRedactor());
         Runner = new DiagnosticTaskRunner(new SecretTextRedactor(), timeProvider);
+        ProjectStore = new FakeProjectStore();
 
         ViewModel = new DashboardViewModel(
             new AppEnvironment(SettingsPath),
             new DependencyCatalog(timeProvider),
             HistoryStore,
+            ProjectStore,
             Adapter,
             Runner,
             timeProvider);
     }
+
+    /// <summary>项目存储（工作台的"项目"区读它）。</summary>
+    public FakeProjectStore ProjectStore { get; }
 
     /// <summary>设置文件路径（环境的"配置位置"一行显示它）。</summary>
     public string SettingsPath { get; }

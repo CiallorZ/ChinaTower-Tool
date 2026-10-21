@@ -236,6 +236,36 @@ App、Application 或 WPF：
 - `Plugin.Hosting` 为零 NuGet 依赖的 `net10.0` 纯库；
   插件目录、信任确认、运行编排、复制与导出由 App 层负责。
 
+### 4.8 持久化依赖边（阶段 05）
+
+项目、环境与资产存储采用
+`App → Persistence → Application / Domain`：
+
+```mermaid
+flowchart LR
+  APP[App 层<br/>AssetCatalogViewModel] --> CONTRACTS[Application 层契约<br/>IProjectStore / IEnvironmentStore / IAssetStore]
+  APP --> PERSIST[LinkForge.Persistence<br/>Sqlite*Store]
+  PERSIST --> CONTRACTS
+  PERSIST --> DOMAIN[Domain 模型]
+  CONTRACTS --> DOMAIN
+  PERSIST -.-> EF[EF Core 10 + Sqlite]
+```
+
+- **契约在 Application，实现在 Persistence**：
+  视图模型依赖的是"能力"（`IProjectStore` 等），换存储实现（SQLite → 其它）
+  不应改动任何调用方。这与 `IRunHistoryStore` 的处理一致。
+- **每次操作新建 DbContext**：DbContext 不是线程安全的，
+  而诊断任务与界面会并发读写存储。共用一个长生命周期上下文会出现
+  "另一个线程正在使用此上下文"这类只在现场偶发的中断。
+- **不用 `AddDbContext` / `IDbContextFactory`**：把 DI 容器的生命周期语义引进持久化层，
+  会让"这个存储什么时候释放"取决于容器注册方式。这里由视图模型持有工厂、用完即释放。
+- **结构升级走 EF Core 迁移**，不手工改表；`Domain` 与 `Application` 都不依赖 EF Core。
+- **`Persistence` 不引用 App / WPF / 任何适配器**：适配器是诊断能力的实现，
+  持久化是资产数据的存储；两者耦合后"读一个项目"会拉进 RTSP/MQTT/HTTP 依赖。
+- **凭据只存引用键**：`Project`、`EnvironmentProfile`、`Asset` 三个领域模型
+  都不含任何秘密字段，因此"项目数据里没有明文密码"是结构保证（ADR-008），
+  而不是靠导出代码记得过滤。
+
 
 ## 5. 关键领域模型
 - Project：项目元数据与 SchemaVersion。

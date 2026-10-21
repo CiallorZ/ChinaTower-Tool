@@ -32,6 +32,7 @@ public sealed partial class ShellViewModel : ObservableObject
     /// <param name="reportPage">项目与报告视图模型。</param>
     /// <param name="developerTools">开发者工具视图模型。</param>
     /// <param name="pluginManager">插件管理视图模型。</param>
+    /// <param name="assetCatalog">设备与资产视图模型。</param>
     public ShellViewModel(
         ThemeManager? themeManager = null,
         AppSettingsStore? settingsStore = null,
@@ -42,7 +43,8 @@ public sealed partial class ShellViewModel : ObservableObject
         RtspDiagnosticsViewModel? rtspDiagnostics = null,
         ReportPageViewModel? reportPage = null,
         DeveloperToolsViewModel? developerTools = null,
-        PluginManagerViewModel? pluginManager = null)
+        PluginManagerViewModel? pluginManager = null,
+        AssetCatalogViewModel? assetCatalog = null)
     {
         _themeManager = themeManager;
         _settingsStore = settingsStore;
@@ -54,6 +56,7 @@ public sealed partial class ShellViewModel : ObservableObject
         ReportPage = reportPage;
         DeveloperTools = developerTools;
         PluginManager = pluginManager;
+        AssetCatalog = assetCatalog;
 
         NavigationItems = new ObservableCollection<NavigationNode>(NavigationCatalog.TopLevel);
 
@@ -102,6 +105,9 @@ public sealed partial class ShellViewModel : ObservableObject
     /// <summary>插件管理视图模型。</summary>
     public PluginManagerViewModel? PluginManager { get; }
 
+    /// <summary>设备与资产视图模型。</summary>
+    public AssetCatalogViewModel? AssetCatalog { get; }
+
     /// <summary>当前选中的导航节点。</summary>
     [ObservableProperty]
     public partial NavigationNode? SelectedNode { get; set; }
@@ -141,6 +147,9 @@ public sealed partial class ShellViewModel : ObservableObject
 
     /// <summary>是否显示插件管理页。</summary>
     public bool IsPluginManagerSelected => CurrentPageId == "settings.plugins";
+
+    /// <summary>是否显示设备与资产页。</summary>
+    public bool IsAssetCatalogSelected => CurrentPageId == "assets";
 
     /// <summary>当前页面是否已实现（false 时内容区显示明确的未实现状态）。</summary>
     [ObservableProperty]
@@ -214,12 +223,20 @@ public sealed partial class ShellViewModel : ObservableObject
         OnPropertyChanged(nameof(IsReportPageSelected));
         OnPropertyChanged(nameof(IsDeveloperToolsSelected));
         OnPropertyChanged(nameof(IsPluginManagerSelected));
+        OnPropertyChanged(nameof(IsAssetCatalogSelected));
 
         // 每次进入报告页都重新读取历史：用户刚跑完一次诊断再切过来，
         // 看到的必须是包含这次结果的最新列表，而不是启动时的快照。
         if (node.Id == "reports")
         {
             _ = ReportPage?.LoadAsync();
+        }
+
+        // 资产页每次进入都重新读取数据库：用户刚导入 CSV 再切回来，
+        // 必须看到包含这次导入的最新列表，而不是启动时的快照。
+        if (node.Id == "assets")
+        {
+            _ = AssetCatalog?.LoadAsync();
         }
     }
 

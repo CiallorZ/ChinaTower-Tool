@@ -80,6 +80,25 @@
 - 项目文件写入采用原子保存或事务策略。
 - 导出文件不包含测试用秘密明文。
 
+**交付记录（2026-10-22）**
+
+| 验收项 | 结论 | 证据 |
+| --- | --- | --- |
+| 重启后数据可恢复 | 通过 | `AssetStorageEndToEndTests.Data_should_persist_across_a_reopened_database`：关闭后重新打开同一数据库文件，项目仍可读出 |
+| CSV 无效行给出行号和原因 | 通过 | `AssetCsvCodecTests` 与 `AssetCatalogViewModelTests.Import_should_write_valid_rows_and_report_invalid_ones_with_line_numbers`：被拒行带物理行号与原因，成功行照常入库 |
+| 写入采用事务策略 | 通过 | `AssetStorageEndToEndTests.Batch_asset_write_should_be_atomic`：批量写入在单事务内完成（`UpsertRangeAsync`） |
+| 导出不含秘密明文 | 通过 | CSV 只导出 `credential` **引用键**列；引用键本身按白名单校验，真实密码会被 `AssetCredentialReference.IsValidKey` 拒绝；数据库结构守卫 `DatabaseSchemaGuardTests` 断言表里不出现 password/secret/token 列 |
+| 补充：结构升级 | 通过 | EF Core 迁移 `20261021193558_InitialCreate`；损坏文件隔离后重建并如实告知用户 |
+| 补充：数据库写坏不阻塞应用 | 通过 | `DatabaseInitializationTests`：文件损坏时隔离为 `linkforge.db.corrupt-<时间戳>` 并重建，非损坏异常（磁盘满、无权限）直接抛出可读错误 |
+| 补充：资产目录页可用 | 通过 | `AssetCatalogPageTests` 11 项（1366×768 布局、空态、真实资产、分组头、导入部分成功、存储失败、可访问名、浅/深色截图、像素差 >5%、滚动可达） |
+| 补充：整页滚动不被裁切 | 通过 | `Content_should_be_reachable_by_scrolling_instead_of_being_clipped`：内容超出视口时可滚动到"创建环境"按钮 |
+
+**未交付（如实声明）**
+
+- 数据库文件本身**不加密**；只是不存明文凭据。
+- 项目导出（只导出了资产 CSV）、资产凭据库本体、备份/恢复界面、多机同步均未实现。
+- `CredentialReference` 只是指针，填入后应用不会自动取到密码。
+
 ### LF-005：结构化日志与脱敏
 任务：
 - 统一日志字段：Timestamp、Level、Module、RunId、TargetId、EventId。

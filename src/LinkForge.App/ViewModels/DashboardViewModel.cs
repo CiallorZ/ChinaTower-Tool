@@ -7,6 +7,8 @@ using LinkForge.App.Presentation;
 using LinkForge.App.Services;
 using LinkForge.Application.Diagnostics;
 using LinkForge.Application.Environment;
+using LinkForge.Application.Projects;
+using LinkForge.Application.Storage;
 using LinkForge.Domain.Diagnostics;
 using LinkForge.Domain.Environment;
 using LinkForge.Plugin.Abstractions;
@@ -61,6 +63,7 @@ public sealed partial class DashboardViewModel : ObservableObject
     private readonly AppEnvironment _environment;
     private readonly DependencyCatalog _dependencyCatalog;
     private readonly IRunHistoryStore _runHistoryStore;
+    private readonly IProjectStore _projectStore;
     private readonly IDiagnosticAdapter _selfCheckAdapter;
     private readonly DiagnosticTaskRunner _taskRunner;
     private readonly TimeProvider _timeProvider;
@@ -77,6 +80,7 @@ public sealed partial class DashboardViewModel : ObservableObject
     /// <param name="environment">环境信息读取器。</param>
     /// <param name="dependencyCatalog">外部依赖探测（异步、可取消）。</param>
     /// <param name="runHistoryStore">任务历史存储。</param>
+    /// <param name="projectStore">项目存储（用于工作台的"最近项目"区）。</param>
     /// <param name="selfCheckAdapter">运行环境自检适配器。</param>
     /// <param name="taskRunner">任务编排器。</param>
     /// <param name="timeProvider">时间源；null 时使用系统时钟。</param>
@@ -84,6 +88,7 @@ public sealed partial class DashboardViewModel : ObservableObject
         AppEnvironment environment,
         DependencyCatalog dependencyCatalog,
         IRunHistoryStore runHistoryStore,
+        IProjectStore projectStore,
         IDiagnosticAdapter selfCheckAdapter,
         DiagnosticTaskRunner taskRunner,
         TimeProvider? timeProvider = null)
@@ -91,12 +96,14 @@ public sealed partial class DashboardViewModel : ObservableObject
         ArgumentNullException.ThrowIfNull(environment);
         ArgumentNullException.ThrowIfNull(dependencyCatalog);
         ArgumentNullException.ThrowIfNull(runHistoryStore);
+        ArgumentNullException.ThrowIfNull(projectStore);
         ArgumentNullException.ThrowIfNull(selfCheckAdapter);
         ArgumentNullException.ThrowIfNull(taskRunner);
 
         _environment = environment;
         _dependencyCatalog = dependencyCatalog;
         _runHistoryStore = runHistoryStore;
+        _projectStore = projectStore;
         _selfCheckAdapter = selfCheckAdapter;
         _taskRunner = taskRunner;
         _timeProvider = timeProvider ?? TimeProvider.System;
@@ -227,14 +234,18 @@ public sealed partial class DashboardViewModel : ObservableObject
     /// 是否已有项目。
     /// </summary>
     /// <remarks>
-    /// 阶段 04 仍未引入项目持久化（LF-004 交付），因此恒为 false 并显示空状态。
-    /// 保留为属性：接入仓储后只需改为读取真实数据，页面与空状态判断无需改动。
+    /// LF-004 交付项目持久化后，这里读取真实项目数量：
+    /// 之前恒为 false，页面会一直显示"项目管理功能将在后续阶段交付"——
+    /// 那句话在功能交付后就是假的，留在界面上会误导用户。
     /// </remarks>
-    public bool HasProjects => false;
+    public bool HasProjects => _projectCount > 0;
+
+    /// <summary>真实项目数量。</summary>
+    private int _projectCount;
 
     /// <summary>空状态文案：说明为什么是空的，以及下一步该做什么。</summary>
     public string ProjectsEmptyDescription =>
-        "尚未创建项目。项目管理功能将在后续阶段交付，届时可在此新建或导入项目。";
+        "尚未创建项目。到“设备与资产”页新建项目，或用资产 CSV 批量导入。";
 
     /// <inheritdoc cref="ProjectsEmptyDescription"/>
     public string RunsEmptyDescription =>
@@ -266,6 +277,7 @@ public sealed partial class DashboardViewModel : ObservableObject
 
             await RefreshDependenciesAsync(cancellationToken).ConfigureAwait(false);
             await LoadHistoryAsync(cancellationToken).ConfigureAwait(false);
+            await LoadProjectCountAsync(cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -281,6 +293,50 @@ public sealed partial class DashboardViewModel : ObservableObject
             IsLoading = false;
         }
     }
+
+    /// <summary>
+    /// 读取真实项目数量。
+    /// </summary>
+    /// <remarks>
+    /// 项目数量决定工作台"项目"区是显示列表还是空状态。
+    /// 读不到时保留原值并写进 <see cref="LoadErrorMessage"/>：
+    /// 把"读不到"显示成"一个项目都没有"会把权限或磁盘问题误导成数据丢了。
+    /// </remarks>
+    /// <param name="cancellationToken">取消令牌。</param>
+    private async Task LoadProjectCountAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var projects = await _projectStore.ListAsync(cancellationToken).ConfigureAwait(false);
+
+            await PostAsync(() =>
+            {
+                _projectCount = projects.Count;
+                OnPropertyChanged(nameof(HasProjects));
+            }).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // 用户主动取消：保持当前显示，不写错误。
+        }
+        catch (Exception ex) when (IsStorageFailure(ex))
+        {
+            await PostAsync(() =>
+                LoadErrorMessage = $"读取项目失败：{ex.GetType().Name} — {ex.Message}")
+                .ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// 判断异常是否为存储层故障。
+    /// </summary>
+    /// <param name="exception">异常。</param>
+    /// <returns>是否为存储故障。</returns>
+    private static bool IsStorageFailure(Exception exception) =>
+        exception is IOException
+        or UnauthorizedAccessException
+        or StorageException
+        or InvalidOperationException;
 
     /// <summary>
     /// 重新探测依赖。

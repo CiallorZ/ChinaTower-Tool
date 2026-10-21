@@ -9,7 +9,11 @@ using LinkForge.App.ViewModels;
 using LinkForge.App.Views;
 using LinkForge.Application.Diagnostics;
 using LinkForge.Application.Environment;
+using LinkForge.Application.Assets;
+using LinkForge.Application.Projects;
+using LinkForge.Application.Storage;
 using LinkForge.Plugin.Abstractions;
+using LinkForge.Persistence;
 using LinkForge.Reporting.Reports;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -83,7 +87,16 @@ public partial class App : System.Windows.Application
     /// 注册的服务都是当前真正被消费的：注册一堆没人用的服务会掩盖真实的依赖关系，
     /// 也会让"这个模块到底依赖什么"失去意义。
     /// </remarks>
-    private ServiceProvider BuildServiceProvider()
+    /// <remarks>
+    /// 可见性为 internal 而不是 private：容器装配是最容易漏注册的地方，
+    /// 而漏注册的依赖只会在用户点到那个页面时才炸。
+    /// 把它开放给测试，就能让"整张依赖图能否解析"成为一条自动检查。
+    ///
+    /// 刻意做成 static：测试宿主里已经存在一个 WPF <c>Application</c> 实例，
+    /// 再 new 一个 App 会抛"不能创建多个 Application 实例"。
+    /// 装配本身不依赖实例状态，因此静态方法更合适。
+    /// </remarks>
+    internal static ServiceProvider BuildServiceProvider()
     {
         var services = new ServiceCollection();
 
@@ -162,6 +175,27 @@ public partial class App : System.Windows.Application
         services.AddSingleton<IPluginRunExecutor, PluginRunExecutor>();
         services.AddSingleton<IPluginResultExporter, PluginResultExporter>();
 
+        // 本地持久化（LF-004）：SQLite + EF Core 迁移。
+        //
+        // 上下文工厂是单例（它只持有 DbContextOptions，无状态），
+        // 三个存储各自是单例（每次操作新建上下文，自身无状态）。
+        // 页面只依赖 IProjectStore / IAssetStore / IEnvironmentStore 三个契约，
+        // 因此换成别的存储实现时不需要改页面。
+        services.AddSingleton(static _ => new SqliteContextFactory(LinkForgeDatabase.ResolveDefaultPath()));
+        services.AddSingleton<IStorageInitializer>(static provider =>
+            provider.GetRequiredService<SqliteContextFactory>());
+        services.AddSingleton<IProjectStore>(static provider =>
+            new SqliteProjectStore(provider.GetRequiredService<SqliteContextFactory>()));
+        services.AddSingleton<IAssetStore>(static provider =>
+            new SqliteAssetStore(provider.GetRequiredService<SqliteContextFactory>()));
+        services.AddSingleton<IEnvironmentStore>(static provider =>
+            new SqliteEnvironmentStore(provider.GetRequiredService<SqliteContextFactory>()));
+
+        // CSV 导入导出：编解码在 Application，文件对话框在 App 层。
+        services.AddSingleton<IAssetCsvFileService, AssetCsvFileService>();
+        services.AddSingleton<AssetCsvImportService>();
+        services.AddSingleton<AssetCsvExportService>();
+
         // 自检适配器：以适配器契约注册，
         // 之后接入海康 / 大华等进程外适配器时，调用方（工作台）无需改动。
         services.AddSingleton<IDiagnosticAdapter>(static provider =>
@@ -180,6 +214,7 @@ public partial class App : System.Windows.Application
         services.AddSingleton<ReportPageViewModel>();
         services.AddSingleton<DeveloperToolsViewModel>();
         services.AddSingleton<PluginManagerViewModel>();
+        services.AddSingleton<AssetCatalogViewModel>();
 
         // 视图
         services.AddSingleton<ShellWindow>();

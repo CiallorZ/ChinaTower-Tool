@@ -10,6 +10,7 @@
     <Project Path="src/LinkForge.DeveloperTools/LinkForge.DeveloperTools.csproj" />
     <Project Path="src/LinkForge.Plugin.Abstractions/LinkForge.Plugin.Abstractions.csproj" />
     <Project Path="src/LinkForge.Plugin.Hosting/LinkForge.Plugin.Hosting.csproj" />
+    <Project Path="src/LinkForge.Persistence/LinkForge.Persistence.csproj" />
     <Project Path="src/LinkForge.Reporting/LinkForge.Reporting.csproj" />
   </Folder>
   <Folder Name="/tests/">
@@ -22,6 +23,7 @@
     <Project Path="tests/LinkForge.Domain.Tests/LinkForge.Domain.Tests.csproj" />
     <Project Path="tests/LinkForge.DeveloperTools.Tests/LinkForge.DeveloperTools.Tests.csproj" />
     <Project Path="tests/LinkForge.Plugin.Hosting.Tests/LinkForge.Plugin.Hosting.Tests.csproj" />
+    <Project Path="tests/LinkForge.Persistence.Tests/LinkForge.Persistence.Tests.csproj" />
     <Project Path="tests/LinkForge.Reporting.Tests/LinkForge.Reporting.Tests.csproj" />
   </Folder>
 </Solution>
