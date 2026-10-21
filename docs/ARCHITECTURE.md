@@ -161,6 +161,18 @@ App、Application 或 WPF：
 - 响应按字节上限读取并截断；TLS 证书验证始终启用，不提供绕过开关。
 - 本地 `HttpListener` 集成测试覆盖真实 socket/HTTP 路径，不依赖公网。
 
+### 4.3 MQTT 适配器依赖边（阶段 05）
+
+MQTT 基础调试器采用 `App → Adapters.Mqtt`，且 `Adapters.Mqtt` 不引用
+App、Application 或 WPF：
+
+- `MqttTransport` 封装 MQTTnet 客户端，只表达连接、断开、订阅、发布、
+  消息流和连接状态事件；不写历史、不做 UI、不做导出。
+- 页面与视图模型只依赖 `IMqttTransport`，MQTTnet 具体类型不泄漏到 WPF。
+- TLS 证书验证始终启用；用户名/口令不写入日志、订阅列表、复制与导出。
+- Topic 与载荷构造为领域对象时即脱敏，降低后续复制/导出泄露风险。
+- 集成测试使用本地进程内 Broker，不依赖 Docker 或公网。
+
 ## 5. 关键领域模型
 - Project：项目元数据与 SchemaVersion。
 - EnvironmentProfile：环境变量、代理引用、超时策略。

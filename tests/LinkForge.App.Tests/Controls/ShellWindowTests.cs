@@ -288,6 +288,58 @@ public class ShellWindowTests
     }
 
     [Fact]
+    public void Selecting_iot_should_show_the_mqtt_page_and_hide_other_pages()
+    {
+        var (dashboard, network, api, mqtt, placeholder, dataContext) = StaRunner.Run(() =>
+        {
+            ThemedHost.EnsureResources();
+
+            using var networkHarness = new NetworkDiagnosticsHarness();
+            using var apiHarness = new ApiWorkbenchHarness();
+            using var mqttHarness = new MqttWorkbenchHarness();
+            var viewModel = new ShellViewModel(
+                dashboard: new DashboardHarness().ViewModel,
+                networkDiagnostics: networkHarness.ViewModel,
+                apiWorkbench: apiHarness.ViewModel,
+                mqttWorkbench: mqttHarness.ViewModel);
+            var window = new ShellWindow(viewModel);
+
+            window.Show();
+            PumpDispatcher();
+            Layout(window, ReferenceWidth, ReferenceHeight);
+
+            viewModel.NavigateTo(NavigationCatalog.Find("connect.iot"));
+            PumpDispatcher();
+            window.UpdateLayout();
+
+            var dashboardPage = (FrameworkElement)window.FindName("DashboardContent")!;
+            var networkPage = (FrameworkElement)window.FindName("NetworkDiagnosticsContent")!;
+            var apiPage = (FrameworkElement)window.FindName("ApiWorkbenchContent")!;
+            var mqttPage = (FrameworkElement)window.FindName("MqttWorkbenchContent")!;
+            var emptyState = (FrameworkElement)window.FindName("NotImplementedContent")!;
+            var result = (
+                dashboardPage.Visibility,
+                networkPage.Visibility,
+                apiPage.Visibility,
+                mqttPage.Visibility,
+                emptyState.Visibility,
+                mqttPage.DataContext);
+
+            window.Close();
+            PumpDispatcher();
+
+            return result;
+        });
+
+        dashboard.ShouldBe(Visibility.Collapsed);
+        network.ShouldBe(Visibility.Collapsed);
+        api.ShouldBe(Visibility.Collapsed);
+        mqtt.ShouldBe(Visibility.Visible);
+        placeholder.ShouldBe(Visibility.Collapsed);
+        dataContext.ShouldBeOfType<MqttWorkbenchViewModel>();
+    }
+
+    [Fact]
     public void Selecting_a_group_node_should_not_leave_it_highlighted()
     {
         // 真实缺陷回归守卫：TreeView 自己维护选中状态，ViewModel 拦不住它，

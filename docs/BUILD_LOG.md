@@ -473,3 +473,54 @@ pwsh -File scripts/run.ps1
 - x86 运行仍受 D-08 缺少 x86 .NET 10 运行时约束；本阶段仅验证 x64。
 - 海康/大华 SDK、MQTT、RTSP 与安全扫描/抓包/攻防仍未在本阶段接入；
   D-09 / D-10 边界未关闭前不以占位或假数据冒充已实现。
+
+## 阶段 05 · MQTT 基础调试器（LF-008，2026-10-21）
+
+### 1. 交付物
+
+| 类别 | 内容 |
+| --- | --- |
+| MQTT 适配器 | `src/LinkForge.Adapters.Mqtt/`：MQTTnet 5.2.0.1603；真实连接/断开/订阅/发布/消息接收/连接状态事件；失败分类覆盖连接、超时、认证、订阅与发布 |
+| MQTT 工作台 | `MqttWorkbenchViewModel` + `MqttWorkbenchPage.xaml`：Broker/端口/Client ID/认证/TLS/超时校验、连接、断开、取消、订阅、发布、消息筛选、暂停显示、清空、复制与 JSON/CSV 导出 |
+| 导出 | `IMqttResultExporter` + `MqttResultExporter`；复制与导出内容按 Topic、载荷、凭据边界脱敏 |
+| 导航/DI | `connect.iot` 改为 `Available`；注册 `IMqttTransport`、`IMqttResultExporter` 与 `MqttWorkbenchViewModel` |
+| 令牌 | `LfMqttMessageListHeight`、`LfMqttMessageEmptyHeight`、`LfMqttSubscriptionListHeight`、`LfMqttPayloadEditorHeight`、`LfMqttMessagePayloadHeight`、`LfMqttWorkspaceGap`、`LfMqttControlColumnWidth`、`LfMqttStreamColumnWidth` |
+| 测试 | MQTT 适配器 8 项（本地进程内 Broker）；App 新增 MQTT 校验/状态/取消/脱敏/导出、页面渲染/截图与 Shell 导航互斥测试 |
+
+### 2. 本阶段发现并修复的真实缺陷
+
+| # | 现象 | 根因 | 处理 |
+| --- | --- | --- | --- |
+| 1 | 应用真实启动后关闭时崩溃，退出码 `-532462766` | 应用退出调用同步 `ServiceProvider.Dispose()`，但 `MqttTransport` 仅实现 `IAsyncDisposable` | `MqttTransport` 同时实现 `IDisposable`，同步释放委托给 `DisposeAsync()`；新增同步释放幂等测试 |
+| 2 | `LogViewer` 自动滚动会抢占页面级滚动，用户进入 MQTT 页看不到连接状态 | 日志组件主动滚动到底部 | 日志 `Expander` 默认折叠；用户需展开时再看连接与消息日志 |
+| 3 | 页面同时出现状态块与 `ResultSummary` 状态块，信息重复 | 原步骤结果与连接概览重复表达 | 合并为单一连接概览卡片；事实行显示 Broker/TLS/状态/订阅 |
+
+### 3. 验证记录
+
+| 验证项 | 结果 |
+| --- | --- |
+| `pwsh -NoProfile -File scripts/build.ps1` | 通过，0 警告 0 错误 |
+| Domain 测试 | 54 / 54 |
+| Application 测试 | 27 / 27 |
+| Network Adapter 测试 | 10 / 10 |
+| HTTP Adapter 测试 | 15 / 15 |
+| MQTT Adapter 测试 | 8 / 8 |
+| App 测试 | 375 / 375 |
+| 全解决方案测试 | **489 / 489 通过** |
+| 真实启动 + 关闭 | 成功；主窗口正常关闭，退出码 **0** |
+| 浅色截图 | `screenshots/stage05-mqtt-light.png` |
+| 深色截图 | `screenshots/stage05-mqtt-dark.png` |
+| 页面布局 | 1366×768 渲染通过；连接/订阅左栏与状态/消息流右栏可视；日志默认折叠 |
+| 主题差异 | 浅色与深色截图差异 > 5% |
+| 状态语义 | 认证失败、超时、连接失败、用户取消、Broker 断线与主动断开分别表达；`Unknown ≠ Completed`、`Cancelled ≠ Failed` |
+| 脱敏 | 用户名/口令不进入日志、订阅列表、复制与导出；Topic/载荷构造时即脱敏 |
+| TLS | 始终校验证书；无关闭 TLS 校验开关，源码守卫测试锁定 |
+
+### 4. 尚未验证（如实声明）
+
+- 目前实现 MQTT 5.0 客户端；MQTT 3.1.1 版本选择器尚未实现，不得宣称为双版本切换。
+- 未引入 MQTT 3.1.1 属性、遗嘱、保留消息管理、Topic 树和断线自动重连策略。
+- Windows 10 真机、125%/150%/200% 高 DPI 与键盘 Tab/焦点环仍属阶段 06。
+- x86 运行仍受 D-08 缺少 x86 .NET 10 运行时约束；本阶段仅验证 x64。
+- RTSP、海康/大华 SDK、Zigbee、抓包、安全扫描/渗透攻防仍未接入；
+  D-09 / D-10 边界未关闭前不以占位或假数据冒充已实现。

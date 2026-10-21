@@ -436,4 +436,26 @@ public sealed class ShellViewModelTests : IDisposable
         viewModel.ApiWorkbench.ShouldBeSameAs(harness.ViewModel);
     }
 
+    [Fact]
+    public void Exposed_mqtt_workbench_should_be_the_injected_instance()
+    {
+        using var harness = new MqttWorkbenchHarness();
+        var viewModel = new ShellViewModel(mqttWorkbench: harness.ViewModel);
+
+        viewModel.MqttWorkbench.ShouldBeSameAs(harness.ViewModel);
+    }
+
+    [Fact]
+    public void Navigating_to_iot_should_select_the_mqtt_workbench()
+    {
+        using var harness = new MqttWorkbenchHarness();
+        var viewModel = new ShellViewModel(mqttWorkbench: harness.ViewModel);
+
+        viewModel.NavigateTo(NavigationCatalog.Find("connect.iot"));
+
+        viewModel.IsMqttWorkbenchSelected.ShouldBeTrue();
+        viewModel.IsCurrentModuleImplemented.ShouldBeTrue();
+        viewModel.CurrentTitle.ShouldBe("IoT 与协议");
+    }
+
 }

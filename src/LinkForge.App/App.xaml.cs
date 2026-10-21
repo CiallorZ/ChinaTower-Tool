@@ -1,5 +1,6 @@
 using System.Windows;
 using LinkForge.Adapters.Http;
+using LinkForge.Adapters.Mqtt;
 using LinkForge.Adapters.Network;
 using LinkForge.App.Presentation;
 using LinkForge.App.Services;
@@ -133,6 +134,12 @@ public partial class App : System.Windows.Application
                 ?? throw new InvalidOperationException("无法确定数据目录，API 历史不可用。")));
         services.AddSingleton<IApiResultExporter, ApiResultExporter>();
 
+        // MQTT 传输：真实 MQTTnet 客户端；UI 只依赖 IMqttTransport。
+        // 注册为单例是因为页面需要保持同一条长连接与消息流，
+        // 每次导航都新建客户端会让用户“切走页面就掉线”。
+        services.AddSingleton<IMqttTransport, MqttTransport>();
+        services.AddSingleton<IMqttResultExporter, MqttResultExporter>();
+
         // 自检适配器：以适配器契约注册，
         // 之后接入海康 / 大华等进程外适配器时，调用方（工作台）无需改动。
         services.AddSingleton<IDiagnosticAdapter>(static provider =>
@@ -146,6 +153,7 @@ public partial class App : System.Windows.Application
         services.AddSingleton<DashboardViewModel>();
         services.AddSingleton<NetworkDiagnosticsViewModel>();
         services.AddSingleton<ApiWorkbenchViewModel>();
+        services.AddSingleton<MqttWorkbenchViewModel>();
 
         // 视图
         services.AddSingleton<ShellWindow>();

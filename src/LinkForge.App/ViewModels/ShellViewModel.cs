@@ -27,18 +27,21 @@ public sealed partial class ShellViewModel : ObservableObject
     /// <param name="dashboard">工作台视图模型；为 null 时内容区不显示工作台数据。</param>
     /// <param name="networkDiagnostics">网络诊断视图模型。</param>
     /// <param name="apiWorkbench">API 工作台视图模型。</param>
+    /// <param name="mqttWorkbench">MQTT 工作台视图模型。</param>
     public ShellViewModel(
         ThemeManager? themeManager = null,
         AppSettingsStore? settingsStore = null,
         DashboardViewModel? dashboard = null,
         NetworkDiagnosticsViewModel? networkDiagnostics = null,
-        ApiWorkbenchViewModel? apiWorkbench = null)
+        ApiWorkbenchViewModel? apiWorkbench = null,
+        MqttWorkbenchViewModel? mqttWorkbench = null)
     {
         _themeManager = themeManager;
         _settingsStore = settingsStore;
         Dashboard = dashboard;
         NetworkDiagnostics = networkDiagnostics;
         ApiWorkbench = apiWorkbench;
+        MqttWorkbench = mqttWorkbench;
 
         NavigationItems = new ObservableCollection<NavigationNode>(NavigationCatalog.TopLevel);
 
@@ -72,6 +75,9 @@ public sealed partial class ShellViewModel : ObservableObject
     /// <summary>API 工作台视图模型。</summary>
     public ApiWorkbenchViewModel? ApiWorkbench { get; }
 
+    /// <summary>MQTT 工作台视图模型。</summary>
+    public MqttWorkbenchViewModel? MqttWorkbench { get; }
+
     /// <summary>当前选中的导航节点。</summary>
     [ObservableProperty]
     public partial NavigationNode? SelectedNode { get; set; }
@@ -96,6 +102,9 @@ public sealed partial class ShellViewModel : ObservableObject
 
     /// <summary>是否显示 API 工作台。</summary>
     public bool IsApiWorkbenchSelected => CurrentPageId == "connect.api";
+
+    /// <summary>是否显示 IoT 与协议工作台（当前实现 MQTT）。</summary>
+    public bool IsMqttWorkbenchSelected => CurrentPageId == "connect.iot";
 
     /// <summary>当前页面是否已实现（false 时内容区显示明确的未实现状态）。</summary>
     [ObservableProperty]
@@ -164,6 +173,7 @@ public sealed partial class ShellViewModel : ObservableObject
         OnPropertyChanged(nameof(IsDashboardSelected));
         OnPropertyChanged(nameof(IsNetworkDiagnosticsSelected));
         OnPropertyChanged(nameof(IsApiWorkbenchSelected));
+        OnPropertyChanged(nameof(IsMqttWorkbenchSelected));
     }
 
     /// <summary>切换导航栏展开/折叠。</summary>

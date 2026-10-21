@@ -163,6 +163,26 @@
     <sys:Double x:Key="LfBodyEditorHeight">160</sys:Double>
     <sys:Double x:Key="LfResponseBodyHeight">280</sys:Double>
 
+    <!-- ===================== MQTT 工作台补充（阶段 05） ===================== -->
+    <!-- 消息流高度：内部滚动，避免长连接把主操作挤出可视区。 -->
+    <sys:Double x:Key="LfMqttMessageListHeight">320</sys:Double>
+    <!-- 空闲时（无消息）占位高度，保持消息卡片不会因空列表而塌缩成一条。 -->
+    <sys:Double x:Key="LfMqttMessageEmptyHeight">200</sys:Double>
+    <!-- 订阅列表与发布载荷编辑器高度。 -->
+    <sys:Double x:Key="LfMqttSubscriptionListHeight">120</sys:Double>
+    <sys:Double x:Key="LfMqttPayloadEditorHeight">110</sys:Double>
+    <!-- 单条消息载荷的可视高度：超高载荷在条目内滚动，避免一条消息占满整页。 -->
+    <sys:Double x:Key="LfMqttMessagePayloadHeight">64</sys:Double>
+    <!--
+        主布局列距。与 LfFormColumnGap 分开定义而不是复用：
+        表单内字段间距与“控制区/消息区”这两栏的间距语义不同，
+        后续调整表单密度时不应连带改变页面主分栏。
+    -->
+    <GridLength x:Key="LfMqttWorkspaceGap">16</GridLength>
+    <!-- 1366 宽窗口下左栏占比；右栏留给消息流。 -->
+    <GridLength x:Key="LfMqttControlColumnWidth">2*</GridLength>
+    <GridLength x:Key="LfMqttStreamColumnWidth">3*</GridLength>
+
     <!-- ===================== 描边 ===================== -->
     <Thickness x:Key="LfBorderThickness">1</Thickness>
     <!--

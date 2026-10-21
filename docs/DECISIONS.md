@@ -649,3 +649,44 @@ LinkForge.Adapters.Http 不引用 App / Application / WPF
 - 页面和视图模型不得直接创建 `HttpClient` 或 `SocketsHttpHandler`。
 - 集成测试使用本地 mock server，不依赖公网。
 - 新增请求能力必须同时覆盖成功、HTTP 错误、传输失败、超时、取消与截断。
+
+## ADR-027 MQTT 适配器独立成项目并采用 MQTTnet 5.2.0.1603
+
+**状态**：已采纳（阶段 05 / LF-008）
+
+**背景**
+
+MQTT 工作台需要真实连接、断开、订阅、发布和消息流。如果页面或视图模型直接
+创建 MQTTnet 客户端，会产生协议库版本泄漏、连接生命周期跨导航丢失、
+凭据/载荷进入 UI 导出和集成测试依赖公网等问题。
+
+**决策**
+
+1. 新增 `LinkForge.Adapters.Mqtt`，以 `IMqttTransport` 暴露传输边界；
+   页面与视图模型不直接引用 MQTTnet。
+2. 采用 MQTTnet `5.2.0.1603`，MIT；当前只提交 MQTT 5.0 客户端，
+   不宣称 MQTT 3.1.1 版本切换已实现。
+3. TLS 证书验证始终启用；`MqttTransport` 不提供关闭证书验证、忽略链错误
+   或忽略吊销错误的选项。
+4. 用户名/口令不进入日志、订阅列表、复制与导出；Topic 与载荷构造为
+   领域对象时即脱敏。
+5. `MqttTransport` 同时实现 `IAsyncDisposable` 与 `IDisposable`。
+   WPF `Application.OnExit` 会同步释放 DI 容器；只有 `IAsyncDisposable`
+   会让真实关闭路径崩溃。
+6. 集成测试使用本地进程内 Broker，不依赖 Docker、公网或固定外部服务。
+
+**依赖边**
+
+```text
+LinkForge.App ─→ LinkForge.Adapters.Mqtt
+LinkForge.App ─→ LinkForge.Application / Domain
+LinkForge.Adapters.Mqtt 不引用 App / Application / WPF
+```
+
+**约束**
+
+- UI 不得绕过 `IMqttTransport` 直接创建 `MqttClientFactory`。
+- Broker 断线与主动断开必须分别表达；断线后不得继续显示“已连接”。
+- 消息筛选只影响显示与复制/导出范围，原始缓冲仍需保留完整消息。
+- 新增 MQTT 能力必须同时覆盖认证失败、连接失败、订阅失败、发布失败、
+  取消、Broker 断线与参数非法。

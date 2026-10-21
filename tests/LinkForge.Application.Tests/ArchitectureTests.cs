@@ -98,6 +98,27 @@ public class ArchitectureTests
         referenced.ShouldBeEmpty(
             $"Adapters.Http 不得引用 WPF 程序集，实际引用：{string.Join(", ", referenced)}");
     }
+
+    [Fact]
+    public void Mqtt_adapter_should_not_reference_app_application_or_wpf()
+    {
+        var references = ProjectFile.ReadProjectReferences(
+            "src/LinkForge.Adapters.Mqtt/LinkForge.Adapters.Mqtt.csproj");
+
+        references.ShouldBeEmpty(
+            $"Adapters.Mqtt 是独立系统边界，不得反向引用上层；实际引用：{string.Join(", ", references)}");
+
+        var mqtt = Assembly.Load("LinkForge.Adapters.Mqtt");
+        var referenced = mqtt
+            .GetReferencedAssemblies()
+            .Select(a => a.Name ?? string.Empty)
+            .Where(name => ForbiddenAssemblyPrefixes.Any(
+                forbidden => name.StartsWith(forbidden, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+
+        referenced.ShouldBeEmpty(
+            $"Adapters.Mqtt 不得引用 WPF 程序集，实际引用：{string.Join(", ", referenced)}");
+    }
 }
 
 /// <summary>

@@ -3,12 +3,14 @@
     <Project Path="src/LinkForge.App/LinkForge.App.csproj" />
     <Project Path="src/LinkForge.Application/LinkForge.Application.csproj" />
     <Project Path="src/LinkForge.Adapters.Http/LinkForge.Adapters.Http.csproj" />
+    <Project Path="src/LinkForge.Adapters.Mqtt/LinkForge.Adapters.Mqtt.csproj" />
     <Project Path="src/LinkForge.Adapters.Network/LinkForge.Adapters.Network.csproj" />
     <Project Path="src/LinkForge.Domain/LinkForge.Domain.csproj" />
     <Project Path="src/LinkForge.Plugin.Abstractions/LinkForge.Plugin.Abstractions.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/LinkForge.Adapters.Http.Tests/LinkForge.Adapters.Http.Tests.csproj" />
+    <Project Path="tests/LinkForge.Adapters.Mqtt.Tests/LinkForge.Adapters.Mqtt.Tests.csproj" />
     <Project Path="tests/LinkForge.Adapters.Network.Tests/LinkForge.Adapters.Network.Tests.csproj" />
     <Project Path="tests/LinkForge.Application.Tests/LinkForge.Application.Tests.csproj" />
     <Project Path="tests/LinkForge.App.Tests/LinkForge.App.Tests.csproj" />
