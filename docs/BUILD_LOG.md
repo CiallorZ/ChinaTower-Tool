@@ -698,3 +698,80 @@ pwsh -File scripts/run.ps1
   键盘 Tab 顺序与焦点环；这些属阶段 06。
 - x86 运行仍受 D-08 缺少 x86 .NET 10 运行时约束；本阶段仅验证 x64。
 - 厂商 SDK（D-09）、抓包与安全扫描/渗透攻防（D-10）仍未接入。
+
+## 阶段 05 · 插件清单校验与进程外隔离（LF-012，2026-10-22）
+
+### 1. 交付物
+
+| 模块 | 说明 |
+| --- | --- |
+| `LinkForge.Plugin.Hosting` | 严格清单解析（64 KiB 上限、JSON 深度 16）、API 版本精确匹配、架构校验、入口相对路径与重解析点拒绝、SHA-256 校验、进程外单行 JSON 协议（`hello` / `executeStep`）、参数白名单、崩溃隔离、超时与取消语义、宿主侧秘密过滤 |
+| `LinkForge.App/Services` | `IPluginCatalogService`（扫描 `%LOCALAPPDATA%\LinkForge\plugins`）、`IPluginRunExecutor`（三道运行边界）、`IPluginResultExporter`（剪贴板/对话框） |
+| `LinkForge.App/Presentation` | `PluginDisplayItem` 展示层：id、名称、发布者、版本、API、能力、哈希前 12 位、签名状态、阻断原因 |
+| `LinkForge.App/ViewModels` | `PluginManagerViewModel`：真实扫描、状态语义、来源确认、进程外运行、取消、耗时、结论、脱敏复制/导出 |
+| `LinkForge.App/Views/Pages` | `PluginManagerPage`：目录与扫描、插件列表（含阻断项与原因）、详情、信任确认、运行/停止、进度、结论摘要、步骤事实、日志、空/错误状态 |
+| 导航 | `settings` 改为分组节点，新增二级项 `settings.plugins`（Available）与 `settings.appearance` / `settings.logs` / `settings.about`（NotImplemented） |
+| 主题 | 新增 `Themes/Controls/PluginList.xaml` 与 `LfPlugin*` 尺寸令牌 |
+
+### 2. 本阶段发现并修复的真实缺陷
+
+| # | 现象 | 根因 | 处理 |
+| --- | --- | --- | --- |
+| 1 | `PluginCatalogService` 编译失败 | `Task.Run(Func<Task<T>>)` 已自动解包，不能再 `.Unwrap()` | 去掉 `.Unwrap()` |
+| 2 | App 内新增插件文件无法编译 | `LinkForge.App.csproj` 未引用 `LinkForge.Plugin.Hosting` | 补 `ProjectReference` |
+| 3 | `Path` / `IOException` 报 CS0103 | WPF 项目（`UseWPF`）的隐式 using 不含 `System.IO` | 显式 `using System.IO;` |
+| 4 | `OnPluginsCollectionChanged` 编译失败 | 它不是 CommunityToolkit 源生成器会声明的钩子（集合无 `[ObservableProperty]`） | 改为订阅 `Plugins.CollectionChanged` |
+| 5 | 空目录时右侧仍显示上一个插件的详情 | `SelectedPlugin` 由 null 赋值为 null 不触发变更通知 | 扫描后显式 `NotifySelectionState()` |
+| 6 | **目录读不到时界面显示"插件目录为空"** | `IsEmptyAfterScan` 未排除读取失败，权限问题被误导成安装问题 | 空状态排除 `HasScanFailure`，错误改由 `ErrorPanel` 呈现 |
+| 7 | **复制摘要泄漏凭据明文** | 编排器只脱敏 `DiagnosticStepResult` 字段，页面自拼的纯文本摘要未过脱敏 | 页面层对摘要逐字段再脱敏（幂等） |
+| 8 | **`SecretRedactor` 漏脱裸 `user:pass@host`** | 只有带 scheme 的 `UrlUserInfoPattern`，目标标签与 SDK 日志常是裸形态 | 新增 `RedactBareUserInfo`，并锁定邮箱与 `IP:port` 不被误伤 |
+| 9 | **插件按 JSON 返回的秘密完全漏网** | `SkipSeparator` 未吃掉键名右侧引号，`"password":"x"` 整条规则失配 | 分隔符识别覆盖引号形态 |
+| 10 | 脱敏后产出非法 JSON | 替换带引号值时把引号一起吃掉（`"password":***`） | 保留引号，只替换内容；测试断言可被 `JsonDocument.Parse` |
+| 11 | **假脱敏：`Authorization: Bearer <token>` 只遮住了方案名** | 把 `Bearer` 当值遮蔽，真令牌原样留下 | 识别认证方案名并跳过，遮蔽其后的令牌 |
+| 12 | 泄漏测试漏掉"建议文本"这条出口 | 夹具按 `passed` 返回，而 Passed 结论不携带建议字段 | 夹具改为 `warning`，覆盖摘要/建议/事实/原始输出四条出口 |
+| 13 | 取消扫描的测试抛无关异常 | `Task.FromCanceled(token)` 要求令牌已取消，否则抛 `ArgumentException` | 改为真实"扫描进行中 → 用户点停止"路径 |
+| 14 | `settings` 变分组后壳层测试失效 | 分组节点不参与导航，状态栏不再出现"设置" | 改用二级项断言，并新增"分组不得切到空白页"守卫 |
+| 15 | 信任说明文案出现多余空格 | 两个 `<Run>` 之间的 XAML 换行被当作内容 | 合并为单个 `<Run>` |
+
+### 3. 验证记录
+
+| 验证项 | 结果 |
+| --- | --- |
+| `pwsh -NoProfile -File scripts/build.ps1` | 通过，0 警告 0 错误 |
+| Domain 测试 | 54 / 54 |
+| Application 测试（含 Plugin.Hosting 架构守卫） | 31 / 31 |
+| **Plugin.Hosting 测试（真实子进程）** | **30 / 30** |
+| Network / HTTP / MQTT / Video Adapter 测试 | 10 / 15 / 8 / 17 |
+| DeveloperTools 测试 | 41 / 41 |
+| Reporting 测试 | 42 / 42 |
+| App 测试 | 480 / 480 |
+| 全解决方案测试 | **728 / 728 通过** |
+| 真实启动 + 关闭 | 成功；DI 可解析插件页，退出码 **0** |
+| 浅色截图 | `screenshots/stage05-plugins-light.png` |
+| 深色截图 | `screenshots/stage05-plugins-dark.png` |
+| 页面布局 | 1366×768 渲染通过；可加载与阻断插件同时可见、原因直陈、未确认来源时运行按钮不可用 |
+| 主题差异 | 浅色与深色截图差异 > 5% |
+| 状态语义 | 未扫描 / 扫描中 / 空目录 / 读取失败 / 部分阻断 / 成功 / 失败 / 取消 / 未判定 分别表达 |
+| 运行态可见性 | 页面测试在真实运行过程中断言进度面板已渲染，而非仅断言视图模型布尔值 |
+| 边界语义 | 取消 ≠ 失败；跳过 ≠ 失败；未判定 ≠ 完成；拒绝运行（未确认来源）不记为执行失败 |
+| 脱敏边界 | 参数白名单 + 秘密键名拒绝下发；插件返回文本在宿主出口再过滤；复制与导出逐字段脱敏 |
+| 崩溃隔离 | 夹具 `FailFast` 崩溃映射为 Failed，宿主进程存活断言通过 |
+| 架构守卫 | `Plugin.Hosting` 不引用 App / Application / WPF，零 NuGet 依赖 |
+
+### 4. 尚未验证（如实声明）
+
+- 已实现：清单严格校验（API、架构、入口哈希、重解析点拒绝）、进程外 JSON 协议、
+  握手身份核对、超时与取消、崩溃隔离、参数白名单、宿主侧秘密过滤、
+  插件管理页与 `settings.plugins` 导航、来源显式确认、脱敏复制与 JSON 导出。
+- **未实现**：海康 / 大华开放平台 SDK 适配（D-09 许可、位数、再分发均未确认）；
+  ONVIF；RTP 接收与媒体解码；插件签名**证书链验证**；插件市场/在线安装与更新；
+  插件权限沙箱（当前仅"进程外 + 参数白名单 + 无秘密下发"）。
+- **签名口径**：枚举只有 `Unsigned` 与 `DeclaredSignedUnverified`，**不存在 Verified**。
+  界面只能显示"声明已签名（未验证）"或"未签名"，不得表述为已验证。
+- **剩余风险**：宿主不向插件提供秘密库 API、不下发秘密明文，但插件以当前用户身份运行，
+  仍可自行读取该用户可访问的磁盘文件与网络；同用户的恶意本地进程不受本边界保护。
+- 测试夹具 `LinkForge.TestPluginHost` 不访问网络与文件，仅验证宿主边界；
+  真实厂商 SDK 的进程外行为尚未验证。
+- 未验证：Windows 10 真机、125% / 150% / 200% 高 DPI、键盘 Tab 顺序与焦点环（阶段 06）。
+- x86 运行仍受 D-08 缺少 x86 .NET 10 运行时约束；本阶段仅验证 x64。
+- 抓包与安全扫描 / 渗透攻防（D-10）仍未接入。

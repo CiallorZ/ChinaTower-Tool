@@ -1,0 +1,421 @@
+<UserControl x:Class="LinkForge.App.Views.Pages.PluginManagerPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="clr-namespace:LinkForge.App.Controls"
+             xmlns:domain="clr-namespace:LinkForge.Domain.Diagnostics;assembly=LinkForge.Domain"
+             xmlns:vm="clr-namespace:LinkForge.App.ViewModels"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:PluginManagerViewModel}"
+             Background="Transparent">
+
+    <!--
+        插件管理页（LF-012，UI 规范 §4.2 / §4.6 / §9）。
+
+        这一页的门槛比普通页面高：用户点"运行"就是在执行一个第三方本地可执行文件。
+        因此列表必须如实显示被阻断的插件与阻断原因，签名只显示"声明未验证"，
+        运行前必须显式确认来源。空态、扫描中、扫描失败、部分阻断都是不同的真实状态。
+    -->
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="LfBoolToVisibility" />
+    </UserControl.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled"
+                  Padding="{DynamicResource LfContentPadding}">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="{DynamicResource LfPluginListColumnWidth}" />
+                <ColumnDefinition Width="{DynamicResource LfGridGapLength}" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- ===== 左：插件目录与列表 ===== -->
+            <StackPanel Grid.Column="0">
+                <Border Background="{DynamicResource LfBrushSurface}"
+                        BorderBrush="{DynamicResource LfBrushBorder}"
+                        BorderThickness="{DynamicResource LfBorderThickness}"
+                        CornerRadius="{DynamicResource LfRadiusPanel}"
+                        Padding="{DynamicResource LfCardPadding}">
+                    <StackPanel>
+                        <TextBlock Text="插件目录"
+                                   FontSize="{DynamicResource LfFontSizeSectionTitle}"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource LfBrushTextPrimary}" />
+
+                        <TextBlock Text="{Binding PluginsDirectory}"
+                                   Margin="{DynamicResource LfInlineSpacing}"
+                                   FontFamily="{DynamicResource LfFontFamilyMono}"
+                                   FontSize="{DynamicResource LfFontSizeCaption}"
+                                   Foreground="{DynamicResource LfBrushTextSecondary}"
+                                   TextWrapping="Wrap" />
+
+                        <WrapPanel Margin="{DynamicResource LfSectionSpacing}">
+                            <Button Content="扫描插件目录"
+                                    Command="{Binding ScanCommand}"
+                                    MinWidth="{DynamicResource LfActionButtonMinWidth}"
+                                    Height="{DynamicResource LfControlHeight}"
+                                    ToolTip="只读取清单与计算哈希，不会启动任何插件进程"
+                                    AutomationProperties.Name="扫描插件目录" />
+
+                            <Button Content="停止扫描"
+                                    Command="{Binding CancelScanCommand}"
+                                    MinWidth="{DynamicResource LfButtonMinWidth}"
+                                    Height="{DynamicResource LfControlHeight}"
+                                    Margin="{DynamicResource LfInlineSpacingLeading}"
+                                    Visibility="{Binding IsScanning,
+                                                         Converter={StaticResource LfBoolToVisibility}}"
+                                    ToolTip="取消正在进行的目录扫描"
+                                    AutomationProperties.Name="停止扫描插件目录" />
+                        </WrapPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- 扫描失败：目录不可读是环境问题，必须与"没有插件"区分（规范 §5.6）。 -->
+                <controls:ErrorPanel Margin="{DynamicResource LfBlockSpacing}"
+                                     Message="插件目录读取失败"
+                                     Detail="{Binding ScanError}"
+                                     IsRecoverable="True"
+                                     RetryCommand="{Binding ScanCommand}"
+                                     Visibility="{Binding HasScanFailure,
+                                                          Converter={StaticResource LfBoolToVisibility}}" />
+
+                <!-- 扫描状态说明 -->
+                <controls:LoadingState Margin="{DynamicResource LfBlockSpacing}"
+                                       Message="正在扫描插件目录…"
+                                       Detail="读取 manifest.json 并计算入口哈希，不启动插件进程。"
+                                       Visibility="{Binding IsScanning,
+                                                            Converter={StaticResource LfBoolToVisibility}}" />
+
+                <!-- 初始空态：尚未扫描，列表里没有任何条目，也不伪造"已加载插件"。 -->
+                <controls:EmptyState Margin="{DynamicResource LfBlockSpacing}"
+                                     Title="尚未扫描插件"
+                                     Description="把插件文件夹放入上方目录后点击“扫描插件目录”。扫描只读取清单并校验哈希，不会执行任何插件代码。"
+                                     ActionText="扫描插件目录"
+                                     ActionCommand="{Binding ScanCommand}"
+                                     Visibility="{Binding IsInitialEmpty,
+                                                          Converter={StaticResource LfBoolToVisibility}}" />
+
+                <!-- 扫描后为空：如实说明目录里没有合规插件。 -->
+                <controls:EmptyState Margin="{DynamicResource LfBlockSpacing}"
+                                     Title="插件目录为空"
+                                     Description="扫描完成，但该目录下没有包含 manifest.json 的插件文件夹。宿主不会凭空列出插件。"
+                                     Visibility="{Binding IsEmptyAfterScan,
+                                                          Converter={StaticResource LfBoolToVisibility}}" />
+
+                <TextBlock Text="{Binding ScanSummary}"
+                           Margin="{DynamicResource LfBlockSpacing}"
+                           FontSize="{DynamicResource LfFontSizeCaption}"
+                           Foreground="{DynamicResource LfBrushTextSecondary}"
+                           TextWrapping="Wrap" />
+
+                <ListBox x:Name="PluginList"
+                         ItemsSource="{Binding Plugins}"
+                         SelectedItem="{Binding SelectedPlugin}"
+                         MaxHeight="{DynamicResource LfPluginListMaxHeight}"
+                         ItemContainerStyle="{StaticResource LfPluginListBoxItemStyle}"
+                         HorizontalContentAlignment="Stretch"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         Background="Transparent"
+                         BorderThickness="{DynamicResource LfBorderThicknessNone}"
+                         Visibility="{Binding HasPlugins,
+                                              Converter={StaticResource LfBoolToVisibility}}"
+                         AutomationProperties.Name="插件列表">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Grid MinHeight="{DynamicResource LfPluginRowMinHeight}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding DisplayName}"
+                                               FontWeight="SemiBold"
+                                               TextTrimming="CharacterEllipsis"
+                                               Foreground="{DynamicResource LfBrushTextPrimary}" />
+
+                                    <TextBlock Margin="{DynamicResource LfInlineSpacingXxs}"
+                                               FontSize="{DynamicResource LfFontSizeCaption}"
+                                               Foreground="{DynamicResource LfBrushTextMuted}"
+                                               TextTrimming="CharacterEllipsis">
+                                        <Run Text="{Binding Id, Mode=OneWay}" />
+                                        <Run Text=" · " />
+                                        <Run Text="{Binding Version, Mode=OneWay}" />
+                                    </TextBlock>
+
+                                    <!-- 阻断原因直接可见：藏在工具提示里等于没告诉用户为什么不能跑。 -->
+                                    <TextBlock Text="{Binding ValidationText}"
+                                               FontSize="{DynamicResource LfFontSizeCaption}"
+                                               Foreground="{DynamicResource LfBrushTextSecondary}"
+                                               TextWrapping="Wrap"
+                                               Visibility="{Binding HasValidationError,
+                                                                    Converter={StaticResource LfBoolToVisibility}}" />
+                                </StackPanel>
+
+                                <controls:StatusBadge Grid.Column="1"
+                                                      VerticalAlignment="Top"
+                                                      TextOverride="{Binding StatusText}"
+                                                      DiagnosticStatus="{Binding BadgeStatus}"
+                                                      Margin="{DynamicResource LfLabelSpacing}" />
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </StackPanel>
+
+            <!-- ===== 右：选中插件详情与运行 ===== -->
+            <StackPanel Grid.Column="2">
+                <Border Background="{DynamicResource LfBrushSurface}"
+                        BorderBrush="{DynamicResource LfBrushBorder}"
+                        BorderThickness="{DynamicResource LfBorderThickness}"
+                        CornerRadius="{DynamicResource LfRadiusPanel}"
+                        Padding="{DynamicResource LfCardPadding}"
+                        Visibility="{Binding HasSelectedPlugin,
+                                             Converter={StaticResource LfBoolToVisibility}}">
+                    <StackPanel>
+                        <TextBlock Text="插件信息与运行"
+                                   FontSize="{DynamicResource LfFontSizeSectionTitle}"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource LfBrushTextPrimary}" />
+
+                        <ItemsControl ItemsSource="{Binding SelectedPlugin.Details}"
+                                      Margin="{DynamicResource LfBlockSpacing}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="{DynamicResource LfRowSpacing}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="{DynamicResource LfFactLabelColumnWidth}" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <TextBlock Grid.Column="0"
+                                                   Text="{Binding Label}"
+                                                   FontSize="{DynamicResource LfFontSizeCaption}"
+                                                   Foreground="{DynamicResource LfBrushTextMuted}" />
+
+                                        <TextBlock Grid.Column="1"
+                                                   Text="{Binding Value}"
+                                                   FontFamily="{DynamicResource LfFontFamilyMono}"
+                                                   Foreground="{DynamicResource LfBrushTextPrimary}"
+                                                   TextWrapping="Wrap" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!--
+                            信任确认：清单里的签名只是声明，宿主没有证书链验证能力。
+                            未勾选时运行命令不可用，且拒绝发生在执行器（第二道边界）。
+                        -->
+                        <Border Background="{DynamicResource LfBrushWarningSubtle}"
+                                BorderBrush="{DynamicResource LfBrushWarning}"
+                                BorderThickness="{DynamicResource LfBorderThickness}"
+                                CornerRadius="{DynamicResource LfRadiusControl}"
+                                Padding="{DynamicResource LfCardPadding}"
+                                Margin="{DynamicResource LfAuthorizationSpacing}"
+                                Visibility="{Binding RequiresTrust,
+                                                     Converter={StaticResource LfBoolToVisibility}}">
+                            <StackPanel>
+                                <TextBlock Text="运行前确认插件来源"
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource LfBrushTextPrimary}" />
+
+                                <TextBlock Margin="{DynamicResource LfInlineSpacing}"
+                                           Foreground="{DynamicResource LfBrushTextSecondary}"
+                                           TextWrapping="Wrap">
+                                    <Run Text="插件以独立子进程运行，崩溃不会影响主程序；但它仍能访问当前用户的文件与网络。" />
+                                    <LineBreak />
+                                    <Run Text="宿主不向插件提供凭据库，也不下发任何秘密明文。签名状态来自清单声明，宿主未验证证书链。" />
+                                </TextBlock>
+
+                                <CheckBox Content="我已核对该插件的来源、版本与入口哈希"
+                                          IsChecked="{Binding IsSourceConfirmed}"
+                                          IsEnabled="{Binding CanRunPlugin}"
+                                          Margin="{DynamicResource LfInlineSpacing}"
+                                          AutomationProperties.Name="确认插件来源" />
+                            </StackPanel>
+                        </Border>
+
+                        <controls:LabeledTextBox Label="运行目标（可选）"
+                                                 Text="{Binding Target}"
+                                                 Placeholder="例如 10.0.0.8"
+                                                 Hint="仅作为白名单参数下发；本页不提供凭据输入，密码与令牌不会被传给插件。"
+                                                 Margin="{DynamicResource LfBlockSpacing}"
+                                                 IsEnabled="{Binding CanRunPlugin}" />
+
+                        <WrapPanel Margin="{DynamicResource LfSectionSpacing}">
+                            <Button Content="运行插件"
+                                    Command="{Binding RunPluginCommand}"
+                                    MinWidth="{DynamicResource LfActionButtonMinWidth}"
+                                    Height="{DynamicResource LfControlHeight}"
+                                    ToolTip="在独立子进程中执行该插件声明的步骤"
+                                    AutomationProperties.Name="运行插件" />
+
+                            <Button Content="停止"
+                                    Command="{Binding CancelRunCommand}"
+                                    MinWidth="{DynamicResource LfButtonMinWidth}"
+                                    Height="{DynamicResource LfControlHeight}"
+                                    Margin="{DynamicResource LfInlineSpacingLeading}"
+                                    ToolTip="取消运行并终止插件子进程"
+                                    AutomationProperties.Name="停止插件" />
+                        </WrapPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- 未选择插件时的真实空态，而不是一个空白面板。 -->
+                <controls:EmptyState Margin="{DynamicResource LfBlockSpacing}"
+                                     Title="尚未选择插件"
+                                     Description="在左侧列表中选择一个插件，即可查看其清单、能力与校验结论，并决定是否运行。"
+                                     Visibility="{Binding IsNoPluginSelected,
+                                                          Converter={StaticResource LfBoolToVisibility}}" />
+
+                <controls:TaskProgressPanel Margin="{DynamicResource LfBlockSpacing}"
+                                            TaskState="{Binding State}"
+                                            Stage="{Binding CurrentStage}"
+                                            ElapsedText="{Binding ElapsedText}"
+                                            CancelCommand="{Binding CancelRunCommand}"
+                                            Visibility="{Binding IsRunning,
+                                                                 Converter={StaticResource LfBoolToVisibility}}" />
+
+                <controls:ResultSummary Margin="{DynamicResource LfBlockSpacing}"
+                                        TaskState="{Binding State}"
+                                        Conclusion="{Binding Conclusion}"
+                                        Note="{Binding ConclusionNote}"
+                                        Items="{Binding SummaryItems}"
+                                        Visibility="{Binding HasResult,
+                                                             Converter={StaticResource LfBoolToVisibility}}" />
+
+                <Border Margin="{DynamicResource LfBlockSpacing}"
+                        Background="{DynamicResource LfBrushSurface}"
+                        BorderBrush="{DynamicResource LfBrushBorder}"
+                        BorderThickness="{DynamicResource LfBorderThickness}"
+                        CornerRadius="{DynamicResource LfRadiusPanel}"
+                        Padding="{DynamicResource LfCardPadding}"
+                        Visibility="{Binding HasResult,
+                                             Converter={StaticResource LfBoolToVisibility}}">
+                    <StackPanel>
+                        <TextBlock Text="步骤结论"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource LfBrushTextPrimary}" />
+
+                        <ScrollViewer MaxHeight="{DynamicResource LfBusinessResultMaxHeight}"
+                                      VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled"
+                                      Margin="{DynamicResource LfInlineSpacing}">
+                            <ItemsControl ItemsSource="{Binding Steps}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type domain:DiagnosticStepResult}">
+                                        <Border Margin="{DynamicResource LfRowSpacing}"
+                                                BorderBrush="{DynamicResource LfBrushDivider}"
+                                                BorderThickness="{DynamicResource LfDividerTop}"
+                                                Padding="{DynamicResource LfInlineSpacing}">
+                                            <StackPanel>
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <controls:StatusBadge Grid.Column="0"
+                                                                          DiagnosticStatus="{Binding Status}"
+                                                                          Margin="{DynamicResource LfLabelSpacing}" />
+
+                                                    <TextBlock Grid.Column="1"
+                                                               Text="{Binding Name}"
+                                                               VerticalAlignment="Center"
+                                                               Foreground="{DynamicResource LfBrushTextPrimary}" />
+
+                                                    <TextBlock Grid.Column="2"
+                                                               Text="{Binding DurationText}"
+                                                               VerticalAlignment="Center"
+                                                               FontFamily="{DynamicResource LfFontFamilyMono}"
+                                                               FontSize="{DynamicResource LfFontSizeCaption}"
+                                                               Foreground="{DynamicResource LfBrushTextSecondary}" />
+                                                </Grid>
+
+                                                <TextBlock Text="{Binding Summary}"
+                                                           Margin="{DynamicResource LfInlineSpacing}"
+                                                           TextWrapping="Wrap"
+                                                           Foreground="{DynamicResource LfBrushTextSecondary}" />
+
+                                                <ItemsControl ItemsSource="{Binding FactItems}"
+                                                              Margin="{DynamicResource LfInlineSpacing}">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate DataType="{x:Type domain:DiagnosticFact}">
+                                                            <Grid Margin="{DynamicResource LfInlineSpacing}">
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="{DynamicResource LfFactLabelColumnWidth}" />
+                                                                    <ColumnDefinition Width="*" />
+                                                                </Grid.ColumnDefinitions>
+
+                                                                <TextBlock Grid.Column="0"
+                                                                           Text="{Binding Label}"
+                                                                           Foreground="{DynamicResource LfBrushTextMuted}"
+                                                                           FontSize="{DynamicResource LfFontSizeCaption}" />
+
+                                                                <TextBlock Grid.Column="1"
+                                                                           Text="{Binding Value}"
+                                                                           FontFamily="{DynamicResource LfFontFamilyMono}"
+                                                                           Foreground="{DynamicResource LfBrushTextPrimary}"
+                                                                           TextWrapping="Wrap" />
+                                                            </Grid>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+
+                                                <TextBlock Text="{Binding NextStepSuggestion}"
+                                                           Margin="{DynamicResource LfInlineSpacing}"
+                                                           TextWrapping="Wrap"
+                                                           FontSize="{DynamicResource LfFontSizeCaption}"
+                                                           Foreground="{DynamicResource LfBrushTextSecondary}"
+                                                           Visibility="{Binding HasSuggestion,
+                                                                                Converter={StaticResource LfBoolToVisibility}}" />
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </StackPanel>
+                </Border>
+
+                <WrapPanel Margin="{DynamicResource LfBlockSpacing}"
+                           Visibility="{Binding HasResult,
+                                                Converter={StaticResource LfBoolToVisibility}}">
+                    <Button Content="复制脱敏摘要"
+                            Command="{Binding CopySummaryCommand}"
+                            MinWidth="{DynamicResource LfActionButtonMinWidth}"
+                            Height="{DynamicResource LfControlHeight}"
+                            ToolTip="复制结论与事实；插件返回的文本已再次脱敏" />
+
+                    <Button Content="导出 JSON"
+                            Command="{Binding ExportCommand}"
+                            MinWidth="{DynamicResource LfButtonMinWidth}"
+                            Height="{DynamicResource LfControlHeight}"
+                            Margin="{DynamicResource LfInlineSpacingLeading}"
+                            ToolTip="导出结构化结果；导出前统一脱敏" />
+
+                    <TextBlock Text="{Binding ActionFeedback}"
+                               VerticalAlignment="Center"
+                               Margin="{DynamicResource LfInlineSpacingLeading}"
+                               FontSize="{DynamicResource LfFontSizeCaption}"
+                               Foreground="{DynamicResource LfBrushTextSecondary}"
+                               TextWrapping="Wrap" />
+                </WrapPanel>
+
+                <Expander Header="原始输出与日志"
+                          Margin="{DynamicResource LfBlockSpacing}"
+                          Visibility="{Binding HasResult,
+                                               Converter={StaticResource LfBoolToVisibility}}">
+                    <controls:LogViewer Height="{DynamicResource LfLogPanelDefaultHeight}"
+                                        Entries="{Binding Logs}"
+                                        Margin="{DynamicResource LfInlineSpacing}" />
+                </Expander>
+            </StackPanel>
+        </Grid>
+    </ScrollViewer>
+</UserControl>

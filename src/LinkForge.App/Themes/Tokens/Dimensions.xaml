@@ -205,6 +205,17 @@
     <sys:Double x:Key="LfDeveloperToolListMaxHeight">400</sys:Double>
     <sys:Double x:Key="LfDeveloperEditorHeight">220</sys:Double>
 
+    <!-- ===================== 插件管理页（阶段 05 · LF-012） ===================== -->
+    <!--
+        插件列表列宽与上限高度。列表用 MaxHeight 而不是 Height：
+        插件数量由用户放入目录的条目决定，固定高度会在插件多于阈值时裁掉条目、
+        少于阈值时留下大片空白（LF-011 的工具列表就是这么修掉的）。
+    -->
+    <GridLength x:Key="LfPluginListColumnWidth">340</GridLength>
+    <sys:Double x:Key="LfPluginListMaxHeight">420</sys:Double>
+    <!-- 行的最小高度：低于此高度时插件名与状态标签会挤在一起；高于此高度时随内容增长。 -->
+    <sys:Double x:Key="LfPluginRowMinHeight">58</sys:Double>
+
     <!-- ===================== 描边 ===================== -->
     <Thickness x:Key="LfBorderThickness">1</Thickness>
     <!--

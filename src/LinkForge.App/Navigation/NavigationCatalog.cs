@@ -151,8 +151,26 @@ public static class NavigationCatalog
             "设置",
             LfGlyph.Settings,
             "外观、日志、存储与扩展设置。",
+            // 分组节点本身不可导航（只负责展开二级项），因此可用性留未实现：
+            // 它的二级项里已实现的部分由二级项自己声明，不借用父节点冒充整模块可用。
             LfModuleAvailability.NotImplemented,
-            [])
+            [
+                new("settings.appearance", "外观与存储", LfGlyph.Palette,
+                    "主题、密度、代理与存储位置。",
+                    LfModuleAvailability.NotImplemented, []),
+
+                new("settings.plugins", "插件管理", LfGlyph.Library,
+                    "校验插件清单与哈希，在独立进程中运行插件步骤。",
+                    LfModuleAvailability.Available, []),
+
+                new("settings.logs", "日志与保留策略", LfGlyph.Task,
+                    "设置日志等级、保留周期与脱敏策略。",
+                    LfModuleAvailability.NotImplemented, []),
+
+                new("settings.about", "关于与诊断包", LfGlyph.Certificate,
+                    "版本、依赖与许可清单、诊断包导出。",
+                    LfModuleAvailability.NotImplemented, [])
+            ])
     ];
 
     /// <summary>按 Id 查找节点（含二级项）。</summary>

@@ -156,6 +156,12 @@ public partial class App : System.Windows.Application
         services.AddSingleton<IDeveloperTransformExecutor, DeveloperTransformExecutor>();
         services.AddSingleton<IDeveloperResultClipboard, DeveloperResultClipboard>();
 
+        // 插件宿主：清单校验与进程外执行在 Plugin.Hosting 中实现，
+        // 这里只注入"扫描目录"与"运行插件"两个边界，页面不直接接触子进程 API。
+        services.AddSingleton<IPluginCatalogService>(static _ => new PluginCatalogService());
+        services.AddSingleton<IPluginRunExecutor, PluginRunExecutor>();
+        services.AddSingleton<IPluginResultExporter, PluginResultExporter>();
+
         // 自检适配器：以适配器契约注册，
         // 之后接入海康 / 大华等进程外适配器时，调用方（工作台）无需改动。
         services.AddSingleton<IDiagnosticAdapter>(static provider =>
@@ -173,6 +179,7 @@ public partial class App : System.Windows.Application
         services.AddSingleton<RtspDiagnosticsViewModel>();
         services.AddSingleton<ReportPageViewModel>();
         services.AddSingleton<DeveloperToolsViewModel>();
+        services.AddSingleton<PluginManagerViewModel>();
 
         // 视图
         services.AddSingleton<ShellWindow>();

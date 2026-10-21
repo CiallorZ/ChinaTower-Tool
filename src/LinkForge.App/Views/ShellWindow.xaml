@@ -296,6 +296,12 @@
                                                                    RelativeSource={RelativeSource AncestorType=Window},
                                                                    Converter={StaticResource LfBoolToVisibility}}" />
 
+                    <pages:PluginManagerPage x:Name="PluginManagerContent"
+                                             DataContext="{Binding PluginManager}"
+                                             Visibility="{Binding DataContext.IsPluginManagerSelected,
+                                                                  RelativeSource={RelativeSource AncestorType=Window},
+                                                                  Converter={StaticResource LfBoolToVisibility}}" />
+
                     <!-- 未实现模块：明确的占位状态，不伪造功能 -->
                     <controls:EmptyState x:Name="NotImplementedContent"
                                          Title="{Binding CurrentTitle}"

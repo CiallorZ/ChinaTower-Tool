@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <!--
+    插件宿主只依赖领域结论与适配器契约，不引用 App / WPF。
+    这样"插件不得读取宿主秘密库"就是结构性事实：
+    本层根本没有秘密存储类型可引用，也不存在把宿主服务对象
+    跨进程传给插件的入口。
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\LinkForge.Domain\LinkForge.Domain.csproj" />
+    <ProjectReference Include="..\LinkForge.Plugin.Abstractions\LinkForge.Plugin.Abstractions.csproj" />
+  </ItemGroup>
+
+</Project>

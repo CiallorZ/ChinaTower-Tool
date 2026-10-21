@@ -219,6 +219,23 @@ App、Application 或 WPF：
   `IDeveloperResultClipboard` 隔离剪贴板，便于无 UI 测试。
 - 转换结果不写日志、历史或报告；若后续增加持久化，必须先接入统一脱敏。
 
+### 4.7 插件宿主依赖边（阶段 05）
+
+插件清单校验与进程外执行采用
+`App → Plugin.Hosting → Domain / Plugin.Abstractions`：
+
+- `PluginCatalogScanner` 只扫描插件目录并校验清单、API 版本、架构、
+  入口相对路径、重解析点与 SHA-256；不加载插件程序集。
+- `OutOfProcessDiagnosticAdapter` 通过 `ProcessStartInfo.ArgumentList`
+  启动独立进程，使用单行 JSON 协议完成 `hello` 握手与 `executeStep`；
+  崩溃、超时、协议错误和取消分别映射，不向宿主冒泡未处理异常。
+- 插件宿主不引用 App、Application 或 WPF，也不提供宿主秘密库入口；
+  参数按清单声明的白名单下发，插件返回文本在宿主出口再次脱敏。
+- 签名枚举只有 `Unsigned` 与 `DeclaredSignedUnverified`；
+  清单声明不等于证书链验证，界面不得显示“签名已验证”。
+- `Plugin.Hosting` 为零 NuGet 依赖的 `net10.0` 纯库；
+  插件目录、信任确认、运行编排、复制与导出由 App 层负责。
+
 
 ## 5. 关键领域模型
 - Project：项目元数据与 SchemaVersion。

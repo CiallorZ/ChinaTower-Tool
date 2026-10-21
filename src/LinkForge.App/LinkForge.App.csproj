@@ -21,6 +21,7 @@
     <ProjectReference Include="..\LinkForge.Domain\LinkForge.Domain.csproj" />
     <ProjectReference Include="..\LinkForge.DeveloperTools\LinkForge.DeveloperTools.csproj" />
     <ProjectReference Include="..\LinkForge.Plugin.Abstractions\LinkForge.Plugin.Abstractions.csproj" />
+    <ProjectReference Include="..\LinkForge.Plugin.Hosting\LinkForge.Plugin.Hosting.csproj" />
     <ProjectReference Include="..\LinkForge.Adapters.Mqtt\LinkForge.Adapters.Mqtt.csproj" />
     <ProjectReference Include="..\LinkForge.Adapters.Video\LinkForge.Adapters.Video.csproj" />
     <ProjectReference Include="..\LinkForge.Reporting\LinkForge.Reporting.csproj" />

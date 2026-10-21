@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Xml.Linq;
 using LinkForge.DeveloperTools;
+using LinkForge.Plugin.Hosting;
 
 namespace LinkForge.Application.Tests;
 
@@ -200,6 +201,38 @@ public class ArchitectureTests
 
         forbidden.ShouldBeEmpty(
             $"DeveloperTools 不得引用 WPF 程序集，实际引用：{string.Join(", ", forbidden)}");
+    }
+
+    [Fact]
+    public void Plugin_hosting_should_stay_below_the_ui_layer()
+    {
+        // LF-012：插件宿主必须停留在 UI 层之下。
+        // 一旦它能引用 App/WPF，"插件读不到宿主秘密库"就从结构性保证退化为约定：
+        // 宿主侧会有服务对象可传，页面侧也能直接把对话框塞进执行路径。
+        var references = ProjectFile.ReadProjectReferences(
+            "src/LinkForge.Plugin.Hosting/LinkForge.Plugin.Hosting.csproj");
+
+        references.ShouldNotContain("LinkForge.App");
+        references.ShouldNotContain("LinkForge.Application");
+        references.ShouldContain("LinkForge.Plugin.Abstractions");
+
+        var packages = ProjectFile.ReadPackageReferences(
+            "src/LinkForge.Plugin.Hosting/LinkForge.Plugin.Hosting.csproj");
+
+        packages.ShouldBeEmpty(
+            $"插件宿主不得引入 NuGet 依赖，实际引用：{string.Join(", ", packages)}");
+
+        // 用 typeof 而不是 Assembly.Load：未被引用的程序集会被编译器从 IL 引用表裁掉。
+        var assembly = typeof(PluginHostContract).Assembly;
+        var forbidden = assembly
+            .GetReferencedAssemblies()
+            .Select(a => a.Name ?? string.Empty)
+            .Where(name => ForbiddenAssemblyPrefixes.Any(
+                forbiddenPrefix => name.StartsWith(forbiddenPrefix, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+
+        forbidden.ShouldBeEmpty(
+            $"Plugin.Hosting 不得引用 WPF 程序集，实际引用：{string.Join(", ", forbidden)}");
     }
 }
 

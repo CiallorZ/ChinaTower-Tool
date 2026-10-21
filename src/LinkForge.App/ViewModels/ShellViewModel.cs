@@ -31,6 +31,7 @@ public sealed partial class ShellViewModel : ObservableObject
     /// <param name="rtspDiagnostics">RTSP 诊断视图模型。</param>
     /// <param name="reportPage">项目与报告视图模型。</param>
     /// <param name="developerTools">开发者工具视图模型。</param>
+    /// <param name="pluginManager">插件管理视图模型。</param>
     public ShellViewModel(
         ThemeManager? themeManager = null,
         AppSettingsStore? settingsStore = null,
@@ -40,7 +41,8 @@ public sealed partial class ShellViewModel : ObservableObject
         MqttWorkbenchViewModel? mqttWorkbench = null,
         RtspDiagnosticsViewModel? rtspDiagnostics = null,
         ReportPageViewModel? reportPage = null,
-        DeveloperToolsViewModel? developerTools = null)
+        DeveloperToolsViewModel? developerTools = null,
+        PluginManagerViewModel? pluginManager = null)
     {
         _themeManager = themeManager;
         _settingsStore = settingsStore;
@@ -51,6 +53,7 @@ public sealed partial class ShellViewModel : ObservableObject
         RtspDiagnostics = rtspDiagnostics;
         ReportPage = reportPage;
         DeveloperTools = developerTools;
+        PluginManager = pluginManager;
 
         NavigationItems = new ObservableCollection<NavigationNode>(NavigationCatalog.TopLevel);
 
@@ -96,6 +99,9 @@ public sealed partial class ShellViewModel : ObservableObject
     /// <summary>开发者工具视图模型。</summary>
     public DeveloperToolsViewModel? DeveloperTools { get; }
 
+    /// <summary>插件管理视图模型。</summary>
+    public PluginManagerViewModel? PluginManager { get; }
+
     /// <summary>当前选中的导航节点。</summary>
     [ObservableProperty]
     public partial NavigationNode? SelectedNode { get; set; }
@@ -132,6 +138,9 @@ public sealed partial class ShellViewModel : ObservableObject
 
     /// <summary>是否显示开发者工具页。</summary>
     public bool IsDeveloperToolsSelected => CurrentPageId == "developer";
+
+    /// <summary>是否显示插件管理页。</summary>
+    public bool IsPluginManagerSelected => CurrentPageId == "settings.plugins";
 
     /// <summary>当前页面是否已实现（false 时内容区显示明确的未实现状态）。</summary>
     [ObservableProperty]
@@ -204,6 +213,7 @@ public sealed partial class ShellViewModel : ObservableObject
         OnPropertyChanged(nameof(IsRtspDiagnosticsSelected));
         OnPropertyChanged(nameof(IsReportPageSelected));
         OnPropertyChanged(nameof(IsDeveloperToolsSelected));
+        OnPropertyChanged(nameof(IsPluginManagerSelected));
 
         // 每次进入报告页都重新读取历史：用户刚跑完一次诊断再切过来，
         // 看到的必须是包含这次结果的最新列表，而不是启动时的快照。

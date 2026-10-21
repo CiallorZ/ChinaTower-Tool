@@ -477,6 +477,85 @@ public class ShellWindowTests
     }
 
     [Fact]
+    public void Selecting_plugin_manager_should_show_the_page_and_hide_other_pages()
+    {
+        // 插件管理挂在"设置"分组下：必须验证二级项导航真的把页面切出来，
+        // 而不是只改高亮 —— 历史缺陷是 DataContext 未指向页面视图模型，
+        // 结果是一个只有标题的空白页，且没有任何报错。
+        var harness = new PluginManagerHarness();
+        var (plugins, dashboard, developer, placeholder, dataContext) = StaRunner.Run(() =>
+        {
+            ThemedHost.EnsureResources();
+
+            var viewModel = new ShellViewModel(
+                dashboard: new DashboardHarness().ViewModel,
+                developerTools: new DeveloperToolsHarness().ViewModel,
+                pluginManager: harness.ViewModel);
+            var window = new ShellWindow(viewModel);
+
+            window.Show();
+            PumpDispatcher();
+            Layout(window, ReferenceWidth, ReferenceHeight);
+
+            viewModel.NavigateTo(NavigationCatalog.Find("settings.plugins"));
+            PumpDispatcher();
+            window.UpdateLayout();
+
+            var result = (
+                ((FrameworkElement)window.FindName("PluginManagerContent")!).Visibility,
+                ((FrameworkElement)window.FindName("DashboardContent")!).Visibility,
+                ((FrameworkElement)window.FindName("DeveloperToolsContent")!).Visibility,
+                ((FrameworkElement)window.FindName("NotImplementedContent")!).Visibility,
+                ((FrameworkElement)window.FindName("PluginManagerContent")!).DataContext);
+
+            window.Close();
+            PumpDispatcher();
+            return result;
+        });
+
+        plugins.ShouldBe(Visibility.Visible);
+        dashboard.ShouldBe(Visibility.Collapsed);
+        developer.ShouldBe(Visibility.Collapsed);
+        placeholder.ShouldBe(Visibility.Collapsed);
+        dataContext.ShouldBeOfType<PluginManagerViewModel>();
+    }
+
+    [Fact]
+    public void Settings_group_node_should_not_navigate_to_a_blank_page()
+    {
+        // "设置"现在带二级项，是分组节点：直接导航它必须被忽略，
+        // 否则用户点一下就看到一个没有任何内容的占位页。
+        var (pageId, placeholder) = StaRunner.Run(() =>
+        {
+            ThemedHost.EnsureResources();
+
+            var viewModel = new ShellViewModel(
+                dashboard: new DashboardHarness().ViewModel,
+                pluginManager: new PluginManagerHarness().ViewModel);
+            var window = new ShellWindow(viewModel);
+
+            window.Show();
+            PumpDispatcher();
+            Layout(window, ReferenceWidth, ReferenceHeight);
+
+            viewModel.NavigateTo(NavigationCatalog.Find("settings"));
+            PumpDispatcher();
+            window.UpdateLayout();
+
+            var result = (
+                viewModel.CurrentPageId,
+                ((FrameworkElement)window.FindName("DashboardContent")!).Visibility);
+
+            window.Close();
+            PumpDispatcher();
+            return result;
+        });
+
+        pageId.ShouldBe("dashboard", "分组节点不应改变当前页面。");
+        placeholder.ShouldBe(Visibility.Visible, "当前页仍是工作台，占位状态不该出现。");
+    }
+
+    [Fact]
     public void Selecting_a_group_node_should_not_leave_it_highlighted()
     {
         // 真实缺陷回归守卫：TreeView 自己维护选中状态，ViewModel 拦不住它，

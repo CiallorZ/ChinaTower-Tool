@@ -138,11 +138,18 @@ public sealed class ShellViewModelTests : IDisposable
     [Fact]
     public void Status_text_should_track_the_current_module()
     {
+        // 用二级项而不是"设置"本身：分组节点只负责展开，不参与导航，
+        // 导航到分组不会改变状态栏（这正是分组节点应有的行为）。
         var viewModel = new ShellViewModel();
 
         viewModel.NavigateTo(NavigationCatalog.Find("settings"));
+        viewModel.StatusText
+            .Contains("设置", StringComparison.Ordinal)
+            .ShouldBeFalse("分组节点不应成为当前模块。");
 
-        viewModel.StatusText.ShouldContain("设置");
+        viewModel.NavigateTo(NavigationCatalog.Find("settings.plugins"));
+
+        viewModel.StatusText.ShouldContain("插件管理");
     }
 
     [Fact]

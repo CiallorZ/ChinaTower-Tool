@@ -177,6 +177,30 @@ public class SecretRedactorTests
         SecretRedactor.Redact(input).ShouldBe(input);
     }
 
+    [Theory]
+    [InlineData("admin:Passw0rd@10.0.0.8")]
+    [InlineData("设备凭据 admin:Passw0rd@10.0.0.8 登录成功")]
+    public void Bare_userinfo_without_a_scheme_should_be_redacted(string input)
+    {
+        // 插件返回、厂商 SDK 日志与目标标签常是裸 user:pass@host 形态。
+        // 带 scheme 的规则覆盖不到它，密码就会原样进入日志、历史、剪贴板与报告。
+        var output = SecretRedactor.Redact(input);
+
+        output.ShouldNotContain("Passw0rd");
+        output.ShouldContain("admin:***@10.0.0.8");
+        SecretRedactor.Redact(output).ShouldBe(output);
+    }
+
+    [Theory]
+    [InlineData("联系人 support@example.com")]
+    [InlineData("监听地址 0.0.0.0:8080 已就绪")]
+    [InlineData("host=10.20.30.40 port=1883 deviceId=cam-01")]
+    public void Bare_userinfo_rule_should_not_swallow_emails_ports_or_plain_addresses(string input)
+    {
+        // 过度脱敏会让排障信息消失；邮箱与 IP:port 必须原样保留。
+        SecretRedactor.Redact(input).ShouldBe(input);
+    }
+
     [Fact]
     public void Non_sensitive_key_values_should_be_unchanged()
     {

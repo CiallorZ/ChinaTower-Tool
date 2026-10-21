@@ -83,6 +83,7 @@ public static partial class SecretRedactor
         // 4. 无键名令牌形态：JWT、PAT 等。
         result = RedactAuthorizationHeaders(result);
         result = RedactUrlUserInfo(result);
+        result = RedactBareUserInfo(result);
         result = RedactKeyValuePairs(result);
         result = RedactKnownTokenFormats(result);
 
@@ -99,6 +100,23 @@ public static partial class SecretRedactor
     private static string RedactUrlUserInfo(string input) =>
         UrlUserInfoPattern().Replace(input, static match =>
             $"{match.Groups["scheme"].Value}://{match.Groups["user"].Value}:{Mask}@");
+
+    /// <summary>
+    /// 不带协议的 userinfo：<c>admin:password@10.0.0.8</c> -> <c>admin:***@10.0.0.8</c>。
+    /// </summary>
+    /// <remarks>
+    /// 带 scheme 的规则只覆盖 <c>rtsp://user:pass@host</c>，但目标标签、插件返回的
+    /// 连接串和厂商 SDK 日志常以<b>裸</b> <c>user:pass@host</c> 形态出现
+    /// （例如 "10.0.0.8 的凭据 admin:Passw0rd@10.0.0.8"）。
+    /// 没有这条规则时，密码会原样进入日志、历史、剪贴板与报告。
+    ///
+    /// 边界刻意收紧：用户名与密码都不允许包含空白、斜杠、冒号或 <c>@</c>，
+    /// 因此普通邮箱（<c>a@b.com</c>，冒号不存在）与 <c>10.0.0.1:554</c>（无 <c>@</c>）
+    /// 都不会被误伤；替换后仍是 <c>user:***@host</c>，幂等。
+    /// </remarks>
+    private static string RedactBareUserInfo(string input) =>
+        BareUserInfoPattern().Replace(input, static match =>
+            $"{match.Groups["user"].Value}:{Mask}@");
 
     /// <summary>
     /// 键值对形式：<c>password=xxx</c>、<c>"token": "xxx"</c>、<c>api_key: xxx</c> 等。
@@ -148,6 +166,12 @@ public static partial class SecretRedactor
         @"(?<scheme>[a-zA-Z][a-zA-Z0-9+.\-]*)://(?<user>[^:/@\s]+):(?<password>[^@/\s]+)@",
         RegexOptions.CultureInvariant)]
     private static partial Regex UrlUserInfoPattern();
+
+    // 用户名前不能紧跟 / : @ ，避免把 scheme://user 再匹配一次。
+    [GeneratedRegex(
+        @"(?<![:/@])(?<user>[^:/@\s]+):(?<password>[^:/@\s]+)@",
+        RegexOptions.CultureInvariant)]
+    private static partial Regex BareUserInfoPattern();
 
     [GeneratedRegex(
         $@"(?<prefix>(?<![A-Za-z0-9_\-])[""']?(?:{SensitiveKeyNames})[""']?\s*[:=]\s*)(?<quote>[""']?)(?<value>[^""'\s,;&}}]+)\k<quote>",
