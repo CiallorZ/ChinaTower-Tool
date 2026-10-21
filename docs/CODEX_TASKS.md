@@ -307,7 +307,7 @@
 - [x] 包内生成 `release.json`、`VERSION.txt`、`DEPENDENCIES.txt`、`THIRD-PARTY-NOTICES.md`、CycloneDX 1.5 SBOM、`SHA256SUMS.txt` 与 ZIP SHA-256。
 - [x] 包内 25 个 NuGet 组件许可证声明可解析；SBOM 序列号由版本/提交确定；包内校验和复核 0 失败。
 - [x] 发布目录 `LinkForge.App.exe` 真实启动并关闭，退出码 `0`。
-- [x] `scripts/verify-clean-checkout.ps1` 已提供，待提交后对已提交 `HEAD` 执行并补记结果。
+- [x] `scripts/verify-clean-checkout.ps1` 对已提交 `HEAD` 执行通过；克隆、还原、构建与 937 / 937 测试均成功。
 - [x] Debug 与 Release 均构建 0 警告 0 错误；全解决方案 937 / 937 测试通过。
 - [ ] 当前产物未签名、不是安装器；未完成代码签名、时间戳和 SmartScreen 验证。
 - [ ] 未完成 MSIX/WiX/Inno Setup、升级失败回滚、卸载残留与 Windows 10 真机安装验收。

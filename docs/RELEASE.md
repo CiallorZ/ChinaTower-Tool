@@ -67,7 +67,13 @@ pwsh -NoProfile -File scripts/verify-clean-checkout.ps1
 - CycloneDX 1.5 SBOM 可解析，序列号由版本与提交确定；
 - 包内逐文件 SHA-256 复核 0 失败；
 - 发布目录中的 `LinkForge.App.exe` 真实启动并关闭，退出码 0；
-- 干净 checkout 验证脚本待提交后针对已提交 `HEAD` 执行。
+- 干净 checkout 验证已针对提交 `3bd8af769ad1` 执行并通过；
+  克隆后的还原、构建与 937 / 937 测试均成功。
+
+最终干净版便携包为
+`artifacts/LinkForge-0.5.0-preview.1-3bd8af769ad1-win-x64-portable.zip`，
+ZIP SHA-256 为
+`9c542574a73f899b957e5694e6c2a15aaeb8a4f4ba0d4df9c1d6376007272c8e`。
 
 ## 升级与卸载（便携包）
 
