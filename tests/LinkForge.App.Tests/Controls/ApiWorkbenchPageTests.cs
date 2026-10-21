@@ -153,6 +153,8 @@ public class ApiWorkbenchPageTests
         window.Show();
         Pump();
         Layout(window);
+        WaitForExpanderAnimations();
+        Layout(window);
 
         var bitmap = new RenderTargetBitmap(
             ReferenceWidth,
@@ -192,6 +194,18 @@ public class ApiWorkbenchPageTests
             System.Windows.Threading.Dispatcher.CurrentDispatcher.Invoke(
                 System.Windows.Threading.DispatcherPriority.Background,
                 new Action(() => { }));
+        }
+    }
+
+    private static void WaitForExpanderAnimations()
+    {
+        // WPF-UI 的 Expander 在首次展开时使用时间驱动的动画。
+        // 只清空 Dispatcher 队列不会推进动画时钟，截屏会抓到内容仍被裁切的一帧。
+        var deadline = DateTime.UtcNow + TimeSpan.FromMilliseconds(900);
+        while (DateTime.UtcNow < deadline)
+        {
+            Pump();
+            Thread.Sleep(16);
         }
     }
 
