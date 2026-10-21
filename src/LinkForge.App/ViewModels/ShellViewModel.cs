@@ -1,7 +1,11 @@
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using System.ComponentModel;
+using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LinkForge.App.Navigation;
+using LinkForge.App.Presentation;
 using LinkForge.App.Services;
 
 namespace LinkForge.App.ViewModels;
@@ -18,6 +22,9 @@ public sealed partial class ShellViewModel : ObservableObject
 {
     private readonly AppSettingsStore? _settingsStore;
     private readonly ThemeManager? _themeManager;
+    private readonly IStructuredLogService? _structuredLogs;
+    private readonly ILogPanelExporter? _logExporter;
+    private readonly ObservableCollection<LogEntry> _localLogs = [];
 
     /// <summary>
     /// 创建壳层视图模型。
@@ -33,6 +40,8 @@ public sealed partial class ShellViewModel : ObservableObject
     /// <param name="developerTools">开发者工具视图模型。</param>
     /// <param name="pluginManager">插件管理视图模型。</param>
     /// <param name="assetCatalog">设备与资产视图模型。</param>
+    /// <param name="structuredLogs">应用级结构化日志；null 时仅保留进程内局部日志。</param>
+    /// <param name="logExporter">日志复制/导出边界；null 时命令给出明确不可用反馈。</param>
     public ShellViewModel(
         ThemeManager? themeManager = null,
         AppSettingsStore? settingsStore = null,
@@ -44,10 +53,14 @@ public sealed partial class ShellViewModel : ObservableObject
         ReportPageViewModel? reportPage = null,
         DeveloperToolsViewModel? developerTools = null,
         PluginManagerViewModel? pluginManager = null,
-        AssetCatalogViewModel? assetCatalog = null)
+        AssetCatalogViewModel? assetCatalog = null,
+        IStructuredLogService? structuredLogs = null,
+        ILogPanelExporter? logExporter = null)
     {
         _themeManager = themeManager;
         _settingsStore = settingsStore;
+        _structuredLogs = structuredLogs;
+        _logExporter = logExporter;
         Dashboard = dashboard;
         NetworkDiagnostics = networkDiagnostics;
         ApiWorkbench = apiWorkbench;
@@ -59,6 +72,21 @@ public sealed partial class ShellViewModel : ObservableObject
         AssetCatalog = assetCatalog;
 
         NavigationItems = new ObservableCollection<NavigationNode>(NavigationCatalog.TopLevel);
+        LogEntries = structuredLogs?.Entries ?? _localLogs;
+
+        AttachLogSource(Dashboard?.SelfCheckLogs);
+        AttachLogSource(NetworkDiagnostics?.Logs);
+        AttachLogSource(ApiWorkbench?.Logs);
+        AttachLogSource(MqttWorkbench?.Logs);
+        AttachLogSource(RtspDiagnostics?.Logs);
+        AttachLogSource(PluginManager?.Logs);
+
+        LogEntries.CollectionChanged += OnLogEntriesChanged;
+
+        if (_structuredLogs is not null)
+        {
+            _structuredLogs.PropertyChanged += OnStructuredLogsPropertyChanged;
+        }
 
         var settings = settingsStore?.Load();
 
@@ -107,6 +135,52 @@ public sealed partial class ShellViewModel : ObservableObject
 
     /// <summary>设备与资产视图模型。</summary>
     public AssetCatalogViewModel? AssetCatalog { get; }
+
+    /// <summary>底部日志面板显示的应用级日志。</summary>
+    public ObservableCollection<LogEntry> LogEntries { get; }
+
+    /// <summary>日志搜索关键字。</summary>
+    [ObservableProperty]
+    public partial string LogSearchText { get; set; } = string.Empty;
+
+    /// <summary>日志最低显示级别；null 表示全部。</summary>
+    [ObservableProperty]
+    public partial LfLogLevel? LogMinimumLevel { get; set; }
+
+    /// <summary>最近的日志复制/导出反馈。</summary>
+    [ObservableProperty]
+    public partial string LogActionFeedback { get; set; } = string.Empty;
+
+    /// <summary>最近一次日志操作是否失败。</summary>
+    [ObservableProperty]
+    public partial bool HasLogActionError { get; set; }
+
+    /// <summary>日志文件错误；正常时为空。</summary>
+    public string? LogStorageError => _structuredLogs?.StorageError;
+
+    /// <summary>日志面板底部状态：优先显示操作反馈，同时保留文件错误。</summary>
+    public string LogPanelStatus
+    {
+        get
+        {
+            var parts = new List<string>(2);
+
+            if (!string.IsNullOrWhiteSpace(LogActionFeedback))
+            {
+                parts.Add(LogActionFeedback);
+            }
+
+            if (!string.IsNullOrWhiteSpace(LogStorageError))
+            {
+                parts.Add(LogStorageError);
+            }
+
+            return string.Join(" · ", parts);
+        }
+    }
+
+    /// <summary>当前筛选条件下是否有可操作日志。</summary>
+    public bool HasVisibleLogs => EnumerateVisibleLogs().Any();
 
     /// <summary>当前选中的导航节点。</summary>
     [ObservableProperty]
@@ -294,6 +368,10 @@ public sealed partial class ShellViewModel : ObservableObject
 
         OnPropertyChanged(nameof(ThemeText));
         UpdateStatusText();
+        PublishShellLog(
+            LfLogLevel.Information,
+            "shell.theme.changed",
+            $"主题偏好已切换为“{ThemeText}”。");
     }
 
     /// <summary>
@@ -350,6 +428,192 @@ public sealed partial class ShellViewModel : ObservableObject
         settings.IsLogPanelOpen = IsLogPanelOpen;
         settings.LogPanelHeight = LogPanelHeight;
         _settingsStore.Save(settings);
+    }
+
+    /// <summary>复制当前筛选后的脱敏日志。</summary>
+    [RelayCommand(CanExecute = nameof(HasVisibleLogs))]
+    private void CopyLogs()
+    {
+        if (_logExporter is null)
+        {
+            SetLogActionFeedback("当前环境未提供剪贴板服务。", isError: true);
+            return;
+        }
+
+        var entries = EnumerateVisibleLogs();
+        var text = BuildLogText(entries);
+
+        try
+        {
+            _logExporter.Copy(text);
+            SetLogActionFeedback($"已复制 {entries.Count} 行脱敏日志。", isError: false);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException
+            or System.Runtime.InteropServices.ExternalException)
+        {
+            SetLogActionFeedback($"复制日志失败：{ex.GetType().Name} — {ex.Message}", isError: true);
+        }
+    }
+
+    /// <summary>导出当前筛选后的脱敏日志。</summary>
+    [RelayCommand(CanExecute = nameof(HasVisibleLogs), IncludeCancelCommand = true)]
+    private async Task ExportLogsAsync(CancellationToken cancellationToken)
+    {
+        if (_logExporter is null)
+        {
+            SetLogActionFeedback("当前环境未提供日志导出服务。", isError: true);
+            return;
+        }
+
+        var entries = EnumerateVisibleLogs();
+        var text = BuildLogText(entries);
+        var fileName = $"linkforge-log-{DateTime.Now:yyyyMMdd-HHmmss}.log";
+
+        try
+        {
+            var path = await _logExporter
+                .ExportAsync(fileName, text, cancellationToken)
+                .ConfigureAwait(true);
+
+            if (path is null)
+            {
+                SetLogActionFeedback("已取消导出日志。", isError: false);
+                return;
+            }
+
+            SetLogActionFeedback($"已导出 {entries.Count} 行脱敏日志：{path}", isError: false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            SetLogActionFeedback("已取消导出日志。", isError: false);
+        }
+        catch (Exception ex) when (ex is IOException
+            or UnauthorizedAccessException
+            or NotSupportedException
+            or ArgumentException
+            or InvalidOperationException)
+        {
+            SetLogActionFeedback($"导出日志失败：{ex.GetType().Name} — {ex.Message}", isError: true);
+        }
+    }
+
+    partial void OnLogSearchTextChanged(string value) => RefreshLogFilterState();
+
+    partial void OnLogMinimumLevelChanged(LfLogLevel? value) => RefreshLogFilterState();
+
+    partial void OnLogActionFeedbackChanged(string value) =>
+        OnPropertyChanged(nameof(LogPanelStatus));
+
+    partial void OnHasLogActionErrorChanged(bool value) =>
+        OnPropertyChanged(nameof(LogPanelStatus));
+
+    private void AttachLogSource(ObservableCollection<LogEntry>? source)
+    {
+        if (source is null)
+        {
+            return;
+        }
+
+        if (_structuredLogs is not null)
+        {
+            _structuredLogs.Attach(source);
+            return;
+        }
+
+        foreach (var entry in source)
+        {
+            _localLogs.Add(entry);
+        }
+
+        source.CollectionChanged += OnLocalLogSourceChanged;
+    }
+
+    private void OnLocalLogSourceChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.NewItems is null)
+        {
+            return;
+        }
+
+        foreach (var entry in e.NewItems.OfType<LogEntry>())
+        {
+            _localLogs.Add(entry);
+        }
+    }
+
+    private void OnLogEntriesChanged(object? sender, NotifyCollectionChangedEventArgs e) =>
+        RefreshLogFilterState();
+
+    private void OnStructuredLogsPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(IStructuredLogService.StorageError))
+        {
+            OnPropertyChanged(nameof(LogStorageError));
+            OnPropertyChanged(nameof(LogPanelStatus));
+        }
+    }
+
+    private void RefreshLogFilterState()
+    {
+        OnPropertyChanged(nameof(HasVisibleLogs));
+        CopyLogsCommand.NotifyCanExecuteChanged();
+        ExportLogsCommand.NotifyCanExecuteChanged();
+    }
+
+    private IReadOnlyList<LogEntry> EnumerateVisibleLogs()
+    {
+        IEnumerable<LogEntry> query = LogEntries;
+        var minimum = LogMinimumLevel;
+        var search = LogSearchText.Trim();
+
+        if (minimum is { } level)
+        {
+            query = query.Where(entry => entry.Level >= level);
+        }
+
+        if (search.Length > 0)
+        {
+            query = query.Where(entry =>
+                entry.Message.Contains(search, StringComparison.OrdinalIgnoreCase)
+                || entry.Module.Contains(search, StringComparison.OrdinalIgnoreCase)
+                || entry.RunId.Contains(search, StringComparison.OrdinalIgnoreCase)
+                || entry.TargetText.Contains(search, StringComparison.OrdinalIgnoreCase)
+                || entry.EventId.Contains(search, StringComparison.OrdinalIgnoreCase));
+        }
+
+        return query.ToList();
+    }
+
+    private static string BuildLogText(IReadOnlyList<LogEntry> entries) =>
+        entries.Count == 0
+            ? string.Empty
+            : string.Join(Environment.NewLine, entries.Select(static entry => entry.ToPlainText()))
+                + Environment.NewLine;
+
+    private void SetLogActionFeedback(string message, bool isError)
+    {
+        LogActionFeedback = message;
+        HasLogActionError = isError;
+    }
+
+    private void PublishShellLog(LfLogLevel level, string eventId, string message)
+    {
+        var entry = new LogEntry(
+            DateTimeOffset.Now,
+            level,
+            "Shell",
+            string.Empty,
+            null,
+            message,
+            eventId);
+
+        if (_structuredLogs is not null)
+        {
+            _structuredLogs.Publish(entry);
+            return;
+        }
+
+        _localLogs.Add(entry);
     }
 
     /// <summary>刷新状态栏文本。</summary>

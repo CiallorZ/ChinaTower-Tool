@@ -1,4 +1,5 @@
 using System.Windows.Media;
+using LinkForge.Application.Logging;
 
 namespace LinkForge.App.Presentation;
 
@@ -52,6 +53,9 @@ public enum LfLogLevel
 /// </remarks>
 public sealed class LogEntry
 {
+    /// <summary>调用方未提供事件标识时使用的稳定默认值。</summary>
+    public const string DefaultEventId = "runtime.log";
+
     /// <summary>
     /// 构造一条已脱敏的日志。
     /// </summary>
@@ -61,19 +65,24 @@ public sealed class LogEntry
     /// <param name="runId">任务运行 ID。</param>
     /// <param name="targetId">目标 ID，可空。</param>
     /// <param name="originalMessage">原始消息；此处立即脱敏，之后不再保留明文。</param>
+    /// <param name="eventId">稳定事件标识；为空时使用 <see cref="DefaultEventId"/>。</param>
     public LogEntry(
         DateTimeOffset timestamp,
         LfLogLevel level,
         string module,
         string runId,
         string? targetId,
-        string originalMessage)
+        string originalMessage,
+        string? eventId = null)
     {
         Timestamp = timestamp;
         Level = level;
-        Module = module;
-        RunId = runId;
+        Module = SecretRedactor.Redact(module) ?? string.Empty;
+        RunId = SecretRedactor.Redact(runId) ?? string.Empty;
         TargetId = SecretRedactor.Redact(targetId);
+        EventId = string.IsNullOrWhiteSpace(eventId)
+            ? DefaultEventId
+            : SecretRedactor.Redact(eventId) ?? DefaultEventId;
         Message = SecretRedactor.Redact(originalMessage) ?? string.Empty;
     }
 
@@ -91,6 +100,9 @@ public sealed class LogEntry
 
     /// <summary>目标 ID（可空）。</summary>
     public string? TargetId { get; }
+
+    /// <summary>稳定事件标识，例如 <c>network.probe.completed</c>。</summary>
+    public string EventId { get; }
 
     /// <summary>
     /// 已脱敏的消息。
@@ -117,6 +129,68 @@ public sealed class LogEntry
 
     /// <summary>目标文本；为空时显示为 "-"，避免空列让表格看起来缺数据。</summary>
     public string TargetText => string.IsNullOrWhiteSpace(TargetId) ? "-" : TargetId;
+
+    /// <summary>
+    /// 转换为可持久化的结构化记录。
+    /// </summary>
+    /// <remarks>
+    /// 该记录中的字符串已经脱敏；文件存储在写入前还会再脱敏一次。
+    /// </remarks>
+    public StructuredLogRecord ToStructuredRecord() =>
+        new(
+            Timestamp,
+            Level switch
+            {
+                LfLogLevel.Trace => StructuredLogLevel.Trace,
+                LfLogLevel.Debug => StructuredLogLevel.Debug,
+                LfLogLevel.Information => StructuredLogLevel.Information,
+                LfLogLevel.Warning => StructuredLogLevel.Warning,
+                LfLogLevel.Error => StructuredLogLevel.Error,
+                LfLogLevel.Critical => StructuredLogLevel.Critical,
+                _ => StructuredLogLevel.Information
+            },
+            Module,
+            RunId,
+            TargetId,
+            EventId,
+            Message);
+
+    /// <summary>从已脱敏的持久化记录恢复 UI 日志条目。</summary>
+    public static LogEntry FromStructuredRecord(StructuredLogRecord record)
+    {
+        ArgumentNullException.ThrowIfNull(record);
+
+        return new LogEntry(
+            record.Timestamp,
+            record.Level switch
+            {
+                StructuredLogLevel.Trace => LfLogLevel.Trace,
+                StructuredLogLevel.Debug => LfLogLevel.Debug,
+                StructuredLogLevel.Information => LfLogLevel.Information,
+                StructuredLogLevel.Warning => LfLogLevel.Warning,
+                StructuredLogLevel.Error => LfLogLevel.Error,
+                StructuredLogLevel.Critical => LfLogLevel.Critical,
+                _ => LfLogLevel.Information
+            },
+            record.Module,
+            record.RunId,
+            record.TargetId,
+            record.Message,
+            record.EventId);
+    }
+
+    /// <summary>复制或导出时使用的单行文本。</summary>
+    public string ToPlainText()
+    {
+        var target = string.IsNullOrWhiteSpace(TargetId) ? "-" : TargetId;
+        var run = string.IsNullOrWhiteSpace(RunId) ? "-" : RunId;
+
+        var local = Timestamp.ToLocalTime();
+
+        return string.Create(
+            System.Globalization.CultureInfo.InvariantCulture,
+            $"{local:yyyy-MM-dd HH:mm:ss.fff} | {LevelText} | {Module} | {run} | {target} | {EventId} | {Message}");
+    }
 }
 
 /// <summary>

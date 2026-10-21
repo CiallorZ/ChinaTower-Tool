@@ -266,6 +266,27 @@ flowchart LR
   都不含任何秘密字段，因此"项目数据里没有明文密码"是结构保证（ADR-008），
   而不是靠导出代码记得过滤。
 
+### 4.9 结构化日志依赖边（阶段 05）
+
+应用日志采用 `App → Application.Logging → Application.Diagnostics`：
+
+```mermaid
+flowchart LR
+  UI[WPF 日志面板] --> AGG[StructuredLogService<br/>内存聚合 + Channel]
+  AGG --> APP[Application.Logging<br/>StructuredLogRecord]
+  APP --> STORE[JsonLineStructuredLogStore<br/>按日 JSONL]
+  APP --> REDACT[ITextRedactor]
+  STORE --> FILE[%LOCALAPPDATA%\\LinkForge\\logs]
+```
+
+- `LogEntry` 在构造时脱敏；JSONL 存储写入前与读取时再次脱敏，
+  UI、磁盘、复制、导出和报告共用同一套敏感信息规则。
+- 日志写入通过后台 Channel 串行执行，不阻塞 UI；关闭前有限等待 flush。
+- 每日文件为 `linkforge-yyyyMMdd.jsonl`，当前日最近 5000 条进入日志面板；
+  单行损坏被跳过，存储读写失败以独立 `StorageError` 呈现。
+- 筛选、复制与导出都只作用于当前可见日志；取消导出与失败分别表达。
+- 不引入 Serilog；日志文件不加密，且尚未实现轮转保留、归档和签名校验。
+
 
 ## 5. 关键领域模型
 - Project：项目元数据与 SchemaVersion。

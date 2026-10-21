@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
+using System.Windows.Input;
 using LinkForge.App.Presentation;
 
 namespace LinkForge.App.Controls;
@@ -62,6 +63,30 @@ public sealed class LogViewer : Control
             typeof(LogViewer),
             new PropertyMetadata(true));
 
+    /// <summary>复制当前筛选结果。</summary>
+    public static readonly DependencyProperty CopyCommandProperty =
+        DependencyProperty.Register(
+            nameof(CopyCommand),
+            typeof(ICommand),
+            typeof(LogViewer),
+            new PropertyMetadata(null));
+
+    /// <summary>导出当前筛选结果。</summary>
+    public static readonly DependencyProperty ExportCommandProperty =
+        DependencyProperty.Register(
+            nameof(ExportCommand),
+            typeof(ICommand),
+            typeof(LogViewer),
+            new PropertyMetadata(null));
+
+    /// <summary>复制/导出后的反馈文本。</summary>
+    public static readonly DependencyProperty StatusTextProperty =
+        DependencyProperty.Register(
+            nameof(StatusText),
+            typeof(string),
+            typeof(LogViewer),
+            new PropertyMetadata(string.Empty));
+
     private static readonly DependencyPropertyKey VisibleCountKey =
         DependencyProperty.RegisterReadOnly(
             nameof(VisibleCount),
@@ -91,6 +116,28 @@ public sealed class LogViewer : Control
 
     /// <summary>当前是否处于过滤/搜索状态。</summary>
     public static readonly DependencyProperty IsFilteredProperty = IsFilteredKey.DependencyProperty;
+
+    private static readonly DependencyPropertyKey HasVisibleEntriesKey =
+        DependencyProperty.RegisterReadOnly(
+            nameof(HasVisibleEntries),
+            typeof(bool),
+            typeof(LogViewer),
+            new PropertyMetadata(false));
+
+    /// <summary>当前筛选结果是否至少有一行。</summary>
+    public static readonly DependencyProperty HasVisibleEntriesProperty =
+        HasVisibleEntriesKey.DependencyProperty;
+
+    private static readonly DependencyPropertyKey EmptyMessageKey =
+        DependencyProperty.RegisterReadOnly(
+            nameof(EmptyMessage),
+            typeof(string),
+            typeof(LogViewer),
+            new PropertyMetadata(string.Empty));
+
+    /// <summary>无日志或无匹配结果时的说明。</summary>
+    public static readonly DependencyProperty EmptyMessageProperty =
+        EmptyMessageKey.DependencyProperty;
 
     private CollectionViewSource? _viewSource;
 
@@ -122,6 +169,27 @@ public sealed class LogViewer : Control
         set => SetValue(AutoScrollProperty, value);
     }
 
+    /// <summary>复制当前筛选结果。</summary>
+    public ICommand? CopyCommand
+    {
+        get => (ICommand?)GetValue(CopyCommandProperty);
+        set => SetValue(CopyCommandProperty, value);
+    }
+
+    /// <summary>导出当前筛选结果。</summary>
+    public ICommand? ExportCommand
+    {
+        get => (ICommand?)GetValue(ExportCommandProperty);
+        set => SetValue(ExportCommandProperty, value);
+    }
+
+    /// <summary>复制/导出后的反馈文本。</summary>
+    public string? StatusText
+    {
+        get => (string?)GetValue(StatusTextProperty);
+        set => SetValue(StatusTextProperty, value);
+    }
+
     /// <summary>经过滤后当前可见的行数。</summary>
     public int VisibleCount => (int)GetValue(VisibleCountProperty);
 
@@ -130,6 +198,12 @@ public sealed class LogViewer : Control
 
     /// <summary>当前是否处于过滤/搜索状态。</summary>
     public bool IsFiltered => (bool)GetValue(IsFilteredProperty);
+
+    /// <summary>当前筛选结果是否至少有一行。</summary>
+    public bool HasVisibleEntries => (bool)GetValue(HasVisibleEntriesProperty);
+
+    /// <summary>无日志或无匹配结果时的说明。</summary>
+    public string EmptyMessage => (string)GetValue(EmptyMessageProperty);
 
     /// <summary>供模板内 ItemsControl 绑定的视图（已应用过滤）。</summary>
     internal static readonly DependencyPropertyKey ViewKey =
@@ -234,10 +308,7 @@ public sealed class LogViewer : Control
             return;
         }
 
-        var search = SearchText;
-
-        e.Accepted = string.IsNullOrWhiteSpace(search)
-            || entry.Message.Contains(search, StringComparison.OrdinalIgnoreCase);
+        e.Accepted = MatchesSearch(entry, SearchText);
     }
 
     private void OnSourceCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -294,6 +365,8 @@ public sealed class LogViewer : Control
         {
             SetValue(VisibleCountKey, 0);
             SetValue(TotalCountKey, 0);
+            SetValue(HasVisibleEntriesKey, false);
+            SetValue(EmptyMessageKey, "暂无日志。运行诊断或执行页面操作后，真实日志会显示在这里。");
             return;
         }
 
@@ -311,8 +384,7 @@ public sealed class LogViewer : Control
                 continue;
             }
 
-            if (!string.IsNullOrWhiteSpace(search)
-                && !entry.Message.Contains(search, StringComparison.OrdinalIgnoreCase))
+            if (!MatchesSearch(entry, search))
             {
                 continue;
             }
@@ -322,6 +394,28 @@ public sealed class LogViewer : Control
 
         SetValue(TotalCountKey, total);
         SetValue(VisibleCountKey, visible);
+        SetValue(HasVisibleEntriesKey, visible > 0);
+        SetValue(
+            EmptyMessageKey,
+            total == 0
+                ? "暂无日志。运行诊断或执行页面操作后，真实日志会显示在这里。"
+                : visible == 0
+                    ? "没有匹配当前筛选条件的日志。"
+                    : string.Empty);
+    }
+
+    private static bool MatchesSearch(LogEntry entry, string? search)
+    {
+        if (string.IsNullOrWhiteSpace(search))
+        {
+            return true;
+        }
+
+        return entry.Message.Contains(search, StringComparison.OrdinalIgnoreCase)
+            || entry.Module.Contains(search, StringComparison.OrdinalIgnoreCase)
+            || entry.RunId.Contains(search, StringComparison.OrdinalIgnoreCase)
+            || entry.TargetText.Contains(search, StringComparison.OrdinalIgnoreCase)
+            || entry.EventId.Contains(search, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>滚动到最新一行。</summary>

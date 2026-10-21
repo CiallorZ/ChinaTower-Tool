@@ -13,7 +13,7 @@
 | ADR-001 | 技术栈与目标框架 | C# / .NET 10 LTS / WPF / MVVM | 待确认（依赖 SDK 安装） |
 | ADR-002 | MVVM 与 UI 控件库 | CommunityToolkit.Mvvm + WPF-UI，自建设计 Token | 待确认 |
 | ADR-003 | 持久化 | SQLite + EF Core，项目包用 JSON | 提议 |
-| ADR-004 | 日志与脱敏 | Serilog + 统一 Redaction 层 | 提议 |
+| ADR-004 | 日志与脱敏 | JSONL 结构化日志 + 统一 Redaction 层 | 已采纳（实现细节见 ADR-033） |
 | ADR-005 | HTTP/API | HttpClientFactory + 自研请求模型 | 提议 |
 | ADR-006 | MQTT | MQTTnet（纯托管），不用 Paho C | 提议 |
 | ADR-007 | RTSP/媒体 | 自研信令诊断 + 播放组件抽象 | 提议（分发许可待定） |
@@ -86,7 +86,8 @@ PRD 7 节数据模型关系型特征明显；SQLite 单文件便于备份与现�
 ## ADR-004 日志与脱敏
 
 **决策**
-- 结构化日志：Serilog（文件 sink + 内存环形缓冲供 UI 面板读取）。
+- 结构化日志：零新增依赖的 JSON Lines 文件，由应用级聚合服务向 UI
+  提供最多 5000 条内存记录；不引入 Serilog。
 - **脱敏在写入前执行**：统一 `IRedactor`，覆盖密码、Token、Cookie、`Authorization`、URL userinfo、私钥、连接串。
 - 日志字段：`Timestamp`、`Level`、`Module`、`RunId`、`TargetId`、`EventId`。
 
@@ -202,7 +203,7 @@ Windows Credential Manager（P/Invoke `CredWrite`）：跨用户共享更好，�
 | CommunityToolkit.Mvvm | MVVM 基础设施 | 待定 | MIT（待复核） | LF-002 | 手写 INotifyPropertyChanged |
 | WPF-UI | Fluent 控件 | 待定 | MIT（待复核） | LF-002 | 自研样式 |
 | Microsoft.EntityFrameworkCore.Sqlite | 持久化 | 待定 | MIT（待复核） | LF-004 | Dapper + 手写 SQL |
-| Serilog | 结构化日志 | 待定 | Apache-2.0（待复核） | LF-005 | Microsoft.Extensions.Logging |
+| Serilog | 结构化日志 | 未引入 | Apache-2.0 | LF-005 未采用 | 内置 JSONL + 统一 Redaction（ADR-033） |
 | MQTTnet | MQTT 客户端 | 待定 | MIT（待复核） | LF-008 | Paho C |
 | xUnit / Shouldly | 测试与断言 | 待定 | Apache-2.0 / BSD-3（待复核） | LF-001 | NUnit / 内置断言 |
 
@@ -966,3 +967,57 @@ LinkForge.Application 与 LinkForge.Domain 都不依赖 EF Core
 - 不得把"磁盘满 / 无权限"当成"文件损坏"处理。
 - 改动 `*.csproj` 的 `ProjectReference` 后必须先还原再构建，
   否则 `--no-restore` 会用过期产物报出与本次改动无关的编译错误。
+
+## ADR-033：日志采用按日 JSONL、写入前双重脱敏与异步持久化（LF-005）
+
+**背景**
+
+阶段 03 已有日志面板，但日志只存在进程内；应用关闭后无法追查。
+同时，诊断目标、HTTP Header、RTSP URL 和插件返回值都可能携带凭据，
+仅靠界面显示时脱敏不够：一旦明文进入磁盘文件，后续复制、归档或误发附件
+都会扩大泄漏面。需要在 LF-005 中同时解决持久化、筛选、复制、导出与脱敏。
+
+**决策**
+
+1. **不引入 Serilog**。使用 `System.Text.Json` 输出按日滚动的 JSON Lines：
+   `%LOCALAPPDATA%\LinkForge\logs\linkforge-yyyyMMdd.jsonl`。
+   当前需求只需要结构化字段、追加写和最近记录读取，额外日志框架会增加
+   依赖、配置面与许可证维护成本。
+2. **应用级日志聚合与页面局部日志解耦**。`StructuredLogService` 通过
+   `Attach` 订阅工作台、网络、API、MQTT、RTSP、插件等页面已有的日志集合，
+   统一进入壳层日志面板；页面无需知道磁盘存储。
+3. **异步 Channel 写入**。UI 线程只发布记录，磁盘写入由单消费者后台任务执行；
+   `FlushAsync` 供关闭前尽可能落盘，不把文件 I/O 放到 UI 线程。
+4. **内存上限 5000 条**。超出后在 UI 调度线程移除最旧记录；
+   历史初始化只读取当前日文件最近 5000 条。
+5. **写入前双重脱敏**。`LogEntry` 构造时先脱敏；存储层在序列化前再次调用
+   同一个 `ITextRedactor`，读取时也再脱敏。报告生成前另有独立扫描。
+6. **稳定 `EventId`**。日志事件使用稳定标识，不生成随机 ID；RunId 用于关联
+   诊断证据，TargetId 仅存脱敏后的目标标签。
+7. **坏行跳过而不阻断启动**。读取 JSONL 时单行损坏只跳过该行；
+   文件权限、磁盘错误等存储故障通过独立 `StorageError` 反馈，不伪装成“无日志”。
+8. **筛选后复制/导出**。日志面板按消息、模块、RunId、TargetId、EventId
+   搜索，并支持最低级别过滤；复制与导出只处理当前可见结果。
+
+**依赖边**
+
+```text
+LinkForge.App ─→ LinkForge.Application.Logging
+LinkForge.Application.Logging ─→ LinkForge.Application.Diagnostics（ITextRedactor）
+LinkForge.App 不直接写日志文件
+```
+
+**剩余风险（明确接受）**
+
+- 日志文件本身**不加密**；只是保证写入、UI、复制与导出前不放明文凭据。
+- 未实现日志轮转保留策略、压缩、归档、全文索引与签名/完整性校验。
+- 原始异常堆栈的独立“安全详情查看面”尚未实现；页面仍以用户可读摘要为主。
+- 关闭时只等待有限时间 flush；强制终止进程可能丢失尚未写入队列的记录。
+
+**约束**
+
+- 不得绕过 `LogEntry` 或 `StructuredLogRecord` 直接把未脱敏字符串写盘。
+- 不得在 UI 线程执行日志文件读写。
+- 不得把读取失败显示成“没有历史日志”。
+- 不得把取消导出记为失败，也不得在导出失败时留下半成品文件。
+- 新增日志字段时必须同步更新脱敏、筛选、复制、导出与测试。

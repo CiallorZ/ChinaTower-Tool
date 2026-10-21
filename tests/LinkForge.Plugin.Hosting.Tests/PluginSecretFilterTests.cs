@@ -13,9 +13,9 @@ public class PluginSecretFilterTests
     [Fact]
     public void Key_value_assignments_should_be_masked()
     {
-        PluginSecretFilter.Redact("登录成功 password=SuperSecret123 已建立会话")
+        PluginSecretFilter.Redact("登录成功 password=SuperSecret123 已建立会话")!
             .ShouldNotContain("SuperSecret123");
-        PluginSecretFilter.Redact("connect with passwd: SuperSecret123; retry")
+        PluginSecretFilter.Redact("connect with passwd: SuperSecret123; retry")!
             .ShouldNotContain("SuperSecret123");
     }
 
@@ -23,7 +23,7 @@ public class PluginSecretFilterTests
     public void Json_quoted_secret_values_should_be_masked()
     {
         // JSON 形态（键名带引号）是插件最常见的返回结构，必须命中。
-        PluginSecretFilter.Redact("""{"token":"SuperSecret123","ok":true}""")
+        PluginSecretFilter.Redact("""{"token":"SuperSecret123","ok":true}""")!
             .ShouldNotContain("SuperSecret123");
     }
 
@@ -31,7 +31,7 @@ public class PluginSecretFilterTests
     public void Authorization_scheme_name_should_not_hide_the_real_token()
     {
         // 把 "Bearer" 当值遮蔽、留下真令牌，是最危险的假脱敏。
-        var output = PluginSecretFilter.Redact("Authorization = Bearer abcdefghijklmnop");
+        var output = PluginSecretFilter.Redact("Authorization = Bearer abcdefghijklmnop")!;
 
         output.ShouldNotContain("abcdefghijklmnop");
         output.ShouldContain("Authorization");
@@ -40,9 +40,9 @@ public class PluginSecretFilterTests
     [Fact]
     public void Token_shapes_without_a_key_should_be_masked()
     {
-        PluginSecretFilter.Redact("use sk-abcdefghij123456 to call the api")
+        PluginSecretFilter.Redact("use sk-abcdefghij123456 to call the api")!
             .ShouldNotContain("sk-abcdefghij123456");
-        PluginSecretFilter.Redact("key AKIAABCDEFGHIJKLMNOP for s3")
+        PluginSecretFilter.Redact("key AKIAABCDEFGHIJKLMNOP for s3")!
             .ShouldNotContain("AKIAABCDEFGHIJKLMNOP");
     }
 
@@ -51,7 +51,7 @@ public class PluginSecretFilterTests
     {
         const string input = """{"user":"admin","password":"P@ss w0rd","channel":1}""";
 
-        var output = PluginSecretFilter.Redact(input);
+        var output = PluginSecretFilter.Redact(input)!;
 
         output.ShouldNotContain("P@ss w0rd");
 

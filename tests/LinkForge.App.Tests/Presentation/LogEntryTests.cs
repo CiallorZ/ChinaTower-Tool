@@ -23,6 +23,12 @@ public class LogEntryTests
     private static LogEntry Create(LfLogLevel level, string message, string? targetId = null) =>
         new(FixedTime, level, "Network", "run-1", targetId, message);
 
+    private static LogEntry CreateWithEvent(
+        LfLogLevel level,
+        string message,
+        string eventId) =>
+        new(FixedTime, level, "Network", "run-1", null, message, eventId);
+
     [Theory]
     [InlineData("连接 rtsp://admin:Passw0rd!23@10.0.0.1:554/live 超时")]
     [InlineData("GET /api?access_token=abcdef123456 返回 200")]
@@ -93,6 +99,54 @@ public class LogEntryTests
 
         entry.TargetId.ShouldNotBeNull().ShouldNotContain("Passw0rd!23");
         entry.TargetText.ShouldNotContain("Passw0rd!23");
+    }
+
+    [Fact]
+    public void Event_identifier_should_be_present_and_redacted_on_construction()
+    {
+        var entry = CreateWithEvent(
+            LfLogLevel.Information,
+            "兼容诊断",
+            "legacy.password=EventSecret123");
+
+        entry.EventId.ShouldNotContain("EventSecret123");
+        entry.EventId.ShouldContain("legacy.password=***");
+    }
+
+    [Fact]
+    public void Module_and_run_identifier_should_also_be_redacted()
+    {
+        var entry = new LogEntry(
+            FixedTime,
+            LfLogLevel.Information,
+            "module.password=ModuleSecret123",
+            "token=RunSecret123",
+            null,
+            "消息");
+
+        entry.Module.ShouldNotContain("ModuleSecret123");
+        entry.RunId.ShouldNotContain("RunSecret123");
+    }
+
+    [Fact]
+    public void Plain_text_should_include_all_structured_fields()
+    {
+        var entry = new LogEntry(
+            FixedTime,
+            LfLogLevel.Error,
+            "Network",
+            "run-42",
+            "camera-01",
+            "TCP 连接失败",
+            "network.tcp.failed");
+
+        var text = entry.ToPlainText();
+
+        text.ShouldContain("Network");
+        text.ShouldContain("run-42");
+        text.ShouldContain("camera-01");
+        text.ShouldContain("network.tcp.failed");
+        text.ShouldContain("TCP 连接失败");
     }
 
     [Fact]

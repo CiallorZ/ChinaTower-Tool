@@ -367,7 +367,13 @@
                     </Border.Style>
 
                     <controls:LogViewer x:Name="ShellLogViewer"
-                                        Margin="{DynamicResource LfCardPadding}" />
+                                        Margin="{DynamicResource LfCardPadding}"
+                                        Entries="{Binding LogEntries}"
+                                        MinimumLevel="{Binding LogMinimumLevel, Mode=TwoWay}"
+                                        SearchText="{Binding LogSearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                        CopyCommand="{Binding CopyLogsCommand}"
+                                        ExportCommand="{Binding ExportLogsCommand}"
+                                        StatusText="{Binding LogPanelStatus}" />
                 </Border>
             </Grid>
         </Grid>

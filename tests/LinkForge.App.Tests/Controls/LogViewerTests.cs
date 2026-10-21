@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using LinkForge.App.Controls;
 using LinkForge.App.Presentation;
 using LinkForge.App.Tests.DesignTokens;
@@ -96,6 +97,124 @@ public class LogViewerTests
         });
 
         visible.ShouldBe(1);
+    }
+
+    [Fact]
+    public void Search_should_cover_module_target_and_event_id()
+    {
+        var visible = StaRunner.Run(() =>
+        {
+            var viewer = CreateViewer(
+            [
+                new LogEntry(
+                    FixedTime,
+                    LfLogLevel.Information,
+                    "Network",
+                    "run-42",
+                    "camera-01",
+                    "connected",
+                    "network.tcp.connected")
+            ]);
+
+            viewer.SearchText = "camera-01";
+            var byTarget = viewer.VisibleCount;
+
+            viewer.SearchText = "network.tcp.connected";
+            var byEvent = viewer.VisibleCount;
+
+            viewer.SearchText = "Network";
+            var byModule = viewer.VisibleCount;
+
+            return (byTarget, byEvent, byModule);
+        });
+
+        visible.byTarget.ShouldBe(1);
+        visible.byEvent.ShouldBe(1);
+        visible.byModule.ShouldBe(1);
+    }
+
+    [Fact]
+    public void Empty_source_should_expose_a_real_empty_message()
+    {
+        var message = StaRunner.Run(() =>
+        {
+            var viewer = CreateViewer([]);
+            return viewer.EmptyMessage;
+        });
+
+        message.ShouldContain("暂无日志");
+    }
+
+    [Fact]
+    public void Filter_with_no_matches_should_not_claim_the_source_is_empty()
+    {
+        var (hasVisible, message) = StaRunner.Run(() =>
+        {
+            var viewer = CreateViewer([Entry(LfLogLevel.Information, "connected")]);
+            viewer.SearchText = "missing";
+
+            return (viewer.HasVisibleEntries, viewer.EmptyMessage);
+        });
+
+        hasVisible.ShouldBeFalse();
+        message.ShouldContain("没有匹配");
+    }
+
+    [Fact]
+    public void Toolbar_should_expose_copy_and_export_commands_when_entries_exist()
+    {
+        Exception? failure = null;
+
+        StaRunner.Run(() =>
+        {
+            ThemedHost.EnsureResources();
+
+            var command = new AlwaysCommand();
+            var viewer = new LogViewer
+            {
+                Entries = CreateEntries(1),
+                CopyCommand = command,
+                ExportCommand = command
+            };
+            var window = new Window { Content = viewer, Width = 900, Height = 400 };
+
+            window.Loaded += (_, _) =>
+            {
+                try
+                {
+                    viewer.UpdateLayout();
+                    var buttons = FindButtons(viewer);
+                    var copy = buttons.Single(button => Equals(button.Content, "复制可见"));
+                    var export = buttons.Single(button => Equals(button.Content, "导出"));
+
+                    copy.Command.ShouldBeSameAs(command);
+                    export.Command.ShouldBeSameAs(command);
+                    copy.IsEnabled.ShouldBeTrue();
+                    export.IsEnabled.ShouldBeTrue();
+                }
+                catch (Exception ex)
+                {
+                    failure = ex;
+                }
+                finally
+                {
+                    window.Close();
+                }
+            };
+
+            window.Show();
+            Pump();
+
+            if (window.IsVisible)
+            {
+                window.Close();
+            }
+        });
+
+        if (failure is not null)
+        {
+            throw new InvalidOperationException("日志工具条命令未正确绑定。", failure);
+        }
     }
 
     [Fact]
@@ -298,6 +417,35 @@ public class LogViewerTests
         return null;
     }
 
+    private static List<Button> FindButtons(DependencyObject root)
+    {
+        var buttons = new List<Button>();
+
+        for (var i = 0; i < System.Windows.Media.VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var child = System.Windows.Media.VisualTreeHelper.GetChild(root, i);
+
+            if (child is Button button)
+            {
+                buttons.Add(button);
+            }
+
+            buttons.AddRange(FindButtons(child));
+        }
+
+        return buttons;
+    }
+
+    private static void Pump()
+    {
+        for (var i = 0; i < 60; i++)
+        {
+            System.Windows.Threading.Dispatcher.CurrentDispatcher.Invoke(
+                System.Windows.Threading.DispatcherPriority.Background,
+                new Action(() => { }));
+        }
+    }
+
     private static ScrollContentPresenter? FindScrollContentPresenter(DependencyObject root)
     {
         for (var i = 0; i < System.Windows.Media.VisualTreeHelper.GetChildrenCount(root); i++)
@@ -370,6 +518,21 @@ public class LogViewerTests
             {
                 Walk(System.Windows.Media.VisualTreeHelper.GetChild(node, i));
             }
+        }
+    }
+
+    private sealed class AlwaysCommand : ICommand
+    {
+        public event EventHandler? CanExecuteChanged
+        {
+            add { }
+            remove { }
+        }
+
+        public bool CanExecute(object? parameter) => true;
+
+        public void Execute(object? parameter)
+        {
         }
     }
     /// <summary>

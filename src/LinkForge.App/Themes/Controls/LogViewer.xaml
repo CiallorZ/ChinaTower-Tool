@@ -65,6 +65,8 @@
                                         <ColumnDefinition Width="Auto" />
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
 
                                     <StackPanel Grid.Column="0" Orientation="Horizontal">
@@ -120,7 +122,31 @@
                                                 VerticalAlignment="Center"
                                                 ClearButtonEnabled="True" />
 
-                                    <CheckBox Grid.Column="2"
+                                    <Button Grid.Column="2"
+                                            Content="复制可见"
+                                            Height="{DynamicResource LfControlHeightCompact}"
+                                            MinWidth="{DynamicResource LfButtonMinWidth}"
+                                            Margin="{DynamicResource LfInlineSpacingLeading}"
+                                            VerticalAlignment="Center"
+                                            IsEnabled="{Binding HasVisibleEntries,
+                                                                RelativeSource={RelativeSource TemplatedParent}}"
+                                            Command="{Binding CopyCommand,
+                                                              RelativeSource={RelativeSource TemplatedParent}}"
+                                            ToolTip="复制当前筛选条件下显示的脱敏日志" />
+
+                                    <Button Grid.Column="3"
+                                            Content="导出"
+                                            Height="{DynamicResource LfControlHeightCompact}"
+                                            MinWidth="{DynamicResource LfButtonMinWidth}"
+                                            Margin="{DynamicResource LfInlineSpacingLeading}"
+                                            VerticalAlignment="Center"
+                                            IsEnabled="{Binding HasVisibleEntries,
+                                                                RelativeSource={RelativeSource TemplatedParent}}"
+                                            Command="{Binding ExportCommand,
+                                                              RelativeSource={RelativeSource TemplatedParent}}"
+                                            ToolTip="导出当前筛选条件下显示的脱敏日志" />
+
+                                    <CheckBox Grid.Column="4"
                                               Content="自动滚动"
                                               IsChecked="{Binding AutoScroll,
                                                                   RelativeSource={RelativeSource TemplatedParent}}"
@@ -138,25 +164,27 @@
                                 IsTextSearchEnabled=False：搜索由本控件自己实现，
                                 系统文本搜索会与虚拟化的容器复用冲突。
                             -->
-                            <ListBox Grid.Row="1"
-                                     x:Name="PART_List"
-                                     ItemsSource="{Binding View,
-                                                          RelativeSource={RelativeSource TemplatedParent}}"
-                                     VirtualizingStackPanel.IsVirtualizing="True"
-                                     VirtualizingStackPanel.VirtualizationMode="Recycling"
-                                     VirtualizingStackPanel.ScrollUnit="Item"
-                                     ScrollViewer.CanContentScroll="True"
-                                     IsTextSearchEnabled="False"
-                                     BorderThickness="{DynamicResource LfBorderThicknessNone}"
-                                     Background="Transparent"
-                                     FontFamily="{DynamicResource LfFontFamilyMono}"
-                                     FontSize="{DynamicResource LfFontSizeCaption}">
+                            <Grid Grid.Row="1">
+                                <ListBox x:Name="PART_List"
+                                         ItemsSource="{Binding View,
+                                                              RelativeSource={RelativeSource TemplatedParent}}"
+                                         VirtualizingStackPanel.IsVirtualizing="True"
+                                         VirtualizingStackPanel.VirtualizationMode="Recycling"
+                                         VirtualizingStackPanel.ScrollUnit="Item"
+                                         ScrollViewer.CanContentScroll="True"
+                                         IsTextSearchEnabled="False"
+                                         BorderThickness="{DynamicResource LfBorderThicknessNone}"
+                                         Background="Transparent"
+                                         FontFamily="{DynamicResource LfFontFamilyMono}"
+                                         FontSize="{DynamicResource LfFontSizeCaption}">
 
                                 <!-- 用 TextBlock 承载整行：TextBlock 可复制且比多个控件更轻。 -->
                                 <ListBox.ItemTemplate>
                                     <DataTemplate DataType="{x:Type presentation:LogEntry}">
                                         <Grid Margin="{DynamicResource LfInlineSpacingXxs}">
                                             <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
                                                 <ColumnDefinition Width="Auto" />
                                                 <ColumnDefinition Width="Auto" />
                                                 <ColumnDefinition Width="Auto" />
@@ -188,6 +216,18 @@
                                                        Margin="{DynamicResource LfLabelSpacing}" />
 
                                             <TextBlock Grid.Column="3"
+                                                       Text="{Binding Path=TargetText}"
+                                                       MinWidth="96"
+                                                       Foreground="{DynamicResource LfBrushTextMuted}"
+                                                       Margin="{DynamicResource LfLabelSpacing}" />
+
+                                            <TextBlock Grid.Column="4"
+                                                       Text="{Binding Path=EventId}"
+                                                       MinWidth="120"
+                                                       Foreground="{DynamicResource LfBrushTextSecondary}"
+                                                       Margin="{DynamicResource LfLabelSpacing}" />
+
+                                            <TextBlock Grid.Column="5"
                                                        x:Name="MessageText"
                                                        Text="{Binding Path=Message}"
                                                        Foreground="{DynamicResource LfBrushTextPrimary}"
@@ -242,7 +282,30 @@
                                         </DataTemplate.Triggers>
                                     </DataTemplate>
                                 </ListBox.ItemTemplate>
-                            </ListBox>
+                                </ListBox>
+
+                                <TextBlock Text="{Binding EmptyMessage,
+                                                          RelativeSource={RelativeSource TemplatedParent}}"
+                                           IsHitTestVisible="False"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           TextAlignment="Center"
+                                           TextWrapping="Wrap"
+                                           Foreground="{DynamicResource LfBrushTextMuted}">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding EmptyMessage,
+                                                                               RelativeSource={RelativeSource TemplatedParent}}"
+                                                             Value="">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </Grid>
 
                             <!-- 底部计数条：让用户知道"当前看到的是全部还是子集" -->
                             <Border Grid.Row="2"
@@ -250,18 +313,50 @@
                                     BorderBrush="{DynamicResource LfBrushDivider}"
                                     BorderThickness="{DynamicResource LfDividerTop}"
                                     Padding="{DynamicResource LfControlPadding}">
-                                <TextBlock FontSize="{DynamicResource LfFontSizeCaption}"
-                                           Foreground="{DynamicResource LfBrushTextSecondary}">
-                                    <Run Text="共 " />
-                                    <Run Text="{Binding TotalCount,
-                                                        RelativeSource={RelativeSource TemplatedParent},
-                                                        Mode=OneWay}" />
-                                    <Run Text=" 行，当前显示 " />
-                                    <Run Text="{Binding VisibleCount,
-                                                        RelativeSource={RelativeSource TemplatedParent},
-                                                        Mode=OneWay}" />
-                                    <Run Text=" 行" />
-                                </TextBlock>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <TextBlock FontSize="{DynamicResource LfFontSizeCaption}"
+                                               Foreground="{DynamicResource LfBrushTextSecondary}">
+                                        <Run Text="共 " />
+                                        <Run Text="{Binding TotalCount,
+                                                            RelativeSource={RelativeSource TemplatedParent},
+                                                            Mode=OneWay}" />
+                                        <Run Text=" 行，当前显示 " />
+                                        <Run Text="{Binding VisibleCount,
+                                                            RelativeSource={RelativeSource TemplatedParent},
+                                                            Mode=OneWay}" />
+                                        <Run Text=" 行" />
+                                    </TextBlock>
+
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding StatusText,
+                                                              RelativeSource={RelativeSource TemplatedParent}}"
+                                               FontSize="{DynamicResource LfFontSizeCaption}"
+                                               Foreground="{DynamicResource LfBrushTextSecondary}"
+                                               TextTrimming="CharacterEllipsis">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding StatusText,
+                                                                                   RelativeSource={RelativeSource TemplatedParent}}"
+                                                                 Value="">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding StatusText,
+                                                                                   RelativeSource={RelativeSource TemplatedParent}}"
+                                                                 Value="{x:Null}">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Grid>
                             </Border>
 
                         </Grid>

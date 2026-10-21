@@ -851,3 +851,62 @@ pwsh -File scripts/run.ps1
 - 未验证：Windows 10 真机、125% / 150% / 200% 高 DPI、键盘 Tab 顺序与焦点环（阶段 06）。
 - x86 运行仍受 D-08 缺少 x86 .NET 10 运行时约束；本阶段仅验证 x64。
 - 海康 / 大华开放平台 SDK（D-09）、抓包与安全扫描 / 渗透攻防（D-10）仍未接入。
+
+## 阶段 05 · 结构化日志与脱敏（LF-005，2026-10-22）
+
+### 1. 交付物
+
+- `src/LinkForge.Application/Logging/`
+  - `StructuredLogRecord`：`Timestamp / Level / Module / RunId / TargetId / EventId / Message`
+  - `IStructuredLogStore` + `JsonLineStructuredLogStore`
+  - 按日文件 `%LOCALAPPDATA%\LinkForge\logs\linkforge-yyyyMMdd.jsonl`
+  - 写入前与读取时均经过统一 `ITextRedactor`；损坏行跳过
+- `src/LinkForge.App/`
+  - `StructuredLogService`：页面日志聚合、5000 条内存上限、后台 Channel 写盘、关闭 flush
+  - `LogPanelExporter`：复制与导出系统边界
+  - `ShellViewModel`：真实日志筛选、最低级别、复制可见、导出、取消与错误状态
+  - `LogViewer`：搜索覆盖消息/模块/RunId/TargetId/EventId，区分空日志与“筛选无匹配”
+  - `ShellWindow.xaml`：日志面板绑定真实集合、筛选条件和命令
+- 报告路径继续在 `ReportGenerator` 生成前扫描敏感信息；命中时拒绝写文件。
+
+### 2. 本阶段发现并修复的真实缺陷
+
+| # | 现象 | 根因 | 处理 |
+| --- | --- | --- | --- |
+| 1 | 日志只存在内存，重启后全部消失 | 阶段 03 只有局部 `ObservableCollection`，没有持久化契约 | 新增 Application 层 JSONL 存储与 App 级聚合服务 |
+| 2 | 日志面板筛选像“假的”：输入后仍显示全部 | 搜索框与最低级别没有进入真实过滤集合 | `ShellViewModel` 维护可见集合，消息/模块/RunId/TargetId/EventId 全部参与搜索 |
+| 3 | 日志面板把读不到历史文件显示成“没有日志” | 空集合与存储错误共用同一空态 | 增加独立 `StorageError` 与状态文本，区分空日志、无匹配、读写失败 |
+| 4 | 关闭应用时可能丢最后几条日志 | UI 发布后没有等待写盘队列 | 关闭前有限等待 `FlushAsync`，队列关闭后给出存储错误而不是静默丢弃 |
+| 5 | 嵌套 JSON 中的秘密容易漏脱敏 | 仅覆盖顶层键值与常见 Header | 扩展统一脱敏规则并增加嵌套 JSON、Bearer 令牌端到端测试 |
+| 6 | 既有 nullable 代码在 `warnaserror` 下失败 | 新测试编译开启警告即错误，暴露旧测试夹具可空性 | 修复 `PluginSecretFilterTests` 与 `AssetCsvCodecTests` 的可空声明 |
+| 7 | 完整测试顺序下日志条目与写入错误偶发不可见 | 服务使用全局 `Application.Current.Dispatcher`，可能投到其他测试创建的无关消息泵 | 构造时捕获当前线程 Dispatcher；无 Dispatcher 的宿主直接执行，并定向/全量回归 |
+
+### 3. 验证记录
+
+| 验证项 | 结果 |
+| --- | --- |
+| `pwsh -NoProfile -File scripts/build.ps1` | 通过，0 警告 0 错误 |
+| Domain 测试 | 54 / 54 |
+| Application 测试（含 JSONL 存储） | 140 / 140 |
+| Persistence 测试 | 41 / 41 |
+| Network / HTTP / MQTT / Video Adapter 测试 | 10 / 15 / 8 / 17 |
+| DeveloperTools / Reporting / Plugin.Hosting 测试 | 41 / 42 / 30 |
+| App 测试 | 537 / 537 |
+| 全解决方案测试 | **935 / 935 通过** |
+| 真实启动 + 关闭 | 成功；退出码 **0** |
+| 日志字段 | 七字段 JSONL 往返稳定，稳定 `EventId` |
+| 筛选/复制/导出 | 仅作用于当前可见日志；取消 ≠ 失败；写入失败有独立反馈 |
+| 脱敏 | UI、磁盘、读取、复制、导出与报告路径均经过统一脱敏测试 |
+| 存储韧性 | 损坏 JSONL 行跳过，不影响其他记录与应用启动 |
+
+### 4. 尚未验证（如实声明）
+
+- 已实现：按日 JSONL 持久化、应用级日志聚合、5000 条内存上限、异步写入、
+  关闭 flush、搜索/级别筛选、复制可见、导出、存储错误反馈、统一脱敏。
+- **未实现**：日志文件加密、轮转保留与自动清理、压缩归档、全文索引、
+  日志签名/完整性校验、原始异常堆栈的独立安全详情查看面。
+- 日志文件本身不加密；当前保证是“写入前不落明文凭据”，不是“文件已受保护”。
+- 强制终止进程时，队列中尚未写入的日志仍可能丢失；正常关闭会有限等待 flush。
+- Windows 10 真机、高 DPI、键盘 Tab 顺序与焦点环仍属阶段 06。
+- x86 运行仍受 D-08 缺少 x86 .NET 10 运行时约束；本阶段仅验证 x64。
+- 海康 / 大华开放平台 SDK（D-09）、抓包与安全扫描 / 渗透攻防（D-10）仍未接入。

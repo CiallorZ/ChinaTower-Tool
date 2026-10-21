@@ -1,4 +1,5 @@
 using System.Windows;
+using System.IO;
 using LinkForge.Adapters.Http;
 using LinkForge.Adapters.Mqtt;
 using LinkForge.Adapters.Network;
@@ -10,6 +11,7 @@ using LinkForge.App.Views;
 using LinkForge.Application.Diagnostics;
 using LinkForge.Application.Environment;
 using LinkForge.Application.Assets;
+using LinkForge.Application.Logging;
 using LinkForge.Application.Projects;
 using LinkForge.Application.Storage;
 using LinkForge.Plugin.Abstractions;
@@ -67,6 +69,9 @@ public partial class App : System.Windows.Application
         var shell = _services.GetRequiredService<ShellWindow>();
         shell.Show();
 
+        // 历史日志读取是异步 I/O；先让窗口使用空状态，记录到达后由绑定刷新。
+        _ = _services.GetRequiredService<IStructuredLogService>().InitializeAsync();
+
         // 窗口已显示后再加载：依赖探测会启动外部进程（ffmpeg --version 等），
         // 放在 Show 之前会让用户看到一段没有内容的空白窗口。
         // 不 await 也不阻塞：数据到达时由绑定自动刷新，首屏显示加载态。
@@ -119,6 +124,18 @@ public partial class App : System.Windows.Application
         // 注册为 ITextRedactor 而不是具体类型，
         // 是为了让"忘记注入真实实现"在解析期就失败，而不是在上线后泄漏明文。
         services.AddSingleton<ITextRedactor, SecretTextRedactor>();
+
+        // 结构化日志（LF-005）：每个页面可保留局部日志，壳层统一聚合最近记录。
+        // JSONL 存储在写入前再次脱敏，磁盘与 UI 共用同一 ITextRedactor 实现。
+        services.AddSingleton<IStructuredLogStore>(static provider =>
+            new JsonLineStructuredLogStore(
+                Path.Combine(
+                    provider.GetRequiredService<AppEnvironment>().SettingsDirectory
+                    ?? throw new InvalidOperationException("无法确定数据目录，日志不可用。"),
+                    "logs"),
+                provider.GetRequiredService<ITextRedactor>()));
+        services.AddSingleton<IStructuredLogService, StructuredLogService>();
+        services.AddSingleton<ILogPanelExporter, LogPanelExporter>();
 
         // 依赖探测：单例，无状态（每次探测现取）。
         services.AddSingleton(static _ => new DependencyCatalog());

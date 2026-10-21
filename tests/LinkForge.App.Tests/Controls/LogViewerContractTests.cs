@@ -55,7 +55,17 @@ public class LogViewerContractTests
     public void Every_template_bound_property_should_be_a_dependency_property()
     {
         // 排除 Entries 的集合语义与只读计数属性：它们本就由依赖属性支撑。
-        var boundNames = new[] { "View", "Entries", "MinimumLevel", "SearchText", "AutoScroll" };
+        var boundNames = new[]
+        {
+            "View",
+            "Entries",
+            "MinimumLevel",
+            "SearchText",
+            "AutoScroll",
+            "CopyCommand",
+            "ExportCommand",
+            "StatusText"
+        };
 
         foreach (var name in boundNames)
         {

@@ -81,6 +81,20 @@ public class SecretRedactorTests
         output.ShouldContain("channel");
     }
 
+    [Fact]
+    public void Nested_json_should_redact_every_secret_without_losing_structure()
+    {
+        const string input =
+            """{"outer":{"password":"NestedPass123","items":[{"access_token":"nested-token"},{"name":"camera"}]},"ok":true}""";
+
+        var output = SecretRedactor.Redact(input);
+
+        output.ShouldNotContain("NestedPass123");
+        output.ShouldNotContain("nested-token");
+        output.ShouldContain("\"outer\"");
+        output.ShouldContain("\"name\":\"camera\"");
+    }
+
     [Theory]
     [InlineData("Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.payloadpart.signaturepart")]
     [InlineData("Authorization: Basic dXNlcjpwYXNzd29yZA==")]

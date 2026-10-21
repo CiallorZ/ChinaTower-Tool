@@ -68,11 +68,12 @@ public class AssetCsvCodecTests
     public void Missing_required_columns_should_fail_with_the_actual_header()
     {
         var result = AssetCsvCodec.ReadText("foo,bar\r\n1,2\r\n", ProjectId);
+        var fatalError = result.FatalError!;
 
         result.HasFatalError.ShouldBeTrue();
-        result.FatalError!.ShouldContain("name");
-        result.FatalError.ShouldContain("host");
-        result.FatalError.ShouldContain("foo", Case.Insensitive, "报错要说明实际表头，否则用户不知道该改哪一列。");
+        fatalError.ShouldContain("name");
+        fatalError.ShouldContain("host");
+        fatalError.ShouldContain("foo", Case.Insensitive, "报错要说明实际表头，否则用户不知道该改哪一列。");
     }
 
     [Fact]
