@@ -2,6 +2,7 @@ using System.Windows;
 using LinkForge.Adapters.Http;
 using LinkForge.Adapters.Mqtt;
 using LinkForge.Adapters.Network;
+using LinkForge.Adapters.Video;
 using LinkForge.App.Presentation;
 using LinkForge.App.Services;
 using LinkForge.App.ViewModels;
@@ -140,6 +141,11 @@ public partial class App : System.Windows.Application
         services.AddSingleton<IMqttTransport, MqttTransport>();
         services.AddSingleton<IMqttResultExporter, MqttResultExporter>();
 
+        // RTSP 信令：只做标准 RTSP/1.0 OPTIONS/DESCRIBE/SDP，不接入媒体解码。
+        services.AddSingleton<IRtspProbe, WindowsRtspProbe>();
+        services.AddSingleton<RtspDiagnosticAdapter>();
+        services.AddSingleton<IRtspResultExporter, RtspResultExporter>();
+
         // 自检适配器：以适配器契约注册，
         // 之后接入海康 / 大华等进程外适配器时，调用方（工作台）无需改动。
         services.AddSingleton<IDiagnosticAdapter>(static provider =>
@@ -154,6 +160,7 @@ public partial class App : System.Windows.Application
         services.AddSingleton<NetworkDiagnosticsViewModel>();
         services.AddSingleton<ApiWorkbenchViewModel>();
         services.AddSingleton<MqttWorkbenchViewModel>();
+        services.AddSingleton<RtspDiagnosticsViewModel>();
 
         // 视图
         services.AddSingleton<ShellWindow>();

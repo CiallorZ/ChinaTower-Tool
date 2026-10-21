@@ -173,6 +173,22 @@ App、Application 或 WPF：
 - Topic 与载荷构造为领域对象时即脱敏，降低后续复制/导出泄露风险。
 - 集成测试使用本地进程内 Broker，不依赖 Docker 或公网。
 
+
+### 4.4 RTSP 适配器依赖边（阶段 05）
+
+RTSP 分阶段信令诊断采用 `App → Adapters.Video`，且 `Adapters.Video` 不引用
+App、Application 或 WPF：
+
+- `RtspDiagnosticAdapter` 封装 DNS、TCP、RTSP OPTIONS/DESCRIBE、SDP 解析；
+  只表达分阶段诊断结果，不写历史、不做 UI、不做导出。
+- 页面与视图模型只依赖 `IRtspProbe`，适配器内部类型不泄漏到 WPF。
+- userinfo 仅用于 Basic 认证；请求行不携带 userinfo；401 后按 `WWW-Authenticate` 判断。
+- 当前仅支持 Basic 重试，Digest 明确失败，不伪造成功。
+- RTP、SETUP/PLAY、解码、首帧未执行，明确标记 `Skipped`。
+- RTSP URL 密码在显示、日志、事实、复制与导出中统一脱敏。
+- 集成测试使用本地 `LocalRtspServer`，真实 TCP 和 RTSP 报文，不依赖公网。
+
+
 ## 5. 关键领域模型
 - Project：项目元数据与 SchemaVersion。
 - EnvironmentProfile：环境变量、代理引用、超时策略。

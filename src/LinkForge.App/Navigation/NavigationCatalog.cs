@@ -95,7 +95,7 @@ public static class NavigationCatalog
             [
                 new("connect.video", "视频接入", LfGlyph.Video,
                     "RTSP / ONVIF 与厂商 SDK 的阶段化诊断。",
-                    LfModuleAvailability.NotImplemented, []),
+                    LfModuleAvailability.Available, []),
 
                 new("connect.iot", "IoT 与协议", LfGlyph.Iot,
                     "MQTT / HTTP / WebSocket 等协议调试。",

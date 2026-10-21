@@ -28,13 +28,15 @@ public sealed partial class ShellViewModel : ObservableObject
     /// <param name="networkDiagnostics">网络诊断视图模型。</param>
     /// <param name="apiWorkbench">API 工作台视图模型。</param>
     /// <param name="mqttWorkbench">MQTT 工作台视图模型。</param>
+    /// <param name="rtspDiagnostics">RTSP 诊断视图模型。</param>
     public ShellViewModel(
         ThemeManager? themeManager = null,
         AppSettingsStore? settingsStore = null,
         DashboardViewModel? dashboard = null,
         NetworkDiagnosticsViewModel? networkDiagnostics = null,
         ApiWorkbenchViewModel? apiWorkbench = null,
-        MqttWorkbenchViewModel? mqttWorkbench = null)
+        MqttWorkbenchViewModel? mqttWorkbench = null,
+        RtspDiagnosticsViewModel? rtspDiagnostics = null)
     {
         _themeManager = themeManager;
         _settingsStore = settingsStore;
@@ -42,6 +44,7 @@ public sealed partial class ShellViewModel : ObservableObject
         NetworkDiagnostics = networkDiagnostics;
         ApiWorkbench = apiWorkbench;
         MqttWorkbench = mqttWorkbench;
+        RtspDiagnostics = rtspDiagnostics;
 
         NavigationItems = new ObservableCollection<NavigationNode>(NavigationCatalog.TopLevel);
 
@@ -78,6 +81,9 @@ public sealed partial class ShellViewModel : ObservableObject
     /// <summary>MQTT 工作台视图模型。</summary>
     public MqttWorkbenchViewModel? MqttWorkbench { get; }
 
+    /// <summary>RTSP 诊断视图模型。</summary>
+    public RtspDiagnosticsViewModel? RtspDiagnostics { get; }
+
     /// <summary>当前选中的导航节点。</summary>
     [ObservableProperty]
     public partial NavigationNode? SelectedNode { get; set; }
@@ -105,6 +111,9 @@ public sealed partial class ShellViewModel : ObservableObject
 
     /// <summary>是否显示 IoT 与协议工作台（当前实现 MQTT）。</summary>
     public bool IsMqttWorkbenchSelected => CurrentPageId == "connect.iot";
+
+    /// <summary>是否显示 RTSP 诊断页。</summary>
+    public bool IsRtspDiagnosticsSelected => CurrentPageId == "connect.video";
 
     /// <summary>当前页面是否已实现（false 时内容区显示明确的未实现状态）。</summary>
     [ObservableProperty]
@@ -174,6 +183,7 @@ public sealed partial class ShellViewModel : ObservableObject
         OnPropertyChanged(nameof(IsNetworkDiagnosticsSelected));
         OnPropertyChanged(nameof(IsApiWorkbenchSelected));
         OnPropertyChanged(nameof(IsMqttWorkbenchSelected));
+        OnPropertyChanged(nameof(IsRtspDiagnosticsSelected));
     }
 
     /// <summary>切换导航栏展开/折叠。</summary>

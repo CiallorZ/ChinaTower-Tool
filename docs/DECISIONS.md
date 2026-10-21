@@ -690,3 +690,46 @@ LinkForge.Adapters.Mqtt 不引用 App / Application / WPF
 - 消息筛选只影响显示与复制/导出范围，原始缓冲仍需保留完整消息。
 - 新增 MQTT 能力必须同时覆盖认证失败、连接失败、订阅失败、发布失败、
   取消、Broker 断线与参数非法。
+
+---
+
+## ADR-028：RTSP 分阶段信令诊断（LF-009）
+
+**决策时间**：2026-10-21
+
+**背景**
+
+阶段 05 需要接入视频/RTSP 能力，支持真实 RTSP 目标的连接、信令与 SDP 诊断。
+海康/大华 SDK 尚未就位（D-09），完整媒体播放需要 RTP 接收与解码，
+超出本阶段范围。
+
+**决策**
+
+1. 新增 `LinkForge.Adapters.Video`，以 `IRtspProbe` 暴露 RTSP 信令诊断边界；
+   页面与视图模型不直接引用适配器内部类型。
+2. 分阶段执行：DNS → TCP → RTSP OPTIONS → DESCRIBE → SDP 解析；
+   RTP、SETUP/PLAY、解码、首帧未执行，明确标记 `Skipped`。
+3. URL 支持 `rtsp://`、`rtsps://`、IPv4、IPv6、userinfo；
+   userinfo 仅用于 Basic 认证，请求行不携带 userinfo。
+4. 401 后按 `WWW-Authenticate` 判断认证方案；当前仅支持 Basic 重试，
+   Digest 明确失败，不伪造成功。
+5. RTSP URL 密码在显示、日志、事实、复制与导出中统一脱敏。
+6. 集成测试使用本地 `LocalRtspServer`，真实 TCP 和 RTSP 报文，
+   不依赖 Docker、公网或固定外部服务。
+
+**依赖边**
+
+```text
+LinkForge.App ─→ LinkForge.Adapters.Video
+LinkForge.App ─→ LinkForge.Application / Domain
+LinkForge.Adapters.Video 不引用 App / Application / WPF
+```
+
+**约束**
+
+- UI 不得绕过 `IRtspProbe` 直接创建 RTSP 客户端。
+- 未实现的阶段（RTP/解码/首帧）必须明确标记 `Skipped`，不伪造结果。
+- 当前结论只能证明"RTSP 信令和 SDP 可用"，不能证明"视频已经播放"。
+- 新增 RTSP 能力必须同时覆盖 DNS 失败、TCP 超时、OPTIONS 超时、
+  401/认证失败、无效 SDP、用户取消与 IPv6。
+- RTSP 页空状态必须明确说明媒体接收/解码/首帧未执行。

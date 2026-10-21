@@ -524,3 +524,53 @@ pwsh -File scripts/run.ps1
 - x86 运行仍受 D-08 缺少 x86 .NET 10 运行时约束；本阶段仅验证 x64。
 - RTSP、海康/大华 SDK、Zigbee、抓包、安全扫描/渗透攻防仍未接入；
   D-09 / D-10 边界未关闭前不以占位或假数据冒充已实现。
+
+## 阶段 05 · RTSP 分阶段信令诊断(LF-009,2026-10-21)
+
+### 1. 交付物
+
+| 类别 | 内容 |
+| --- | --- |
+| RTSP 适配器 | `src/LinkForge.Adapters.Video/`:真实 DNS/TCP/RTSP OPTIONS/DESCRIBE/SDP 解析;URL 支持 `rtsp://`/`rtsps://`/IPv4/IPv6/userinfo;userinfo 仅用于 Basic 认证;请求行不携带 userinfo;401 后按 `WWW-Authenticate` 判断;当前仅支持 Basic 重试,Digest 明确失败;RTP/SETUP/PLAY/解码/首帧未执行,明确标记 `Skipped` |
+| RTSP UI | `RtspDiagnosticsViewModel` + `RtspDiagnosticsPage.xaml`:URL/超时校验、外部目标授权确认、运行/取消、结构化阶段结果、复制脱敏摘要、JSON 导出、原始日志;空状态明确说明媒体接收/解码/首帧未执行 |
+| 导出 | `IRtspResultExporter`:复制与导出内容按 URL/凭据边界脱敏 |
+| 导航/DI | `connect.video` 改为 `Available`;注册 `IRtspProbe`、`RtspDiagnosticAdapter`、`IRtspResultExporter`、`RtspDiagnosticsViewModel` |
+| 测试 | Video 适配器 17 项(本地 `LocalRtspServer`,真实 TCP/RTSP 报文);App 新增 RTSP 校验/状态/取消/脱敏/导出、页面渲染/截图与 Shell 导航互斥测试 |
+
+### 2. 本阶段发现并修复的真实缺陷
+
+| # | 现象 | 根因 | 处理 |
+| --- | --- | --- | --- |
+| 1 | IPv6 URL 解析后方括号重复 | `RtspUrlParser` 未剥离 Host 方括号 | 修复解析器;新增 IPv6 解析测试 |
+| 2 | `WWW-Authenticate: Digest realm="..."` 被误识别为 Basic | `WWW-Authenticate` 参数被误识别为认证方案 | 修复正则表达式;新增 Digest 明确拒绝测试 |
+| 3 | RTSP 截图测试并发写同一 PNG 失败 | 固定截图路径并发冲突 | 截图在静态锁内写;测试读取唯一临时副本;临时 Bitmap 使用 `BitmapCacheOption.OnLoad`;临时文件测试结束后删除 |
+
+### 3. 验证记录
+
+| 验证项 | 结果 |
+| --- | --- |
+| `pwsh -NoProfile -File scripts/build.ps1` | 通过,0 警告 0 错误 |
+| Domain 测试 | 54 / 54 |
+| Application 测试 | 28 / 28 |
+| Network Adapter 测试 | 10 / 10 |
+| HTTP Adapter 测试 | 15 / 15 |
+| MQTT Adapter 测试 | 8 / 8 |
+| Video Adapter 测试 | 17 / 17 |
+| App 测试 | 392 / 392 |
+| 全解决方案测试 | **524 / 524 通过** |
+| 真实启动 + 关闭 | 成功;主窗口正常关闭,退出码 **0** |
+| 浅色截图 | `screenshots/stage05-rtsp-light.png` |
+| 深色截图 | `screenshots/stage05-rtsp-dark.png` |
+| 页面布局 | 1366×768 渲染通过;参数输入/授权确认/运行控制/结果区/复制导出/日志可视 |
+| 主题差异 | 浅色与深色截图差异 > 5% |
+| 状态语义 | DNS 失败、TCP 超时、OPTIONS 超时、401/认证失败、无效 SDP、用户取消分别表达;`Skipped ≠ Failed`、`Unknown ≠ Completed`、`Cancelled ≠ Failed` |
+| 脱敏 | RTSP URL 密码不进入日志、事实、复制与导出;显示/日志/事实/导出统一脱敏 |
+
+### 4. 尚未验证(如实声明)
+
+- 已实现:DNS、TCP、OPTIONS、DESCRIBE、SDP、Basic 认证重试、脱敏、复制/JSON 导出。
+- 未实现:Digest 认证、SETUP/PLAY、RTP 接收、媒体解码、首帧、持续播放、ONVIF、海康/大华 SDK。
+- 当前结论只能证明"RTSP 信令和 SDP 可用",不能证明"视频已经播放"。
+- Windows 10 真机、125%/150%/200% 高 DPI 与键盘 Tab/焦点环仍属阶段 06。
+- x86 运行仍受 D-08 缺少 x86 .NET 10 运行时约束;本阶段仅验证 x64。
+- Zigbee、抓包、安全扫描/渗透攻防仍未接入;D-09 / D-10 边界未关闭前不以占位或假数据冒充已实现。

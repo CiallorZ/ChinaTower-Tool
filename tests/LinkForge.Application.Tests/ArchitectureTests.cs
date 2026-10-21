@@ -119,6 +119,27 @@ public class ArchitectureTests
         referenced.ShouldBeEmpty(
             $"Adapters.Mqtt 不得引用 WPF 程序集，实际引用：{string.Join(", ", referenced)}");
     }
+
+    [Fact]
+    public void Video_adapter_should_not_reference_app_application_or_wpf()
+    {
+        var references = ProjectFile.ReadProjectReferences(
+            "src/LinkForge.Adapters.Video/LinkForge.Adapters.Video.csproj");
+
+        references.ShouldNotContain("LinkForge.App");
+        references.ShouldNotContain("LinkForge.Application");
+
+        var video = Assembly.Load("LinkForge.Adapters.Video");
+        var forbidden = video
+            .GetReferencedAssemblies()
+            .Select(a => a.Name ?? string.Empty)
+            .Where(name => ForbiddenAssemblyPrefixes.Any(
+                forbiddenPrefix => name.StartsWith(forbiddenPrefix, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+
+        forbidden.ShouldBeEmpty(
+            $"Adapters.Video 不得引用 WPF 程序集，实际引用：{string.Join(", ", forbidden)}");
+    }
 }
 
 /// <summary>

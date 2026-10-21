@@ -317,6 +317,42 @@
 - Zigbee、RTSP、厂商 SDK（D-09）与安全扫描/抓包/攻防（D-10）不在本页范围。
 - x86 运行仍受 D-08 缺少 x86 .NET 10 运行时约束。
 
+
+### LF-009 RTSP 分阶段信令诊断交付记录
+
+**状态**：已完成（2026-10-21）。
+
+**已交付**
+
+- `Adapters.Video`：真实 DNS、TCP、RTSP OPTIONS、DESCRIBE、SDP 解析；
+  URL 支持 `rtsp://`、`rtsps://`、IPv4、IPv6、userinfo。
+- userinfo 仅用于 Basic 认证；请求行不携带 userinfo；401 后按 `WWW-Authenticate` 判断。
+- 当前仅支持 Basic 重试，Digest 明确失败，不伪造成功。
+- RTP、SETUP/PLAY、解码、首帧未执行，明确标记 `Skipped`。
+- RTSP 页：URL、超时校验、外部目标授权确认、运行/取消、结构化阶段结果、
+  复制脱敏摘要、JSON 导出、原始日志。
+- 空状态明确说明媒体接收/解码/首帧未执行。
+- 导航：`connect.video` 从占位状态切换为 RTSP 诊断页。
+
+**验证**
+
+- 全解决方案构建与测试通过（结果见 `BUILD_LOG.md`）。
+- Video 适配器测试使用本地 `LocalRtspServer`，覆盖 Basic 认证成功、缺凭据、无效 SDP、
+  静默服务器超时、取消、URL 脱敏、IPv6。
+- 测试发现并修复两个真实解析缺陷：IPv6 方括号重复、`WWW-Authenticate` 参数被误识别为认证方案。
+- 页面测试覆盖 1366×768 布局、参数输入/授权确认/运行控制/结果区可视、浅深色截图差异；
+  Shell 测试覆盖 RTSP 页显示与其他页面互斥。
+- 应用真实启动/关闭成功，退出码 0。
+
+**明确未交付**
+
+- 已实现：DNS、TCP、OPTIONS、DESCRIBE、SDP、Basic 认证重试、脱敏、复制/JSON 导出。
+- 未实现：Digest 认证、SETUP/PLAY、RTP 接收、媒体解码、首帧、持续播放、ONVIF、海康/大华 SDK。
+- 当前结论只能证明"RTSP 信令和 SDP 可用"，不能证明"视频已经播放"。
+- Zigbee、抓包、安全扫描/渗透攻防不在本页范围；D-09 / D-10 边界未关闭前不以占位或假数据冒充已实现。
+- x86 运行仍受 D-08 缺少 x86 .NET 10 运行时约束。
+
+
 ## 阶段 06：质量验收
 
 **目标**：按规范 §12 验收清单逐项核验并留痕。

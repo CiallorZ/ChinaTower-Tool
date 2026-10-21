@@ -458,4 +458,26 @@ public sealed class ShellViewModelTests : IDisposable
         viewModel.CurrentTitle.ShouldBe("IoT 与协议");
     }
 
+    [Fact]
+    public void Exposed_rtsp_diagnostics_should_be_the_injected_instance()
+    {
+        using var harness = new RtspDiagnosticsHarness();
+        var viewModel = new ShellViewModel(rtspDiagnostics: harness.ViewModel);
+
+        viewModel.RtspDiagnostics.ShouldBeSameAs(harness.ViewModel);
+    }
+
+    [Fact]
+    public void Navigating_to_video_should_select_the_rtsp_diagnostics()
+    {
+        using var harness = new RtspDiagnosticsHarness();
+        var viewModel = new ShellViewModel(rtspDiagnostics: harness.ViewModel);
+
+        viewModel.NavigateTo(NavigationCatalog.Find("connect.video"));
+
+        viewModel.IsRtspDiagnosticsSelected.ShouldBeTrue();
+        viewModel.IsCurrentModuleImplemented.ShouldBeTrue();
+        viewModel.CurrentTitle.ShouldBe("视频接入");
+    }
+
 }
