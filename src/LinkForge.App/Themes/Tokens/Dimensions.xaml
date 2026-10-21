@@ -195,6 +195,16 @@
     <GridLength x:Key="LfMqttControlColumnWidth">2*</GridLength>
     <GridLength x:Key="LfMqttStreamColumnWidth">3*</GridLength>
 
+    <!-- ===================== 开发者工具页（阶段 05 · LF-011） ===================== -->
+    <GridLength x:Key="LfDeveloperToolColumnWidth">180</GridLength>
+    <!--
+        工具列表上限高度。刻意用 MaxHeight 而不是 Height：
+        固定 260 会裁掉第 8 项之后的条目，被裁的行与下方说明文字重叠。
+        上限取 400 以容纳当前 10 项，超出后仍会内部滚动。
+    -->
+    <sys:Double x:Key="LfDeveloperToolListMaxHeight">400</sys:Double>
+    <sys:Double x:Key="LfDeveloperEditorHeight">220</sys:Double>
+
     <!-- ===================== 描边 ===================== -->
     <Thickness x:Key="LfBorderThickness">1</Thickness>
     <!--

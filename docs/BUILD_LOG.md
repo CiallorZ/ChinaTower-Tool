@@ -638,3 +638,63 @@ pwsh -File scripts/run.ps1
   打印版式实机验证；x86 仍受 D-08 约束。
 - 报告结论只能证明“本次任务产生了这些观测结果”，不等于验收通过。
 - 厂商 SDK（D-09）、抓包与安全扫描/渗透攻防（D-10）仍未接入。
+
+---
+
+## 阶段 05 · 通用开发者工具（LF-011，2026-10-21）
+
+### 1. 交付物
+
+| 类别 | 内容 |
+| --- | --- |
+| 转换库 | `src/LinkForge.DeveloperTools/`（`net10.0`，零第三方依赖）：`DeveloperTransforms` 提供 JSON 格式化/压缩/校验、URL 编码/解码、Base64 编码/解码、Unix 时间戳转换、UUID 生成与 JWT 载荷解码 |
+| 边界处理 | 输入按 UTF-8 字节预检，上限 1 MiB；未配对代理字符、非法 `%` 序列、非法 Base64、无效 JSON/JWT 均返回可读错误；JWT 只解码，不验证签名、有效期或签发者 |
+| 服务 | `IDeveloperTransformExecutor` + `DeveloperTransformExecutor`（`Task.Run` 异步执行）；`IDeveloperResultClipboard` 隔离剪贴板；不写日志、历史或报告 |
+| 开发者工具页 | `DeveloperToolsViewModel` + `DeveloperToolsPage.xaml`：10 个工具目录、输入/输出、运行/取消、状态与错误、复制结果、空/运行/成功/失败/取消状态 |
+| 导航/壳层 | `developer` 改为 `Available`；`ShellViewModel.DeveloperTools`、`DeveloperToolsContent` 与 `DataContext` 接线；新增 `LfDeveloperToolListBoxItemStyle` 与 LF-011 尺寸令牌 |
+| 测试 | DeveloperTools 纯逻辑 41 项；App 新增视图模型与页面测试；导航守卫核对每个 `Available` 模块均有 DI 注册、内容宿主和精确的 `DataContext` 绑定 |
+
+### 2. 本阶段发现并修复的真实缺陷
+
+| # | 现象 | 根因 | 处理 |
+| --- | --- | --- | --- |
+| 1 | URL 编码遇到未配对代理字符时崩溃 | `Uri.EscapeDataString` 对非法 UTF-16 直接抛异常 | 入口检测代理对完整性，返回可读失败结果 |
+| 2 | URL 解码遇到非法 `%` 序列时异常冒到 UI | 未校验百分号后两位是否为十六进制 | 增加 `HasValidSurrogatePairs` / `IsHex` 预检，明确失败 |
+| 3 | 工具列表在 1366×768 下被固定高度裁切 | 列表使用固定 `Height` | 改为 `MaxHeight` 令牌，保留滚动并按内容收缩 |
+| 4 | “结果只读”说明压到输出框边框 | 行间距沿用了过小的纵向令牌 | 改用 `LfRowSpacing`，重新验证页面布局 |
+| 5 | 导航接线守卫因字符串匹配写成半截引号而误报 | 守卫期望 `DataContext="{Binding X}"`，实际只匹配到 `X` | 修正守卫为完整结束引号和花括号；发现并确认接线本身正确 |
+
+### 3. 验证记录
+
+| 验证项 | 结果 |
+| --- | --- |
+| `pwsh -NoProfile -File scripts/build.ps1` | 通过，0 警告 0 错误 |
+| Domain 测试 | 54 / 54 |
+| DeveloperTools 测试 | 41 / 41 |
+| Reporting 测试 | 42 / 42 |
+| Application 测试 | 30 / 30 |
+| Network Adapter 测试 | 10 / 10 |
+| HTTP Adapter 测试 | 15 / 15 |
+| MQTT Adapter 测试 | 8 / 8 |
+| Video Adapter 测试 | 17 / 17 |
+| App 测试 | 445 / 445 |
+| 全解决方案测试 | **662 / 662 通过** |
+| 真实启动 + 关闭 | 成功；主窗口正常关闭，退出码 **0** |
+| 浅色截图 | `screenshots/stage05-developer-light.png` |
+| 深色截图 | `screenshots/stage05-developer-dark.png` |
+| 页面布局 | 1366×768 渲染通过；10 个工具全部可达，输入、结果与操作区可视 |
+| 主题差异 | 浅色与深色截图差异 > 5% |
+| 状态语义 | 空、运行、成功、失败、取消分别表达；取消不记为失败 |
+| 脱敏边界 | 工具不写日志/历史/报告；JWT 仅解码展示，页面醒目标注签名未验证 |
+
+### 4. 尚未验证（如实声明）
+
+- 已实现：JSON 格式化/压缩/校验、URL 编码/解码、Base64 编码/解码、
+  Unix 时间戳转换、UUID 生成、JWT 载荷解码；1 MiB 输入上限；
+  异步执行与取消；复制结果；空/运行/成功/失败/取消状态。
+- 未实现：XML / YAML 格式化、Hex 视图、文件哈希、正则测试、文本差异
+  （PRD 后续 P1/P2 项）；JWT 签名验证、有效期校验和 JWK 解析。
+- 未验证：Windows 10 真机、125% / 150% / 200% 高 DPI、
+  键盘 Tab 顺序与焦点环；这些属阶段 06。
+- x86 运行仍受 D-08 缺少 x86 .NET 10 运行时约束；本阶段仅验证 x64。
+- 厂商 SDK（D-09）、抓包与安全扫描/渗透攻防（D-10）仍未接入。

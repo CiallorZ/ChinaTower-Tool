@@ -134,8 +134,8 @@ public static class NavigationCatalog
             "developer",
             "开发者工具",
             LfGlyph.Developer,
-            "JSON / 编码 / 哈希 / 正则等常用转换。",
-            LfModuleAvailability.NotImplemented,
+            "JSON、URL/Base64、时间戳、UUID 与 JWT 解码（仅解码，不验签）。",
+            LfModuleAvailability.Available,
             []),
 
         new(

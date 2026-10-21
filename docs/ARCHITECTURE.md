@@ -204,6 +204,21 @@ App、Application 或 WPF：
 - 报告生成前必须通过独立的敏感信息扫描；命中时不写文件，
   包括不留下临时文件。
 
+### 4.6 开发者工具依赖边（阶段 05）
+
+通用开发者工具采用 `App → DeveloperTools`，且 `DeveloperTools` 为零依赖的
+`net10.0` 纯库，不引用 App、Application、WPF 或任何适配器：
+
+- `DeveloperTransforms` 只做确定性的离线文本/时间转换：JSON、URL、Base64、
+  Unix 时间戳、UUID 与 JWT 载荷解码；不访问网络、文件、日志或剪贴板。
+- 输入按 UTF-8 字节预检，上限 1 MiB；非法 UTF-16 代理对、非法百分号序列、
+  非法 Base64、无效 JSON/JWT 返回结构化可读失败，不抛到 UI。
+- JWT 仅解码，不验证签名、有效期或签发者；界面必须明确标注该边界，
+  不得把“可解码”表述为“令牌可信”。
+- `DeveloperTransformExecutor` 通过 `Task.Run` 执行转换并支持取消；
+  `IDeveloperResultClipboard` 隔离剪贴板，便于无 UI 测试。
+- 转换结果不写日志、历史或报告；若后续增加持久化，必须先接入统一脱敏。
+
 
 ## 5. 关键领域模型
 - Project：项目元数据与 SchemaVersion。

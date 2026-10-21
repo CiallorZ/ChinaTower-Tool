@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Xml.Linq;
+using LinkForge.DeveloperTools;
 
 namespace LinkForge.Application.Tests;
 
@@ -167,6 +168,38 @@ public class ArchitectureTests
 
         forbidden.ShouldBeEmpty(
             $"Reporting 不得引用 WPF 程序集，实际引用：{string.Join(", ", forbidden)}");
+    }
+
+    [Fact]
+    public void Developer_tools_should_be_a_pure_offline_library()
+    {
+        // LF-011：开发者工具必须是纯离线转换库。
+        // 一旦它引用 App/WPF，剪贴板、对话框与 UI 状态就会渗进转换逻辑，
+        // "结果不写日志/历史/报告"这条约束将失去结构性保证。
+        var references = ProjectFile.ReadProjectReferences(
+            "src/LinkForge.DeveloperTools/LinkForge.DeveloperTools.csproj");
+
+        references.ShouldBeEmpty(
+            $"DeveloperTools 必须保持零项目引用，实际引用：{string.Join(", ", references)}");
+
+        var packages = ProjectFile.ReadPackageReferences(
+            "src/LinkForge.DeveloperTools/LinkForge.DeveloperTools.csproj");
+
+        packages.ShouldBeEmpty(
+            $"DeveloperTools 不得引入 NuGet 依赖，实际引用：{string.Join(", ", packages)}");
+
+        // 用 typeof 而不是 Assembly.Load("...")：未被代码引用的程序集会被编译器
+        // 从 IL 引用表中裁掉，Load byname 会因此间歇性失败（阶段 05 已踩过）。
+        var assembly = typeof(DeveloperTransforms).Assembly;
+        var forbidden = assembly
+            .GetReferencedAssemblies()
+            .Select(a => a.Name ?? string.Empty)
+            .Where(name => ForbiddenAssemblyPrefixes.Any(
+                forbiddenPrefix => name.StartsWith(forbiddenPrefix, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+
+        forbidden.ShouldBeEmpty(
+            $"DeveloperTools 不得引用 WPF 程序集，实际引用：{string.Join(", ", forbidden)}");
     }
 }
 

@@ -436,6 +436,47 @@ public class ShellWindowTests
     }
 
     [Fact]
+    public void Selecting_developer_tools_should_show_the_page_and_hide_other_pages()
+    {
+        var harness = new DeveloperToolsHarness();
+        var (developer, dashboard, report, placeholder, dataContext) = StaRunner.Run(() =>
+        {
+            ThemedHost.EnsureResources();
+
+            var viewModel = new ShellViewModel(
+                dashboard: new DashboardHarness().ViewModel,
+                reportPage: new ReportPageHarness().ViewModel,
+                developerTools: harness.ViewModel);
+            var window = new ShellWindow(viewModel);
+
+            window.Show();
+            PumpDispatcher();
+            Layout(window, ReferenceWidth, ReferenceHeight);
+
+            viewModel.NavigateTo(NavigationCatalog.Find("developer"));
+            PumpDispatcher();
+            window.UpdateLayout();
+
+            var result = (
+                ((FrameworkElement)window.FindName("DeveloperToolsContent")!).Visibility,
+                ((FrameworkElement)window.FindName("DashboardContent")!).Visibility,
+                ((FrameworkElement)window.FindName("ReportContent")!).Visibility,
+                ((FrameworkElement)window.FindName("NotImplementedContent")!).Visibility,
+                ((FrameworkElement)window.FindName("DeveloperToolsContent")!).DataContext);
+
+            window.Close();
+            PumpDispatcher();
+            return result;
+        });
+
+        developer.ShouldBe(Visibility.Visible);
+        dashboard.ShouldBe(Visibility.Collapsed);
+        report.ShouldBe(Visibility.Collapsed);
+        placeholder.ShouldBe(Visibility.Collapsed);
+        dataContext.ShouldBeOfType<DeveloperToolsViewModel>();
+    }
+
+    [Fact]
     public void Selecting_a_group_node_should_not_leave_it_highlighted()
     {
         // 真实缺陷回归守卫：TreeView 自己维护选中状态，ViewModel 拦不住它，

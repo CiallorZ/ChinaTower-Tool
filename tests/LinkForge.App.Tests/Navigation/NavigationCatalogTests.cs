@@ -1,6 +1,7 @@
 using System.IO;
 using System.Text.RegularExpressions;
 using LinkForge.App.Navigation;
+using LinkForge.App.Presentation;
 
 namespace LinkForge.App.Tests.Navigation;
 
@@ -206,7 +207,7 @@ public sealed class NavigationCatalogTests
     [Fact]
     public void Implemented_modules_should_match_the_current_stage_delivery()
     {
-        // 阶段 05 已交付网络/API/MQTT/RTSP 诊断与报告页。此断言的意义不是"限制功能"，而是防止
+        // 阶段 05 已交付网络/API/MQTT/RTSP 诊断、报告页与开发者工具。断言防止
         // 有人为了好看把未实现模块标成 Available —— 那会让导航指向空白页，
         // 属于"用假状态伪装真实功能"。
         var available = NavigationCatalog.Enumerate()
@@ -215,7 +216,7 @@ public sealed class NavigationCatalogTests
             .ToArray();
 
         available.ShouldBe(
-            ["dashboard", "connect.video", "connect.iot", "connect.api", "network", "reports"]);
+            ["dashboard", "connect.video", "connect.iot", "connect.api", "network", "developer", "reports"]);
     }
 
     [Fact]
@@ -233,6 +234,105 @@ public sealed class NavigationCatalogTests
             leaf.Availability.ShouldBeOneOf(
                 LfModuleAvailability.NotImplemented,
                 LfModuleAvailability.DependencyMissing);
+        }
+    }
+
+    /// <summary>
+    /// 已实现模块 -> （视图模型类型名，壳层内容区元素名）。
+    /// </summary>
+    /// <remarks>
+    /// 这张表是"Available 不是空话"的唯一机器可检查表达。
+    /// 工作台不需要独立条目：它由 <c>App.OnStartup</c> 直接解析并作为默认页。
+    /// </remarks>
+    private static readonly Dictionary<string, (string ViewModel, string ContentHost)> ImplementedModuleWiring =
+        new(StringComparer.Ordinal)
+        {
+            ["network"] = ("NetworkDiagnosticsViewModel", "NetworkDiagnosticsContent"),
+            ["connect.api"] = ("ApiWorkbenchViewModel", "ApiWorkbenchContent"),
+            ["connect.iot"] = ("MqttWorkbenchViewModel", "MqttWorkbenchContent"),
+            ["connect.video"] = ("RtspDiagnosticsViewModel", "RtspDiagnosticsContent"),
+            ["reports"] = ("ReportPageViewModel", "ReportContent"),
+            ["developer"] = ("DeveloperToolsViewModel", "DeveloperToolsContent")
+        };
+
+    [Fact]
+    public void Every_available_module_must_be_registered_and_hosted()
+    {
+        // 真实缺陷回归守卫：阶段 04 曾因 IRunHistoryStore 只注册具体类型未注册接口，
+        // 构建与全部测试都通过，但应用一启动就崩（退出码 -532462766）。
+        // 把模块标成 Available 而漏掉 DI 注册或壳层宿主，会得到一个空白页 ——
+        // 那正是"用假状态伪装真实功能"，必须由测试挡住而不是靠人工走查。
+        var appSource = File.ReadAllText(
+            Path.Combine(FindRepositoryRoot(), "src", "LinkForge.App", "App.xaml.cs"));
+        var shellSource = File.ReadAllText(
+            Path.Combine(FindRepositoryRoot(), "src", "LinkForge.App", "Views", "ShellWindow.xaml"));
+
+        var available = NavigationCatalog.Enumerate()
+            .Where(static node => !node.IsGroup)
+            .Where(static node => node.Availability == LfModuleAvailability.Available)
+            .Select(static node => node.Id)
+            .ToArray();
+
+        // 双向核对：既不允许"Available 但没有接线"，也不允许"接线了却仍标为未实现"。
+        var dashboard = "dashboard";
+
+        foreach (var id in available.Where(id => id != dashboard))
+        {
+            ImplementedModuleWiring.ContainsKey(id).ShouldBeTrue(
+                $"模块 {id} 已标记 Available，但未在 ImplementedModuleWiring 中登记视图模型与宿主。");
+        }
+
+        foreach (var (id, wiring) in ImplementedModuleWiring)
+        {
+            available.ShouldContain(id, $"登记了 {id} 的接线，但导航目录未把它标为 Available。");
+
+            appSource.Contains(
+                    $"services.AddSingleton<{wiring.ViewModel}>()",
+                    StringComparison.Ordinal)
+                .ShouldBeTrue(
+                    $"视图模型 {wiring.ViewModel} 未注册到 DI：导航到 {id} 会得到空白页。");
+
+            shellSource.Contains(
+                    $"x:Name=\"{wiring.ContentHost}\"",
+                    StringComparison.Ordinal)
+                .ShouldBeTrue(
+                    $"壳层缺少 {id} 的内容宿主 {wiring.ContentHost}。");
+
+            // 宿主必须绑定到对应视图模型属性，否则页面 DataContext 落空（阶段 03 真实缺陷）。
+            var expectedBinding = wiring.ViewModel[..^"ViewModel".Length];
+            shellSource.Contains(
+                    $"DataContext=\"{{Binding {expectedBinding}}}\"",
+                    StringComparison.Ordinal)
+                .ShouldBeTrue(
+                    $"{wiring.ContentHost} 未绑定 DataContext={{Binding {expectedBinding}}}，页面绑定会静默落空。");
+        }
+
+        appSource.Contains(
+                "services.AddSingleton<DashboardViewModel>()",
+                StringComparison.Ordinal)
+            .ShouldBeTrue("工作台视图模型必须注册，否则启动即失败。");
+        shellSource.Contains(
+                "x:Name=\"DashboardContent\"",
+                StringComparison.Ordinal)
+            .ShouldBeTrue("壳层必须承载工作台页面。");
+    }
+
+    [Fact]
+    public void Developer_tool_page_must_not_claim_capabilities_it_lacks()
+    {
+        // LF-011 边界：本页只做离线文本转换。
+        // 若有人把"哈希/正则/XML"写进页面文案而不实现，就是假宣传。
+        var pagePath = Path.Combine(
+            FindRepositoryRoot(), "src", "LinkForge.App", "Views", "Pages", "DeveloperToolsPage.xaml");
+        var page = File.ReadAllText(pagePath);
+        var titles = string.Join(' ', DeveloperToolDescriptor.All.Select(static tool => tool.Name));
+
+        foreach (var unimplemented in new[] { "哈希", "正则", "XML", "YAML", "Hex 视图" })
+        {
+            page.Contains(unimplemented, StringComparison.Ordinal).ShouldBeFalse(
+                $"页面文案提到 {unimplemented}，但转换库未实现该能力。");
+            titles.Contains(unimplemented, StringComparison.Ordinal).ShouldBeFalse(
+                $"工具目录出现 {unimplemented}，但转换库未实现该能力。");
         }
     }
 

@@ -152,6 +152,10 @@ public partial class App : System.Windows.Application
             new ReportGenerator(provider.GetRequiredService<ITextRedactor>()));
         services.AddSingleton<IReportFileExporter, ReportFileExporter>();
 
+        // 开发者工具：纯离线转换库不访问网络/文件；剪贴板是唯一系统边界，抽象后视图模型可测。
+        services.AddSingleton<IDeveloperTransformExecutor, DeveloperTransformExecutor>();
+        services.AddSingleton<IDeveloperResultClipboard, DeveloperResultClipboard>();
+
         // 自检适配器：以适配器契约注册，
         // 之后接入海康 / 大华等进程外适配器时，调用方（工作台）无需改动。
         services.AddSingleton<IDiagnosticAdapter>(static provider =>
@@ -168,6 +172,7 @@ public partial class App : System.Windows.Application
         services.AddSingleton<MqttWorkbenchViewModel>();
         services.AddSingleton<RtspDiagnosticsViewModel>();
         services.AddSingleton<ReportPageViewModel>();
+        services.AddSingleton<DeveloperToolsViewModel>();
 
         // 视图
         services.AddSingleton<ShellWindow>();

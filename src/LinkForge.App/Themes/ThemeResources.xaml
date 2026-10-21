@@ -33,6 +33,7 @@
         <ResourceDictionary Source="pack://application:,,,/LinkForge.App;component/Themes/Controls/ResultSummary.xaml" />
         <ResourceDictionary Source="pack://application:,,,/LinkForge.App;component/Themes/Controls/Navigation.xaml" />
         <ResourceDictionary Source="pack://application:,,,/LinkForge.App;component/Themes/Controls/ReportList.xaml" />
+        <ResourceDictionary Source="pack://application:,,,/LinkForge.App;component/Themes/Controls/DeveloperToolList.xaml" />
     </ResourceDictionary.MergedDictionaries>
 
 </ResourceDictionary>

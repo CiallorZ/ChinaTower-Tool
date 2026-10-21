@@ -30,6 +30,7 @@ public sealed partial class ShellViewModel : ObservableObject
     /// <param name="mqttWorkbench">MQTT 工作台视图模型。</param>
     /// <param name="rtspDiagnostics">RTSP 诊断视图模型。</param>
     /// <param name="reportPage">项目与报告视图模型。</param>
+    /// <param name="developerTools">开发者工具视图模型。</param>
     public ShellViewModel(
         ThemeManager? themeManager = null,
         AppSettingsStore? settingsStore = null,
@@ -38,7 +39,8 @@ public sealed partial class ShellViewModel : ObservableObject
         ApiWorkbenchViewModel? apiWorkbench = null,
         MqttWorkbenchViewModel? mqttWorkbench = null,
         RtspDiagnosticsViewModel? rtspDiagnostics = null,
-        ReportPageViewModel? reportPage = null)
+        ReportPageViewModel? reportPage = null,
+        DeveloperToolsViewModel? developerTools = null)
     {
         _themeManager = themeManager;
         _settingsStore = settingsStore;
@@ -48,6 +50,7 @@ public sealed partial class ShellViewModel : ObservableObject
         MqttWorkbench = mqttWorkbench;
         RtspDiagnostics = rtspDiagnostics;
         ReportPage = reportPage;
+        DeveloperTools = developerTools;
 
         NavigationItems = new ObservableCollection<NavigationNode>(NavigationCatalog.TopLevel);
 
@@ -90,6 +93,9 @@ public sealed partial class ShellViewModel : ObservableObject
     /// <summary>项目与报告视图模型。</summary>
     public ReportPageViewModel? ReportPage { get; }
 
+    /// <summary>开发者工具视图模型。</summary>
+    public DeveloperToolsViewModel? DeveloperTools { get; }
+
     /// <summary>当前选中的导航节点。</summary>
     [ObservableProperty]
     public partial NavigationNode? SelectedNode { get; set; }
@@ -123,6 +129,9 @@ public sealed partial class ShellViewModel : ObservableObject
 
     /// <summary>是否显示项目与报告页。</summary>
     public bool IsReportPageSelected => CurrentPageId == "reports";
+
+    /// <summary>是否显示开发者工具页。</summary>
+    public bool IsDeveloperToolsSelected => CurrentPageId == "developer";
 
     /// <summary>当前页面是否已实现（false 时内容区显示明确的未实现状态）。</summary>
     [ObservableProperty]
@@ -194,6 +203,7 @@ public sealed partial class ShellViewModel : ObservableObject
         OnPropertyChanged(nameof(IsMqttWorkbenchSelected));
         OnPropertyChanged(nameof(IsRtspDiagnosticsSelected));
         OnPropertyChanged(nameof(IsReportPageSelected));
+        OnPropertyChanged(nameof(IsDeveloperToolsSelected));
 
         // 每次进入报告页都重新读取历史：用户刚跑完一次诊断再切过来，
         // 看到的必须是包含这次结果的最新列表，而不是启动时的快照。
