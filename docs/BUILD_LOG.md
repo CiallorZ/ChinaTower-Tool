@@ -403,7 +403,7 @@ pwsh -File scripts/run.ps1
 | --- | --- |
 | `pwsh -NoProfile -File scripts/build.ps1` | 通过，0 警告 0 错误 |
 | Domain 测试 | 54 / 54 |
-| Application 测试 | 25 / 25 |
+| Application 测试 | 26 / 26 |
 | Network Adapter 测试 | 10 / 10 |
 | App 测试 | 304 / 304 |
 | 全解决方案测试 | **393 / 393 通过** |
@@ -422,3 +422,54 @@ pwsh -File scripts/run.ps1
   D-09 / D-10 边界未关闭前不以占位或假数据冒充已实现。
 - Traceroute 的真实公网路径结果依赖系统 `tracert.exe` 与网络环境；
   自动化测试覆盖了平台不可用、无最终回应与取消等语义，未固定公网跳点。
+
+## 阶段 05 · HTTP/API 工作台（LF-007，2026-10-21）
+
+### 1. 交付物
+
+| 类别 | 内容 |
+| --- | --- |
+| HTTP 适配器 | `src/LinkForge.Adapters.Http/`：真实 GET/POST/PUT/PATCH/DELETE、Query/Headers/Body、Basic/Bearer/API Key、超时、重定向、响应截断与失败分类 |
+| API 工作台 | `ApiWorkbenchViewModel` + `ApiWorkbenchPage.xaml`：请求编辑、环境变量、脱敏历史、响应状态/头/体/耗时、复制与 JSON 导出 |
+| 历史与导出 | `JsonApiRequestHistoryStore`（最多 100 条，读写均再次脱敏）、`ApiResultExporter`（Windows 保存对话框） |
+| 导航/DI | `connect.api` 改为 `Available`；注册 HTTP 传输、历史存储、导出器与 API 视图模型 |
+| 令牌 | `LfMethodColumnWidth`、`LfBodyEditorHeight`、`LfResponseBodyHeight`；表单列间距改用 `GridLength` 令牌 |
+| 测试 | HTTP 适配器 15 项（本地 `HttpListener`，不依赖公网）；App 新增 API 校验/状态/取消/脱敏/导出、页面渲染/截图与 Shell 导航互斥测试 |
+
+### 2. 本阶段发现并修复的真实缺陷
+
+| # | 现象 | 根因 | 处理 |
+| --- | --- | --- | --- |
+| 1 | 空历史时“尚无请求历史”可能永不显示 | 直接 `Visibility` 绑定覆盖了本地样式中的 `HasHistory=False` 触发器 | 删除直接绑定，仅保留 `BasedOn` 样式触发器 |
+| 2 | `Set-Cookie` 等响应头可能把会话值显示/导出为明文 | 仅按值执行启发式脱敏，无法从 `session=...` 推断 Header 名称敏感 | 新增 `SecretRedactor.IsSensitiveName/RedactNamedValue`；`Authorization`、`Cookie`、`Set-Cookie`、`X-API-Key` 等按名称整体遮蔽 |
+| 3 | 视图模型预置的凭据可能在模板应用后不回显 | `OnSecretChanged` 早于 `PasswordBox` 模板创建，`HookPart` 未补同步 | `HookPart` 在摘除回调后补一次 `Password` 同步，避免覆盖用户已有值或递归 |
+| 4 | API 方法列曾触发 XAML 运行时异常 | 将 `double` 令牌用于 `Width`，而 `Width` 需要 `GridLength` | 方法列改用 `MinWidth` + `LfMethodColumnWidth`；表单列间距使用 `LfFormColumnGap` |
+
+### 3. 验证记录
+
+| 验证项 | 结果 |
+| --- | --- |
+| `pwsh -NoProfile -File scripts/build.ps1` | 通过，0 警告 0 错误 |
+| Domain 测试 | 54 / 54 |
+| Application 测试 | 25 / 25 |
+| Network Adapter 测试 | 10 / 10 |
+| HTTP Adapter 测试 | 15 / 15 |
+| App 测试 | 337 / 337 |
+| 全解决方案测试 | **442 / 442 通过** |
+| 真实启动 + 关闭 | 成功；主窗口保持运行，正常关闭退出码 **0** |
+| 浅色截图 | `screenshots/stage05-api-light.png` |
+| 深色截图 | `screenshots/stage05-api-dark.png` |
+| 页面布局 | 1366×768 渲染通过；空态与结果组件真实可见 |
+| 主题差异 | 浅色与深色截图差异 > 5% |
+| 状态语义 | HTTP 4xx/5xx = 已收到响应；超时/传输失败 = Failed；用户取消 = Cancelled |
+| 脱敏 | 认证字段不进入历史/导出；响应头按名称遮蔽；复制/导出/日志断言不含测试秘密 |
+| TLS | 传输层不提供关闭证书验证的开关，源码守卫测试锁定 |
+
+### 4. 尚未验证（如实声明）
+
+- OpenAPI 导入、断言、请求串联、OAuth2、HMAC/自定义签名仍未实现（ADR-005 的 P1 范围）。
+- 代理、客户端证书、HTTP/2 强制与流式上传未提供专用 UI；当前使用系统默认网络栈。
+- Windows 10 真机、125%/150%/200% 高 DPI 与键盘 Tab/焦点环仍属阶段 06。
+- x86 运行仍受 D-08 缺少 x86 .NET 10 运行时约束；本阶段仅验证 x64。
+- 海康/大华 SDK、MQTT、RTSP 与安全扫描/抓包/攻防仍未在本阶段接入；
+  D-09 / D-10 边界未关闭前不以占位或假数据冒充已实现。

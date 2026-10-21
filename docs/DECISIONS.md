@@ -609,3 +609,43 @@ LinkForge.App
 - 外部目标必须显式授权；默认只执行用户选择的单个工具，
   不自动扩大端口或网段范围。
 - 新增网络能力必须同时补成功、失败、超时、取消和未知结论测试。
+
+## ADR-026 HTTP 适配器独立成项目并禁止 UI 直连 HttpClient
+
+**状态**：已采纳（阶段 05 / LF-007）
+
+**背景**
+
+API 工作台需要真实的 HTTP 请求、超时、取消、重定向、响应截断和失败分类。
+如果页面或视图模型直接创建 `HttpClient`，会出现：
+
+1. TLS、重定向、Cookie、超时和取消策略散落在 UI 代码中；
+2. 4xx/5xx 容易被误判为网络失败；
+3. 凭据可能随请求对象进入历史、日志或导出；
+4. 集成测试依赖公网，无法稳定复现。
+
+**决策**
+
+1. 新增 `LinkForge.Adapters.Http`，以 `IHttpApiTransport` 暴露单一发送边界；
+   UI 只依赖该接口。
+2. 传输层不提供关闭 TLS 证书验证的选项，不启用自动 Cookie；
+   URL userinfo 直接拒绝，认证只能走显式字段。
+3. 收到任何 HTTP 响应（含 4xx/5xx）返回 `HttpApiResponse`；
+   DNS/连接/TLS/超时/非法请求才抛出分类后的传输异常。
+4. 响应按字节上限读取并返回截断标志，避免超大响应占满内存。
+5. App 层负责历史、日志、复制与导出脱敏；
+   敏感 Header 按名称整体遮蔽，而不是只依赖值的内容猜测。
+
+**依赖边**
+
+```text
+LinkForge.App ─→ LinkForge.Adapters.Http
+LinkForge.App ─→ LinkForge.Application / Domain
+LinkForge.Adapters.Http 不引用 App / Application / WPF
+```
+
+**约束**
+
+- 页面和视图模型不得直接创建 `HttpClient` 或 `SocketsHttpHandler`。
+- 集成测试使用本地 mock server，不依赖公网。
+- 新增请求能力必须同时覆盖成功、HTTP 错误、传输失败、超时、取消与截断。

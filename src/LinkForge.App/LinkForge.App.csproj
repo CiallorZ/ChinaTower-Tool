@@ -15,6 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\LinkForge.Adapters.Http\LinkForge.Adapters.Http.csproj" />
     <ProjectReference Include="..\LinkForge.Adapters.Network\LinkForge.Adapters.Network.csproj" />
     <ProjectReference Include="..\LinkForge.Application\LinkForge.Application.csproj" />
     <ProjectReference Include="..\LinkForge.Domain\LinkForge.Domain.csproj" />

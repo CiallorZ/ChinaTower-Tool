@@ -147,6 +147,20 @@ docs/
 因此网络页可以独立测试系统边界（Ping/TCP/DNS/本机网络/tracert），
 而 UI 不直接持有 `System.Net.NetworkInformation` 或 `Process`。
 
+### 4.2 HTTP/API 适配器依赖边（阶段 05）
+
+HTTP/API 工作台采用 `App → Adapters.Http`，且 `Adapters.Http` 不引用
+App、Application 或 WPF：
+
+- `HttpApiTransport` 封装 `SocketsHttpHandler` 与 `HttpClient`，
+  页面和视图模型不得直接创建 HTTP 客户端。
+- 传输层只表达“请求是否完成、是否收到响应、失败属于 DNS/连接/TLS/超时/非法请求”；
+  历史、复制、导出和日志由 App 层统一脱敏。
+- `HttpApiResponse` 对 4xx/5xx 正常返回；只有传输异常才抛出
+  `HttpApiTransportException`，避免把“服务器返回 404”误报为网络故障。
+- 响应按字节上限读取并截断；TLS 证书验证始终启用，不提供绕过开关。
+- 本地 `HttpListener` 集成测试覆盖真实 socket/HTTP 路径，不依赖公网。
+
 ## 5. 关键领域模型
 - Project：项目元数据与 SchemaVersion。
 - EnvironmentProfile：环境变量、代理引用、超时策略。

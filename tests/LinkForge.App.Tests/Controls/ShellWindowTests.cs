@@ -241,6 +241,53 @@ public class ShellWindowTests
     }
 
     [Fact]
+    public void Selecting_api_workbench_should_show_the_api_page_and_hide_other_pages()
+    {
+        var (dashboard, network, api, placeholder, dataContext) = StaRunner.Run(() =>
+        {
+            ThemedHost.EnsureResources();
+
+            using var networkHarness = new NetworkDiagnosticsHarness();
+            using var apiHarness = new ApiWorkbenchHarness();
+            var viewModel = new ShellViewModel(
+                dashboard: new DashboardHarness().ViewModel,
+                networkDiagnostics: networkHarness.ViewModel,
+                apiWorkbench: apiHarness.ViewModel);
+            var window = new ShellWindow(viewModel);
+
+            window.Show();
+            PumpDispatcher();
+            Layout(window, ReferenceWidth, ReferenceHeight);
+
+            viewModel.NavigateTo(NavigationCatalog.Find("connect.api"));
+            PumpDispatcher();
+            window.UpdateLayout();
+
+            var dashboardPage = (FrameworkElement)window.FindName("DashboardContent")!;
+            var networkPage = (FrameworkElement)window.FindName("NetworkDiagnosticsContent")!;
+            var apiPage = (FrameworkElement)window.FindName("ApiWorkbenchContent")!;
+            var emptyState = (FrameworkElement)window.FindName("NotImplementedContent")!;
+            var result = (
+                dashboardPage.Visibility,
+                networkPage.Visibility,
+                apiPage.Visibility,
+                emptyState.Visibility,
+                apiPage.DataContext);
+
+            window.Close();
+            PumpDispatcher();
+
+            return result;
+        });
+
+        dashboard.ShouldBe(Visibility.Collapsed);
+        network.ShouldBe(Visibility.Collapsed);
+        api.ShouldBe(Visibility.Visible);
+        placeholder.ShouldBe(Visibility.Collapsed);
+        dataContext.ShouldBeOfType<ApiWorkbenchViewModel>();
+    }
+
+    [Fact]
     public void Selecting_a_group_node_should_not_leave_it_highlighted()
     {
         // 真实缺陷回归守卫：TreeView 自己维护选中状态，ViewModel 拦不住它，

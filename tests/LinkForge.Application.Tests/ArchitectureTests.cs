@@ -75,6 +75,28 @@ public class ArchitectureTests
         references.ShouldContain("LinkForge.Application");
         references.ShouldContain("LinkForge.Domain");
         references.ShouldContain("LinkForge.Plugin.Abstractions");
+        references.ShouldContain("LinkForge.Adapters.Http");
+    }
+
+    [Fact]
+    public void Http_adapter_should_not_reference_app_application_or_wpf()
+    {
+        var references = ProjectFile.ReadProjectReferences(
+            "src/LinkForge.Adapters.Http/LinkForge.Adapters.Http.csproj");
+
+        references.ShouldBeEmpty(
+            $"Adapters.Http 是独立系统边界，不得反向引用上层；实际引用：{string.Join(", ", references)}");
+
+        var http = Assembly.Load("LinkForge.Adapters.Http");
+        var referenced = http
+            .GetReferencedAssemblies()
+            .Select(a => a.Name ?? string.Empty)
+            .Where(name => ForbiddenAssemblyPrefixes.Any(
+                forbidden => name.StartsWith(forbidden, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+
+        referenced.ShouldBeEmpty(
+            $"Adapters.Http 不得引用 WPF 程序集，实际引用：{string.Join(", ", referenced)}");
     }
 }
 

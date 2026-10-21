@@ -21,6 +21,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\LinkForge.Adapters.Http\LinkForge.Adapters.Http.csproj" />
     <ProjectReference Include="..\..\src\LinkForge.Application\LinkForge.Application.csproj" />
     <ProjectReference Include="..\..\src\LinkForge.Domain\LinkForge.Domain.csproj" />
   </ItemGroup>

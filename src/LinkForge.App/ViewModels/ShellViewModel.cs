@@ -25,16 +25,20 @@ public sealed partial class ShellViewModel : ObservableObject
     /// <param name="themeManager">主题服务；为 null 时主题相关操作变为无操作（设计时/测试用）。</param>
     /// <param name="settingsStore">设置持久化；为 null 时不读写磁盘。</param>
     /// <param name="dashboard">工作台视图模型；为 null 时内容区不显示工作台数据。</param>
+    /// <param name="networkDiagnostics">网络诊断视图模型。</param>
+    /// <param name="apiWorkbench">API 工作台视图模型。</param>
     public ShellViewModel(
         ThemeManager? themeManager = null,
         AppSettingsStore? settingsStore = null,
         DashboardViewModel? dashboard = null,
-        NetworkDiagnosticsViewModel? networkDiagnostics = null)
+        NetworkDiagnosticsViewModel? networkDiagnostics = null,
+        ApiWorkbenchViewModel? apiWorkbench = null)
     {
         _themeManager = themeManager;
         _settingsStore = settingsStore;
         Dashboard = dashboard;
         NetworkDiagnostics = networkDiagnostics;
+        ApiWorkbench = apiWorkbench;
 
         NavigationItems = new ObservableCollection<NavigationNode>(NavigationCatalog.TopLevel);
 
@@ -65,6 +69,9 @@ public sealed partial class ShellViewModel : ObservableObject
     /// <summary>网络诊断页面视图模型；为 null 时页面显示明确不可用状态。</summary>
     public NetworkDiagnosticsViewModel? NetworkDiagnostics { get; }
 
+    /// <summary>API 工作台视图模型。</summary>
+    public ApiWorkbenchViewModel? ApiWorkbench { get; }
+
     /// <summary>当前选中的导航节点。</summary>
     [ObservableProperty]
     public partial NavigationNode? SelectedNode { get; set; }
@@ -86,6 +93,9 @@ public sealed partial class ShellViewModel : ObservableObject
 
     /// <summary>是否显示网络诊断。</summary>
     public bool IsNetworkDiagnosticsSelected => CurrentPageId == "network";
+
+    /// <summary>是否显示 API 工作台。</summary>
+    public bool IsApiWorkbenchSelected => CurrentPageId == "connect.api";
 
     /// <summary>当前页面是否已实现（false 时内容区显示明确的未实现状态）。</summary>
     [ObservableProperty]
@@ -153,6 +163,7 @@ public sealed partial class ShellViewModel : ObservableObject
         UpdateStatusText();
         OnPropertyChanged(nameof(IsDashboardSelected));
         OnPropertyChanged(nameof(IsNetworkDiagnosticsSelected));
+        OnPropertyChanged(nameof(IsApiWorkbenchSelected));
     }
 
     /// <summary>切换导航栏展开/折叠。</summary>

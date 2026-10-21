@@ -161,6 +161,25 @@ public class SecretTextBoxTests
     }
 
     [Fact]
+    public void Secret_assigned_before_template_should_sync_to_password_box()
+    {
+        var (hasSecret, password) = StaRunner.Run(() =>
+        {
+            var box = new SecretTextBox
+            {
+                Label = "设备密码",
+                Secret = SecretValue
+            };
+            ThemedHost.Host(box);
+
+            return (box.HasSecret, box.PasswordBoxPart?.Password);
+        });
+
+        hasSecret.ShouldBeTrue();
+        password.ShouldBe(SecretValue);
+    }
+
+    [Fact]
     public void Clear_command_should_not_be_executable_when_empty()
     {
         var canExecute = StaRunner.Run(() =>

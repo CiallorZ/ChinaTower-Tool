@@ -1,4 +1,5 @@
 using System.Windows;
+using LinkForge.Adapters.Http;
 using LinkForge.Adapters.Network;
 using LinkForge.App.Presentation;
 using LinkForge.App.Services;
@@ -124,6 +125,14 @@ public partial class App : System.Windows.Application
         services.AddSingleton<NetworkDiagnosticAdapter>();
         services.AddSingleton<INetworkResultExporter, NetworkResultExporter>();
 
+        // HTTP 传输与 API 历史：真实系统边界；UI 不直接依赖 HttpClient。
+        services.AddSingleton<IHttpApiTransport, HttpApiTransport>();
+        services.AddSingleton<IApiRequestHistoryStore>(static provider =>
+            new JsonApiRequestHistoryStore(
+                provider.GetRequiredService<AppEnvironment>().SettingsDirectory
+                ?? throw new InvalidOperationException("无法确定数据目录，API 历史不可用。")));
+        services.AddSingleton<IApiResultExporter, ApiResultExporter>();
+
         // 自检适配器：以适配器契约注册，
         // 之后接入海康 / 大华等进程外适配器时，调用方（工作台）无需改动。
         services.AddSingleton<IDiagnosticAdapter>(static provider =>
@@ -136,6 +145,7 @@ public partial class App : System.Windows.Application
         services.AddSingleton<ShellViewModel>();
         services.AddSingleton<DashboardViewModel>();
         services.AddSingleton<NetworkDiagnosticsViewModel>();
+        services.AddSingleton<ApiWorkbenchViewModel>();
 
         // 视图
         services.AddSingleton<ShellWindow>();

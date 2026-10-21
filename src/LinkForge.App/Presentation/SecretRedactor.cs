@@ -23,6 +23,42 @@ public static partial class SecretRedactor
     public const string Mask = "***";
 
     /// <summary>
+    /// 判断 HTTP Header 或查询参数名称是否应按“值整体敏感”处理。
+    /// </summary>
+    /// <param name="name">Header/参数名称。</param>
+    /// <returns>敏感名称返回 true。</returns>
+    /// <remarks>
+    /// 仅对值调用 <see cref="Redact(string?)"/> 不足以识别
+    /// <c>Set-Cookie: session=...</c> 这类“值本身不含敏感键名”的形态。
+    /// 因此名称命中敏感语义时，调用方应直接把整个值替换为掩码。
+    /// </remarks>
+    public static bool IsSensitiveName(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return false;
+        }
+
+        return SensitiveNamePattern().IsMatch(name.Trim());
+    }
+
+    /// <summary>
+    /// 按名称与值共同脱敏。名称敏感时整体遮蔽，否则只处理值中的可识别秘密。
+    /// </summary>
+    /// <param name="name">Header/参数名称。</param>
+    /// <param name="value">原始值。</param>
+    /// <returns>可安全显示、记录或导出的值。</returns>
+    public static string RedactNamedValue(string? name, string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return value ?? string.Empty;
+        }
+
+        return IsSensitiveName(name) ? Mask : Redact(value) ?? string.Empty;
+    }
+
+    /// <summary>
     /// 对任意文本执行脱敏。
     /// </summary>
     /// <param name="input">原始文本；为 null/空时原样返回。</param>
@@ -101,6 +137,13 @@ public static partial class SecretRedactor
         "auth|credential|private[_-]?key|session[_-]?id|" +
         "cookie|set-cookie|signature|sign|accesskey|access[_-]?key[_-]?secret";
 
+    // Header 名称没有统一的命名空间。这里覆盖标准认证/会话头，
+    // 以及常见网关与厂商使用的令牌头；宁可整体遮蔽，也不把值交给启发式规则猜测。
+    private const string SensitiveHeaderNames =
+        "authorization|proxy-authorization|cookie|set-cookie|" +
+        "x-api-key|api-key|x-auth-token|x-access-token|x-session-token|x-token|" +
+        "x-csrf-token|x-xsrf-token|www-authenticate|proxy-authenticate";
+
     [GeneratedRegex(
         @"(?<scheme>[a-zA-Z][a-zA-Z0-9+.\-]*)://(?<user>[^:/@\s]+):(?<password>[^@/\s]+)@",
         RegexOptions.CultureInvariant)]
@@ -126,4 +169,9 @@ public static partial class SecretRedactor
         @"|\bAKIA[0-9A-Z]{16}\b",
         RegexOptions.CultureInvariant)]
     private static partial Regex KnownTokenPattern();
+
+    [GeneratedRegex(
+        $@"^(?:{SensitiveHeaderNames}|{SensitiveKeyNames})$",
+        RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex SensitiveNamePattern();
 }

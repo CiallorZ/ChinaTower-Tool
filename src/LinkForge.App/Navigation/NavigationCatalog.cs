@@ -103,7 +103,7 @@ public static class NavigationCatalog
 
                 new("connect.api", "API 工作台", LfGlyph.Api,
                     "构造并发送 HTTP/API 请求，查看响应与耗时。",
-                    LfModuleAvailability.NotImplemented, [])
+                    LfModuleAvailability.Available, [])
             ]),
 
         new(

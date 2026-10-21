@@ -145,6 +145,8 @@
     <!-- ===================== 业务页面补充（阶段 05） ===================== -->
     <!-- 表单两列布局的列间距；固定 GridLength，避免页面各写一个 16/24。 -->
     <GridLength x:Key="LfFormColumnGap">16</GridLength>
+    <!-- 列宽需要 GridLength；double 令牌不能直接赋给 ColumnDefinition.Width。 -->
+    <GridLength x:Key="LfHeaderNameColumnWidth">120</GridLength>
     <!-- 网络结果事实表的标签列；比工作台的 120 略宽以容纳“第 12 跳”等中文标签。 -->
     <GridLength x:Key="LfFactLabelColumnWidth">140</GridLength>
     <!-- 网络结果列表上限；日志/跳点很多时内部滚动，不把主操作挤出屏幕。 -->
@@ -155,6 +157,11 @@
     <Thickness x:Key="LfAuthorizationSpacing">0,16,0,0</Thickness>
     <!-- 网络工具选项说明与标题之间的间距。 -->
     <Thickness x:Key="LfOptionHintSpacing">0,2,0,0</Thickness>
+
+    <!-- ===================== API 工作台补充（阶段 05） ===================== -->
+    <sys:Double x:Key="LfMethodColumnWidth">104</sys:Double>
+    <sys:Double x:Key="LfBodyEditorHeight">160</sys:Double>
+    <sys:Double x:Key="LfResponseBodyHeight">280</sys:Double>
 
     <!-- ===================== 描边 ===================== -->
     <Thickness x:Key="LfBorderThickness">1</Thickness>

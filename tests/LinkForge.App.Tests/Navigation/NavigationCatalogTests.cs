@@ -214,7 +214,7 @@ public sealed class NavigationCatalogTests
             .Select(node => node.Id)
             .ToArray();
 
-        available.ShouldBe(["dashboard", "network"]);
+        available.ShouldBe(["dashboard", "connect.api", "network"]);
     }
 
     [Fact]

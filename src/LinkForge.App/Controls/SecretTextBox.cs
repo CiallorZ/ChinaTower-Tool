@@ -110,6 +110,24 @@ public sealed class SecretTextBox : Control
             typeof(SecretTextBox),
             new PropertyMetadata(false));
 
+    /// <summary>
+    /// 供页面绑定的秘密值。
+    /// </summary>
+    /// <remarks>
+    /// 该属性存在的原因是 API 工作台需要在发送时把值交给传输层。
+    /// 它不用于日志/历史/导出；模板仍只绑定 PasswordBox，
+    /// 依赖属性值在控件被清理时由页面显式清空。
+    /// </remarks>
+    public static readonly DependencyProperty SecretProperty =
+        DependencyProperty.Register(
+            nameof(Secret),
+            typeof(string),
+            typeof(SecretTextBox),
+            new FrameworkPropertyMetadata(
+                string.Empty,
+                FrameworkPropertyMetadataOptions.BindsTwoWayByDefault,
+                OnSecretChanged));
+
     /// <summary>明文是否已录入（供界面提示"已填写"而不泄露内容）。</summary>
     private static readonly DependencyPropertyKey HasSecretKey =
         DependencyProperty.RegisterReadOnly(
@@ -172,6 +190,13 @@ public sealed class SecretTextBox : Control
         set => SetValue(CanCopyProperty, value);
     }
 
+    /// <summary>绑定的秘密值；仅用于真正发起连接/请求。</summary>
+    public string Secret
+    {
+        get => (string)GetValue(SecretProperty);
+        set => SetValue(SecretProperty, value);
+    }
+
     /// <summary>明文是否已录入。</summary>
     public bool HasSecret => (bool)GetValue(HasSecretProperty);
 
@@ -232,6 +257,26 @@ public sealed class SecretTextBox : Control
         }
     }
 
+    private static void OnSecretChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        if (d is not SecretTextBox control)
+        {
+            return;
+        }
+
+        var value = e.NewValue as string ?? string.Empty;
+
+        if (control.FindPasswordBoxPart() is Wpf.Ui.Controls.PasswordBox passwordBox
+            && passwordBox.Password != value)
+        {
+            passwordBox.PasswordChanged -= control.OnPasswordBoxPasswordChanged;
+            passwordBox.Password = value;
+            passwordBox.PasswordChanged += control.OnPasswordBoxPasswordChanged;
+        }
+
+        control.OnPasswordChanged(value);
+    }
+
     /// <summary>
     /// 由模板内的 PasswordBox 在口令变更时回调。
     /// </summary>
@@ -256,6 +301,11 @@ public sealed class SecretTextBox : Control
         }
 
         SetValue(HasSecretKey, updated.Length > 0);
+
+        if (!string.Equals(Secret, password, StringComparison.Ordinal))
+        {
+            SetCurrentValue(SecretProperty, password);
+        }
     }
 
     /// <inheritdoc />
@@ -292,6 +342,16 @@ public sealed class SecretTextBox : Control
         }
 
         passwordBox.PasswordChanged += OnPasswordBoxPasswordChanged;
+
+        // Secret 可能由视图模型在模板应用前赋值。此时 OnSecretChanged 已写入
+        // SecureString，但 PasswordBox 尚不存在；模板就绪后必须补一次同步，
+        // 否则控件会显示为空，用户再次输入时还可能覆盖已有值。
+        if (!string.IsNullOrEmpty(Secret) && passwordBox.Password != Secret)
+        {
+            passwordBox.PasswordChanged -= OnPasswordBoxPasswordChanged;
+            passwordBox.Password = Secret;
+            passwordBox.PasswordChanged += OnPasswordBoxPasswordChanged;
+        }
 
         // IsPasswordRevealed 是只读依赖属性（由控件库自带的显示按钮驱动），
         // 无法用绑定写回。这里监听其变化，把控件库的揭示状态镜像到本控件的

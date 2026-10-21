@@ -139,6 +139,35 @@ public class SecretRedactorTests
         output.ShouldContain("theme=dark");
     }
 
+    [Theory]
+    [InlineData("Authorization")]
+    [InlineData("Proxy-Authorization")]
+    [InlineData("Cookie")]
+    [InlineData("Set-Cookie")]
+    [InlineData("X-API-Key")]
+    [InlineData("X-Auth-Token")]
+    [InlineData("X-Token")]
+    public void Sensitive_header_values_should_be_masked_by_header_name(string name)
+    {
+        const string value = "session=SuperSecret123; Path=/; HttpOnly";
+
+        var output = SecretRedactor.RedactNamedValue(name, value);
+
+        output.ShouldBe(SecretRedactor.Mask);
+        output.ShouldNotContain("SuperSecret123");
+    }
+
+    [Fact]
+    public void Non_sensitive_header_value_should_still_redact_embedded_secrets()
+    {
+        const string value = "device=cam-01; token=SuperSecret123";
+
+        var output = SecretRedactor.RedactNamedValue("X-Debug-Info", value);
+
+        output.ShouldNotContain("SuperSecret123");
+        output.ShouldContain("cam-01");
+    }
+
     [Fact]
     public void Non_sensitive_text_should_be_unchanged()
     {

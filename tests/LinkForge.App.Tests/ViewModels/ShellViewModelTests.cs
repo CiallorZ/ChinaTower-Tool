@@ -427,4 +427,13 @@ public sealed class ShellViewModelTests : IDisposable
         viewModel.NetworkDiagnostics.ShouldBeSameAs(harness.ViewModel);
     }
 
+    [Fact]
+    public void Exposed_api_workbench_should_be_the_injected_instance()
+    {
+        using var harness = new ApiWorkbenchHarness();
+        var viewModel = new ShellViewModel(apiWorkbench: harness.ViewModel);
+
+        viewModel.ApiWorkbench.ShouldBeSameAs(harness.ViewModel);
+    }
+
 }
