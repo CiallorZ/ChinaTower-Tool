@@ -480,4 +480,28 @@ public sealed class ShellViewModelTests : IDisposable
         viewModel.CurrentTitle.ShouldBe("视频接入");
     }
 
+    [Fact]
+    public void Exposed_report_page_should_be_the_injected_instance()
+    {
+        using var harness = new ReportPageHarness();
+        var viewModel = new ShellViewModel(reportPage: harness.ViewModel);
+
+        viewModel.ReportPage.ShouldBeSameAs(harness.ViewModel);
+    }
+
+    [Fact]
+    public void Navigating_to_reports_should_select_the_report_page()
+    {
+        using var harness = new ReportPageHarness();
+        var viewModel = new ShellViewModel(reportPage: harness.ViewModel);
+
+        viewModel.NavigateTo(NavigationCatalog.Find("reports"));
+
+        viewModel.IsReportPageSelected.ShouldBeTrue();
+        viewModel.IsDashboardSelected.ShouldBeFalse();
+        viewModel.IsRtspDiagnosticsSelected.ShouldBeFalse();
+        viewModel.IsCurrentModuleImplemented.ShouldBeTrue();
+        viewModel.CurrentTitle.ShouldBe("项目与报告");
+    }
+
 }

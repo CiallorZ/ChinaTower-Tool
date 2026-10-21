@@ -1,0 +1,17 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:presentation="clr-namespace:LinkForge.App.Presentation">
+
+    <!--
+        共享转换器。
+
+        集中在本字典而不是每个页面各自声明：
+        页面内声明的实例无法被测试直接取用，也无法保证"同名不同实现"不会出现。
+    -->
+
+    <BooleanToVisibilityConverter x:Key="LfBoolToVisibility" />
+    <presentation:InverseBooleanConverter x:Key="LfInverseBool" />
+    <presentation:InverseBooleanToVisibilityConverter x:Key="LfInverseBoolToVisibility" />
+    <presentation:NonEmptyToVisibilityConverter x:Key="LfNonEmptyToVisibility" />
+
+</ResourceDictionary>

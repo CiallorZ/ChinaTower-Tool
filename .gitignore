@@ -77,16 +77,20 @@ LinkForgeData/
 *.sqlite3
 *.lfproj
 
-# Reports and evidence produced at runtime
-reports/
-evidence/
-captures/
+# Reports and evidence produced at runtime.
+# Anchored to the repository root on purpose: without the leading slash,
+# `reports/` also matches `src/LinkForge.Reporting/Reports/` on Windows
+# (case-insensitive), which silently drops the report library's source
+# from commits while the local build still succeeds.
+/reports/
+/evidence/
+/captures/
 *.pcap
 *.pcapng
 *.etl
 
 # Logs
-logs/
+/logs/
 *.log
 
 # OS noise

@@ -1,0 +1,277 @@
+<UserControl x:Class="LinkForge.App.Views.Pages.ReportPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="clr-namespace:LinkForge.App.Controls"
+             xmlns:domain="clr-namespace:LinkForge.Domain.Diagnostics;assembly=LinkForge.Domain"
+             xmlns:vm="clr-namespace:LinkForge.App.ViewModels"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:ReportPageViewModel}"
+             Background="Transparent">
+
+    <!--
+        项目与报告（LF-010 / PRD §3.9）。
+
+        数据来源只有一处：任务历史。没有历史就显示空状态，
+        不提供示例报告 —— 示例报告会被当成真实证据转发。
+
+        状态覆盖：空（无历史）· 加载（IsLoading）· 运行（IsGenerating）
+        · 成功 / 部分成功 / 失败 / 取消（来自真实 TaskRunState）
+        · 依赖缺失（无历史时明确说明下一步）。
+    -->
+
+    <Grid>
+        <ScrollViewer VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled"
+                      Padding="{DynamicResource LfContentPadding}"
+                      Visibility="{Binding HasRuns, Converter={StaticResource LfBoolToVisibility}}">
+            <StackPanel>
+                <!-- ===== 1. 来源选择 ===== -->
+                <Border Background="{DynamicResource LfBrushSurface}"
+                        BorderBrush="{DynamicResource LfBrushBorder}"
+                        BorderThickness="{DynamicResource LfBorderThickness}"
+                        CornerRadius="{DynamicResource LfRadiusPanel}"
+                        Padding="{DynamicResource LfCardPadding}">
+                    <StackPanel>
+                        <TextBlock Text="选择报告来源"
+                                   FontSize="{DynamicResource LfFontSizeSectionTitle}"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource LfBrushTextPrimary}" />
+
+                        <TextBlock Text="下列记录来自本机真实任务历史；报告内容与这些记录逐字一致，不做重新推断。"
+                                   Margin="{DynamicResource LfInlineSpacing}"
+                                   FontSize="{DynamicResource LfFontSizeCaption}"
+                                   Foreground="{DynamicResource LfBrushTextSecondary}"
+                                   TextWrapping="Wrap" />
+
+                        <ListBox ItemsSource="{Binding Runs}"
+                                 SelectedItem="{Binding SelectedRun}"
+                                 ItemContainerStyle="{StaticResource LfReportRunListBoxItemStyle}"
+                                 MaxHeight="{DynamicResource LfReportRunListHeight}"
+                                 Margin="{DynamicResource LfBlockSpacing}"
+                                 IsEnabled="{Binding IsGenerating,
+                                                      Converter={StaticResource LfInverseBool}}"
+                                 AutomationProperties.Name="可生成报告的任务历史">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate DataType="{x:Type domain:DiagnosticRunResult}">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <controls:StatusBadge Grid.Column="0"
+                                                              TaskState="{Binding State}"
+                                                              Margin="{DynamicResource LfLabelSpacing}"
+                                                              VerticalAlignment="Center" />
+
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding DisplayName}"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource LfBrushTextPrimary}"
+                                                       TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding TargetLabel}"
+                                                       FontFamily="{DynamicResource LfFontFamilyMono}"
+                                                       FontSize="{DynamicResource LfFontSizeCaption}"
+                                                       Foreground="{DynamicResource LfBrushTextSecondary}"
+                                                       TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding StartedAtText}"
+                                                       HorizontalAlignment="Right"
+                                                       FontSize="{DynamicResource LfFontSizeCaption}"
+                                                       Foreground="{DynamicResource LfBrushTextSecondary}" />
+                                            <TextBlock Text="{Binding StepSummaryText}"
+                                                       HorizontalAlignment="Right"
+                                                       FontSize="{DynamicResource LfFontSizeCaption}"
+                                                       Foreground="{DynamicResource LfBrushTextMuted}"
+                                                       TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+
+                        <controls:LabeledTextBox Label="项目名称"
+                                                 Margin="{DynamicResource LfBlockSpacing}"
+                                                 Text="{Binding ProjectName}"
+                                                 Placeholder="例如：××园区视频接入验收"
+                                                 Hint="可选。留空时报告中标注“未指定项目”。"
+                                                 IsEnabled="{Binding IsGenerating,
+                                                                      Converter={StaticResource LfInverseBool}}" />
+                    </StackPanel>
+                </Border>
+
+                <!-- ===== 2. 运行态 ===== -->
+                <Border Margin="{DynamicResource LfBlockSpacing}"
+                        Background="{DynamicResource LfBrushSurface}"
+                        BorderBrush="{DynamicResource LfBrushBorder}"
+                        BorderThickness="{DynamicResource LfBorderThickness}"
+                        CornerRadius="{DynamicResource LfRadiusControl}"
+                        Padding="{DynamicResource LfCardPadding}"
+                        Visibility="{Binding IsGenerating,
+                                             Converter={StaticResource LfBoolToVisibility}}">
+                    <StackPanel Orientation="Horizontal">
+                        <controls:LoadingState Message="正在生成报告（扫描 → 渲染 → 写入）…"
+                                               VerticalAlignment="Center" />
+                    </StackPanel>
+                </Border>
+
+                <!-- ===== 3. 操作 ===== -->
+                <WrapPanel Margin="{DynamicResource LfBlockSpacing}">
+                    <Button Content="生成预览"
+                            Command="{Binding PreviewCommand}"
+                            IsEnabled="{Binding CanPreview}"
+                            MinWidth="{DynamicResource LfActionButtonMinWidth}"
+                            Height="{DynamicResource LfControlHeight}"
+                            ToolTip="构建报告并执行敏感信息扫描（不写文件）"
+                            AutomationProperties.Name="生成报告预览" />
+
+                    <Button Content="保存 HTML"
+                            Command="{Binding SaveCommand}"
+                            IsEnabled="{Binding CanSave}"
+                            MinWidth="{DynamicResource LfButtonMinWidth}"
+                            Height="{DynamicResource LfControlHeight}"
+                            Margin="{DynamicResource LfInlineSpacingLeading}"
+                            ToolTip="选择保存位置并写入离线 HTML 报告" />
+
+                    <Button Content="打开文件位置"
+                            Command="{Binding RevealReportCommand}"
+                            IsEnabled="{Binding HasLastGeneratedPath}"
+                            MinWidth="{DynamicResource LfButtonMinWidth}"
+                            Height="{DynamicResource LfControlHeight}"
+                            Margin="{DynamicResource LfInlineSpacingLeading}" />
+                </WrapPanel>
+
+                <!-- ===== 4. 扫描结论与反馈 ===== -->
+                <Border Margin="{DynamicResource LfBlockSpacing}"
+                        Background="{DynamicResource LfBrushSurface}"
+                        BorderBrush="{DynamicResource LfBrushBorder}"
+                        BorderThickness="{DynamicResource LfBorderThickness}"
+                        CornerRadius="{DynamicResource LfRadiusControl}"
+                        Padding="{DynamicResource LfCardPadding}"
+                        Visibility="{Binding IsPreviewReady,
+                                             Converter={StaticResource LfBoolToVisibility}}">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <controls:StatusBadge TextOverride="扫描通过"
+                                                  DiagnosticStatus="Passed"
+                                                  Margin="{DynamicResource LfLabelSpacing}"
+                                                  Visibility="{Binding IsPreviewClean,
+                                                                       Converter={StaticResource LfBoolToVisibility}}" />
+                            <controls:StatusBadge TextOverride="扫描未通过"
+                                                  DiagnosticStatus="Failed"
+                                                  Margin="{DynamicResource LfLabelSpacing}"
+                                                  Visibility="{Binding IsPreviewClean,
+                                                                       Converter={StaticResource LfInverseBoolToVisibility}}" />
+                            <TextBlock Text="{Binding PreviewScanText}"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource LfBrushTextSecondary}"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+
+                        <TextBlock Text="报告包含：产品版本、项目、目标、任务时间、状态、步骤、结构化事实、"
+                                   Margin="{DynamicResource LfInlineSpacing}"
+                                   FontSize="{DynamicResource LfFontSizeCaption}"
+                                   Foreground="{DynamicResource LfBrushTextMuted}"
+                                   TextWrapping="Wrap" />
+                        <TextBlock Text="证据元数据与下一步建议；并明确标注本次未执行的范围。"
+                                   FontSize="{DynamicResource LfFontSizeCaption}"
+                                   Foreground="{DynamicResource LfBrushTextMuted}"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+
+                <TextBlock Text="{Binding ActionFeedback}"
+                           Margin="{DynamicResource LfBlockSpacing}"
+                           TextWrapping="Wrap"
+                           Foreground="{DynamicResource LfBrushTextSecondary}"
+                           Visibility="{Binding ActionFeedback,
+                                                Converter={StaticResource LfNonEmptyToVisibility}}" />
+
+                <!-- ===== 5. 步骤预览 ===== -->
+                <Border Margin="{DynamicResource LfBlockSpacing}"
+                        Background="{DynamicResource LfBrushSurface}"
+                        BorderBrush="{DynamicResource LfBrushBorder}"
+                        BorderThickness="{DynamicResource LfBorderThickness}"
+                        CornerRadius="{DynamicResource LfRadiusPanel}"
+                        Padding="{DynamicResource LfCardPadding}">
+                    <StackPanel>
+                        <TextBlock Text="将写入报告的步骤"
+                                   FontSize="{DynamicResource LfFontSizeSectionTitle}"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource LfBrushTextPrimary}" />
+
+                        <ItemsControl ItemsSource="{Binding Steps}"
+                                      Margin="{DynamicResource LfInlineSpacing}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type domain:DiagnosticStepResult}">
+                                    <Border Margin="{DynamicResource LfRowSpacing}"
+                                            BorderBrush="{DynamicResource LfBrushDivider}"
+                                            BorderThickness="{DynamicResource LfDividerTop}"
+                                            Padding="{DynamicResource LfInlineSpacing}">
+                                        <StackPanel>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <controls:StatusBadge Grid.Column="0"
+                                                                      DiagnosticStatus="{Binding Status}"
+                                                                      Margin="{DynamicResource LfLabelSpacing}" />
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding Name}"
+                                                           VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource LfBrushTextPrimary}" />
+                                                <TextBlock Grid.Column="2"
+                                                           Text="{Binding DurationText}"
+                                                           VerticalAlignment="Center"
+                                                           FontFamily="{DynamicResource LfFontFamilyMono}"
+                                                           FontSize="{DynamicResource LfFontSizeCaption}"
+                                                           Foreground="{DynamicResource LfBrushTextSecondary}" />
+                                            </Grid>
+                                            <TextBlock Text="{Binding Summary}"
+                                                       Margin="{DynamicResource LfInlineSpacing}"
+                                                       TextWrapping="Wrap"
+                                                       Foreground="{DynamicResource LfBrushTextSecondary}" />
+                                            <!--
+                                                这里不再单独渲染跳过原因：
+                                                DiagnosticStepResults.Skipped 已经把原因写进 Summary
+                                                （“已跳过：<原因>”），再显示一次会出现两行几乎相同的文字，
+                                                并在预览区被截断，看起来像重复的缺陷。
+                                            -->
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <TextBlock Text="本次任务没有步骤结论。"
+                                   Margin="{DynamicResource LfInlineSpacing}"
+                                   Foreground="{DynamicResource LfBrushTextMuted}"
+                                   Visibility="{Binding HasSteps,
+                                                        Converter={StaticResource LfInverseBoolToVisibility}}" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- ===== 空状态 / 加载态 ===== -->
+        <controls:EmptyState Title="暂无可生成报告的任务"
+                             Description="{Binding EmptyDescription}"
+                             Visibility="{Binding IsEmpty,
+                                                  Converter={StaticResource LfBoolToVisibility}}" />
+
+        <controls:LoadingState Message="正在读取任务历史…"
+                               Visibility="{Binding IsLoading,
+                                                    Converter={StaticResource LfBoolToVisibility}}" />
+
+        <controls:ErrorPanel Message="{Binding LoadErrorMessage}"
+                             Visibility="{Binding LoadErrorMessage,
+                                                  Converter={StaticResource LfNonEmptyToVisibility}}" />
+    </Grid>
+</UserControl>

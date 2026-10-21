@@ -143,7 +143,7 @@ public static class NavigationCatalog
             "项目与报告",
             LfGlyph.Reports,
             "管理项目、任务历史与诊断报告。",
-            LfModuleAvailability.NotImplemented,
+            LfModuleAvailability.Available,
             []),
 
         new(

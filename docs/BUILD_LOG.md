@@ -574,3 +574,67 @@ pwsh -File scripts/run.ps1
 - Windows 10 真机、125%/150%/200% 高 DPI 与键盘 Tab/焦点环仍属阶段 06。
 - x86 运行仍受 D-08 缺少 x86 .NET 10 运行时约束;本阶段仅验证 x64。
 - Zigbee、抓包、安全扫描/渗透攻防仍未接入;D-09 / D-10 边界未关闭前不以占位或假数据冒充已实现。
+
+---
+
+## 阶段 05 · 报告服务（LF-010，2026-10-21）
+
+### 1. 交付物
+
+| 类别 | 内容 |
+| --- | --- |
+| 报告库 | `src/LinkForge.Reporting/`（`net10.0`，不引用 WPF）：`ReportDocument` / `ReportMetadata`、`ReportHtmlRenderer`、`ReportGenerator`、`SensitiveDataScanner` |
+| 渲染 | 自包含离线 HTML，模板版本 `1.0`；不含 `script`、外链样式、远程字体或图片；所有外部数据只经 `WebUtility.HtmlEncode` 一处编码 |
+| 扫描 | 生成前对全部文本执行敏感信息扫描（URL 凭据、Authorization、键值型口令、令牌、私钥）；只记录位置与类别，不保存命中原文 |
+| 写入 | 扫描通过后才写文件；临时文件 + `File.Move(overwrite)` 原子替换；UTF-8 无 BOM；扫描命中时不创建 `.tmp` |
+| 报告页 | `ReportPageViewModel` + `ReportPage.xaml`：真实历史列表、项目名称、预览、扫描结论、保存、资源管理器定位、空/加载/运行/失败/取消状态 |
+| 保存边界 | `IReportFileExporter` 抽象保存对话框；生成后只做 `/select` 定位，不直接执行 HTML |
+| 导航/DI | `reports` 改为 `Available`；注册 `IReportGenerator`、`IReportFileExporter`、`ReportPageViewModel` |
+| 测试 | Reporting 42 项（渲染、扫描、生成、取消、写入失败、并发、BOM、注入转义）；App 新增报告页视图模型与页面渲染/截图测试 |
+
+### 2. 本阶段发现并修复的真实缺陷
+
+| # | 现象 | 根因 | 处理 |
+| --- | --- | --- | --- |
+| 1 | 取消生成时抛 `OperationCanceledException` 到调用方 | 扫描前直接 `ThrowIfCancellationRequested` | 改为返回 `ReportFailureKind.Cancelled` 结果 |
+| 2 | 非法路径（含 `\0`）异常冒到 UI | 未捕获 `ArgumentException` | 写入 catch 增加 `ArgumentException`，转为可读反馈 |
+| 3 | `Authorization: Bearer ***` 被误判为泄漏 | 扫描未剥离认证方案前缀 | 增加认证方案剥离；已脱敏值不再命中 |
+| 4 | 历史加载完成后空状态占位不显示 | 后台线程修改属性，WPF 绑定不刷新 | 属性更新统一 `PostAsync` 回 UI 线程；新增显式 `IsEmpty` |
+| 5 | 列表选中项深蓝底 + 深灰字不可读 | 默认 `ListBoxItem` 选中态使用系统强调色 | 新增令牌化的 `LfReportRunListBoxItemStyle` |
+| 6 | 跳过原因在页面预览中重复显示并被截断 | 摘要已含“已跳过：原因”，预览又渲染一次 | 移除页面重复渲染；本次同时修复 HTML 报告中的同源重复 |
+
+### 3. 验证记录
+
+| 验证项 | 结果 |
+| --- | --- |
+| `pwsh -NoProfile -File scripts/build.ps1` | 通过，0 警告 0 错误 |
+| Domain 测试 | 54 / 54 |
+| Application 测试 | 29 / 29 |
+| Network Adapter 测试 | 10 / 10 |
+| HTTP Adapter 测试 | 15 / 15 |
+| MQTT Adapter 测试 | 8 / 8 |
+| Video Adapter 测试 | 17 / 17 |
+| Reporting 测试 | 42 / 42 |
+| App 测试 | 417 / 417 |
+| 全解决方案测试 | **592 / 592 通过** |
+| 真实启动 + 关闭 | 成功；主窗口正常关闭，退出码 **0** |
+| 浅色截图 | `screenshots/stage05-report-light.png` |
+| 深色截图 | `screenshots/stage05-report-dark.png` |
+| 报告页布局 | 1366×768 渲染通过；历史列表、项目名称、扫描结论、步骤预览与操作按钮可视 |
+| 主题差异 | 浅色与深色截图差异 > 5% |
+| 报告内容核验 | 生成的样例 HTML 经浏览器可访问性树确认：中文、状态、计数、跳过原因、建议、脱敏说明与页脚均正确渲染 |
+| 离线自包含 | 输出无 `script` / `link` / `img` / `@import`，无 `http(s)` 远程引用 |
+| 注入转义 | `<script>`、事件属性、`iframe`、`</style>` 载荷均被转义 |
+| BOM / 原子写入 | UTF-8 无 BOM；写入失败与取消均不留半成品或临时文件 |
+
+### 4. 尚未验证（如实声明）
+
+- 已实现：离线自包含 HTML 报告；产品版本、项目、目标、时间、状态、步骤、
+  结构化事实、证据元数据与建议；生成前敏感信息扫描；XSS 转义；
+  UTF-8 无 BOM；原子写入；取消与写入失败反馈；真实历史为唯一数据源。
+- 未实现：PDF / Markdown / CSV 导出、企业模板、数字签名与校验和、
+  项目级对比、自动巡检报告（PRD §3.9 P1/P2）。
+- 未验证：Windows 10 真机、125% / 150% / 200% 高 DPI、
+  打印版式实机验证；x86 仍受 D-08 约束。
+- 报告结论只能证明“本次任务产生了这些观测结果”，不等于验收通过。
+- 厂商 SDK（D-09）、抓包与安全扫描/渗透攻防（D-10）仍未接入。

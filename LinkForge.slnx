@@ -8,6 +8,7 @@
     <Project Path="src/LinkForge.Adapters.Video/LinkForge.Adapters.Video.csproj" />
     <Project Path="src/LinkForge.Domain/LinkForge.Domain.csproj" />
     <Project Path="src/LinkForge.Plugin.Abstractions/LinkForge.Plugin.Abstractions.csproj" />
+    <Project Path="src/LinkForge.Reporting/LinkForge.Reporting.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/LinkForge.Adapters.Http.Tests/LinkForge.Adapters.Http.Tests.csproj" />
@@ -17,5 +18,6 @@
     <Project Path="tests/LinkForge.Application.Tests/LinkForge.Application.Tests.csproj" />
     <Project Path="tests/LinkForge.App.Tests/LinkForge.App.Tests.csproj" />
     <Project Path="tests/LinkForge.Domain.Tests/LinkForge.Domain.Tests.csproj" />
+    <Project Path="tests/LinkForge.Reporting.Tests/LinkForge.Reporting.Tests.csproj" />
   </Folder>
 </Solution>

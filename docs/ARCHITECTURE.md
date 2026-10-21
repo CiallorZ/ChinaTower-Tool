@@ -188,6 +188,22 @@ App、Application 或 WPF：
 - RTSP URL 密码在显示、日志、事实、复制与导出中统一脱敏。
 - 集成测试使用本地 `LocalRtspServer`，真实 TCP 和 RTSP 报文，不依赖公网。
 
+### 4.5 报告服务依赖边（阶段 05）
+
+离线 HTML 报告采用 `App → Reporting → Application / Domain`，
+且 `Reporting` 不引用 App、适配器或任何 WPF 程序集：
+
+- `ReportGenerator` 负责“生成前扫描 → 渲染 → 原子写入”，
+  `ReportHtmlRenderer` 是唯一模板与唯一编码点，不引入模板引擎。
+- `ReportPageViewModel` 只读取 `IRunHistoryStore` 的真实任务历史，
+  不重构、不补齐、不改写结论；没有历史就显示空状态。
+- 保存对话框与资源管理器定位通过 `IReportFileExporter` 隔离，
+  视图模型可在无 UI 的测试宿主中验证取消、失败与成功路径。
+- 报告文件为 UTF-8 无 BOM 的自包含 HTML，不含脚本、外链样式、
+  远程字体或图片，可在断网现场直接打开。
+- 报告生成前必须通过独立的敏感信息扫描；命中时不写文件，
+  包括不留下临时文件。
+
 
 ## 5. 关键领域模型
 - Project：项目元数据与 SchemaVersion。

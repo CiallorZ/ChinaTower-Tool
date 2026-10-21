@@ -390,6 +390,52 @@ public class ShellWindowTests
     }
 
     [Fact]
+    public void Selecting_reports_should_show_the_report_page_and_hide_other_pages()
+    {
+        var (dashboard, network, rtsp, report, placeholder, dataContext) = StaRunner.Run(() =>
+        {
+            ThemedHost.EnsureResources();
+
+            using var networkHarness = new NetworkDiagnosticsHarness();
+            using var rtspHarness = new RtspDiagnosticsHarness();
+            using var reportHarness = new ReportPageHarness();
+            var viewModel = new ShellViewModel(
+                dashboard: new DashboardHarness().ViewModel,
+                networkDiagnostics: networkHarness.ViewModel,
+                rtspDiagnostics: rtspHarness.ViewModel,
+                reportPage: reportHarness.ViewModel);
+            var window = new ShellWindow(viewModel);
+
+            window.Show();
+            PumpDispatcher();
+            Layout(window, ReferenceWidth, ReferenceHeight);
+
+            viewModel.NavigateTo(NavigationCatalog.Find("reports"));
+            PumpDispatcher();
+            window.UpdateLayout();
+
+            var result = (
+                ((FrameworkElement)window.FindName("DashboardContent")!).Visibility,
+                ((FrameworkElement)window.FindName("NetworkDiagnosticsContent")!).Visibility,
+                ((FrameworkElement)window.FindName("RtspDiagnosticsContent")!).Visibility,
+                ((FrameworkElement)window.FindName("ReportContent")!).Visibility,
+                ((FrameworkElement)window.FindName("NotImplementedContent")!).Visibility,
+                ((FrameworkElement)window.FindName("ReportContent")!).DataContext);
+
+            window.Close();
+            PumpDispatcher();
+            return result;
+        });
+
+        dashboard.ShouldBe(Visibility.Collapsed);
+        network.ShouldBe(Visibility.Collapsed);
+        rtsp.ShouldBe(Visibility.Collapsed);
+        report.ShouldBe(Visibility.Visible);
+        placeholder.ShouldBe(Visibility.Collapsed);
+        dataContext.ShouldBeOfType<ReportPageViewModel>();
+    }
+
+    [Fact]
     public void Selecting_a_group_node_should_not_leave_it_highlighted()
     {
         // 真实缺陷回归守卫：TreeView 自己维护选中状态，ViewModel 拦不住它，

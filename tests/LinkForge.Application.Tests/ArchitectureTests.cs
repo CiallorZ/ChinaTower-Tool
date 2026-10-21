@@ -140,6 +140,34 @@ public class ArchitectureTests
         forbidden.ShouldBeEmpty(
             $"Adapters.Video 不得引用 WPF 程序集，实际引用：{string.Join(", ", forbidden)}");
     }
+
+    [Fact]
+    public void Reporting_project_should_not_reference_app_adapters_or_wpf()
+    {
+        // Reporting 是纯渲染与扫描库：只允许依赖 Domain / Application。
+        // 一旦它引用了 App 或某个适配器，"报告格式"就会与某个具体协议耦合，
+        // 之后新增协议必须改报告库，而不是只加一个适配器。
+        var references = ProjectFile.ReadProjectReferences(
+            "src/LinkForge.Reporting/LinkForge.Reporting.csproj");
+
+        references.ShouldNotContain("LinkForge.App");
+        references.ShouldNotContain("LinkForge.Adapters.Http");
+        references.ShouldNotContain("LinkForge.Adapters.Mqtt");
+        references.ShouldNotContain("LinkForge.Adapters.Network");
+        references.ShouldNotContain("LinkForge.Adapters.Video");
+        references.ShouldContain("LinkForge.Domain");
+
+        var reporting = Assembly.Load("LinkForge.Reporting");
+        var forbidden = reporting
+            .GetReferencedAssemblies()
+            .Select(a => a.Name ?? string.Empty)
+            .Where(name => ForbiddenAssemblyPrefixes.Any(
+                forbiddenPrefix => name.StartsWith(forbiddenPrefix, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+
+        forbidden.ShouldBeEmpty(
+            $"Reporting 不得引用 WPF 程序集，实际引用：{string.Join(", ", forbidden)}");
+    }
 }
 
 /// <summary>

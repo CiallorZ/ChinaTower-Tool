@@ -10,6 +10,7 @@ using LinkForge.App.Views;
 using LinkForge.Application.Diagnostics;
 using LinkForge.Application.Environment;
 using LinkForge.Plugin.Abstractions;
+using LinkForge.Reporting.Reports;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LinkForge.App;
@@ -146,6 +147,11 @@ public partial class App : System.Windows.Application
         services.AddSingleton<RtspDiagnosticAdapter>();
         services.AddSingleton<IRtspResultExporter, RtspResultExporter>();
 
+        // 报告：应用层只依赖 IReportGenerator，HTML 模板与扫描规则集中在 Reporting 项目。
+        services.AddSingleton<IReportGenerator>(static provider =>
+            new ReportGenerator(provider.GetRequiredService<ITextRedactor>()));
+        services.AddSingleton<IReportFileExporter, ReportFileExporter>();
+
         // 自检适配器：以适配器契约注册，
         // 之后接入海康 / 大华等进程外适配器时，调用方（工作台）无需改动。
         services.AddSingleton<IDiagnosticAdapter>(static provider =>
@@ -161,6 +167,7 @@ public partial class App : System.Windows.Application
         services.AddSingleton<ApiWorkbenchViewModel>();
         services.AddSingleton<MqttWorkbenchViewModel>();
         services.AddSingleton<RtspDiagnosticsViewModel>();
+        services.AddSingleton<ReportPageViewModel>();
 
         // 视图
         services.AddSingleton<ShellWindow>();

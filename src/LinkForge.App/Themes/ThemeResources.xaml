@@ -20,6 +20,7 @@
     <ResourceDictionary.MergedDictionaries>
         <ResourceDictionary Source="pack://application:,,,/LinkForge.App;component/Themes/Tokens/Dimensions.xaml" />
         <ResourceDictionary Source="pack://application:,,,/LinkForge.App;component/Themes/Tokens/Palette.Light.xaml" />
+        <ResourceDictionary Source="pack://application:,,,/LinkForge.App;component/Themes/Converters.xaml" />
         <ResourceDictionary Source="pack://application:,,,/LinkForge.App;component/Themes/Controls/StatusBadge.xaml" />
         <ResourceDictionary Source="pack://application:,,,/LinkForge.App;component/Themes/Controls/LabeledTextBox.xaml" />
         <ResourceDictionary Source="pack://application:,,,/LinkForge.App;component/Themes/Controls/SecretTextBox.xaml" />
@@ -31,6 +32,7 @@
         <ResourceDictionary Source="pack://application:,,,/LinkForge.App;component/Themes/Controls/TaskProgressPanel.xaml" />
         <ResourceDictionary Source="pack://application:,,,/LinkForge.App;component/Themes/Controls/ResultSummary.xaml" />
         <ResourceDictionary Source="pack://application:,,,/LinkForge.App;component/Themes/Controls/Navigation.xaml" />
+        <ResourceDictionary Source="pack://application:,,,/LinkForge.App;component/Themes/Controls/ReportList.xaml" />
     </ResourceDictionary.MergedDictionaries>
 
 </ResourceDictionary>

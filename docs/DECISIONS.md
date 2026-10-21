@@ -733,3 +733,59 @@ LinkForge.Adapters.Video 不引用 App / Application / WPF
 - 新增 RTSP 能力必须同时覆盖 DNS 失败、TCP 超时、OPTIONS 超时、
   401/认证失败、无效 SDP、用户取消与 IPv6。
 - RTSP 页空状态必须明确说明媒体接收/解码/首帧未执行。
+
+---
+
+## ADR-029：报告服务独立成项目并强制生成前扫描（LF-010）
+
+**决策时间**：2026-10-21
+
+**背景**
+
+阶段 05 需要把真实诊断结果导出为可离线交付的 HTML 报告。
+如果报告模板、脱敏规则与 WPF 页面混在一起，会出现：
+
+1. 报告格式与某个页面耦合，新增协议必须修改 UI 工程；
+2. 模板引擎的转义差异（`{{ }}` 与 `{{{ }}}`）带来 HTML 注入风险；
+3. 扫描与脱敏共用同一份正则，同一缺陷会让两者同时失效；
+4. 写入中断留下半个 HTML，用户误以为报告完整；
+5. 扫描命中后仍写出文件，把“检测泄漏”变成“制造泄漏”。
+
+**决策**
+
+1. 新增 `LinkForge.Reporting`（`net10.0`，不引用 WPF），
+   以 `IReportGenerator` 暴露“扫描 / 生成”两个契约。
+2. 不使用模板引擎：`ReportHtmlRenderer` 是唯一模板，
+   所有外部数据只经过 `WebUtility.HtmlEncode` 一处编码；
+   属性一律双引号包裹，输出不含脚本、外链样式、字体或图片。
+3. 生成流程固定为“扫描 → 渲染 → 原子写入”。敏感信息扫描独立于
+   `SecretRedactor` 实现，避免共用正则导致同时失效；
+   扫描结果只记录位置与类别，不保存命中原文。
+4. 扫描不通过时**绝不写文件**，包括不创建 `.tmp`；
+   写入使用临时文件 + `File.Move(overwrite)` 原子替换。
+5. 报告使用 UTF-8 无 BOM，保证 `<!DOCTYPE html>` 位于文件首字节。
+6. 取消与写入失败用 `ReportGenerationResult` 表达，
+   不向 UI 抛 `OperationCanceledException`；非法路径转换为可读反馈。
+7. 报告数据源只有 `IRunHistoryStore` 的真实任务历史；
+   不提供示例报告，不重新推断结论。
+
+**依赖边**
+
+```text
+LinkForge.App ─→ LinkForge.Reporting ─→ LinkForge.Application / Domain
+LinkForge.App ─→ LinkForge.Application / Domain
+LinkForge.Reporting 不引用 App、适配器或 WPF
+```
+
+**约束**
+
+- 报告中的状态、计数、步骤与建议必须与任务历史逐字一致，
+  不得为提高可读性而改写结论。
+- 报告版式必须区分“观测事实”“推断建议”与“数据范围声明”。
+- 新增报告字段必须同时加入 `ReportDocument.EnumerateTexts()`，
+  否则该字段不会进入生成前扫描。
+- `Skipped` 不得渲染为失败，`Unknown` 不得渲染为通过，
+  `Cancelled` 不得渲染为失败。
+- 报告页属性更新必须回到 UI 线程；否则会出现“数据已空但占位不出现”。
+- 新增报告能力必须覆盖：转义注入、扫描阻断、取消、写入失败、
+  无 BOM、自包含离线与中文字符保真。

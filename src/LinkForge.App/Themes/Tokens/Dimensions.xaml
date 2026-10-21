@@ -173,6 +173,18 @@
     <sys:Double x:Key="LfMqttPayloadEditorHeight">110</sys:Double>
     <!-- 单条消息载荷的可视高度：超高载荷在条目内滚动，避免一条消息占满整页。 -->
     <sys:Double x:Key="LfMqttMessagePayloadHeight">64</sys:Double>
+
+    <!-- ===================== 报告页（阶段 05 · LF-010） ===================== -->
+    <!-- 任务历史选择列表高度：内部滚动，避免 50 条历史把操作区挤出首屏。 -->
+    <sys:Double x:Key="LfReportRunListHeight">180</sys:Double>
+    <!--
+        列表选中指示线宽度。
+        与导航指示线分开定义：导航栏是竖向紧凑列表，报告列表是横向信息条目，
+        两者密度不同，后续调整其一时不应连带改变另一处。
+    -->
+    <sys:Double x:Key="LfListSelectionIndicatorWidth">3</sys:Double>
+    <!-- 列表条目内边距：条目本身是整块可点区域，需要自己的呼吸空间。 -->
+    <Thickness x:Key="LfListItemPadding">10,8</Thickness>
     <!--
         主布局列距。与 LfFormColumnGap 分开定义而不是复用：
         表单内字段间距与“控制区/消息区”这两栏的间距语义不同，

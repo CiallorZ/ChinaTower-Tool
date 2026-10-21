@@ -22,6 +22,7 @@
     <ProjectReference Include="..\LinkForge.Plugin.Abstractions\LinkForge.Plugin.Abstractions.csproj" />
     <ProjectReference Include="..\LinkForge.Adapters.Mqtt\LinkForge.Adapters.Mqtt.csproj" />
     <ProjectReference Include="..\LinkForge.Adapters.Video\LinkForge.Adapters.Video.csproj" />
+    <ProjectReference Include="..\LinkForge.Reporting\LinkForge.Reporting.csproj" />
   </ItemGroup>
 
 </Project>

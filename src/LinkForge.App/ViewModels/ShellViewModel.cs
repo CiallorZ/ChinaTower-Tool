@@ -29,6 +29,7 @@ public sealed partial class ShellViewModel : ObservableObject
     /// <param name="apiWorkbench">API 工作台视图模型。</param>
     /// <param name="mqttWorkbench">MQTT 工作台视图模型。</param>
     /// <param name="rtspDiagnostics">RTSP 诊断视图模型。</param>
+    /// <param name="reportPage">项目与报告视图模型。</param>
     public ShellViewModel(
         ThemeManager? themeManager = null,
         AppSettingsStore? settingsStore = null,
@@ -36,7 +37,8 @@ public sealed partial class ShellViewModel : ObservableObject
         NetworkDiagnosticsViewModel? networkDiagnostics = null,
         ApiWorkbenchViewModel? apiWorkbench = null,
         MqttWorkbenchViewModel? mqttWorkbench = null,
-        RtspDiagnosticsViewModel? rtspDiagnostics = null)
+        RtspDiagnosticsViewModel? rtspDiagnostics = null,
+        ReportPageViewModel? reportPage = null)
     {
         _themeManager = themeManager;
         _settingsStore = settingsStore;
@@ -45,6 +47,7 @@ public sealed partial class ShellViewModel : ObservableObject
         ApiWorkbench = apiWorkbench;
         MqttWorkbench = mqttWorkbench;
         RtspDiagnostics = rtspDiagnostics;
+        ReportPage = reportPage;
 
         NavigationItems = new ObservableCollection<NavigationNode>(NavigationCatalog.TopLevel);
 
@@ -84,6 +87,9 @@ public sealed partial class ShellViewModel : ObservableObject
     /// <summary>RTSP 诊断视图模型。</summary>
     public RtspDiagnosticsViewModel? RtspDiagnostics { get; }
 
+    /// <summary>项目与报告视图模型。</summary>
+    public ReportPageViewModel? ReportPage { get; }
+
     /// <summary>当前选中的导航节点。</summary>
     [ObservableProperty]
     public partial NavigationNode? SelectedNode { get; set; }
@@ -114,6 +120,9 @@ public sealed partial class ShellViewModel : ObservableObject
 
     /// <summary>是否显示 RTSP 诊断页。</summary>
     public bool IsRtspDiagnosticsSelected => CurrentPageId == "connect.video";
+
+    /// <summary>是否显示项目与报告页。</summary>
+    public bool IsReportPageSelected => CurrentPageId == "reports";
 
     /// <summary>当前页面是否已实现（false 时内容区显示明确的未实现状态）。</summary>
     [ObservableProperty]
@@ -184,6 +193,14 @@ public sealed partial class ShellViewModel : ObservableObject
         OnPropertyChanged(nameof(IsApiWorkbenchSelected));
         OnPropertyChanged(nameof(IsMqttWorkbenchSelected));
         OnPropertyChanged(nameof(IsRtspDiagnosticsSelected));
+        OnPropertyChanged(nameof(IsReportPageSelected));
+
+        // 每次进入报告页都重新读取历史：用户刚跑完一次诊断再切过来，
+        // 看到的必须是包含这次结果的最新列表，而不是启动时的快照。
+        if (node.Id == "reports")
+        {
+            _ = ReportPage?.LoadAsync();
+        }
     }
 
     /// <summary>切换导航栏展开/折叠。</summary>
