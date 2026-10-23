@@ -134,6 +134,19 @@
                                       ToolTip="启用后使用系统信任链验证证书与主机名；不提供跳过校验的开关。" />
                         </Grid>
 
+                        <StackPanel Margin="{DynamicResource LfBlockSpacing}">
+                            <TextBlock Text="协议版本"
+                                       FontSize="{DynamicResource LfFontSizeCaption}"
+                                       Foreground="{DynamicResource LfBrushTextSecondary}" />
+                            <ComboBox ItemsSource="{Binding ProtocolOptions}"
+                                      SelectedItem="{Binding SelectedProtocol}"
+                                      DisplayMemberPath="Title"
+                                      MinHeight="{DynamicResource LfControlHeight}"
+                                      IsEnabled="{Binding CanConnect}"
+                                      ToolTip="{Binding SelectedProtocol.Description}"
+                                      AutomationProperties.Name="MQTT 协议版本" />
+                        </StackPanel>
+
                         <WrapPanel Margin="{DynamicResource LfSectionSpacing}">
                             <Button Content="连接"
                                     Command="{Binding ConnectCommand}"

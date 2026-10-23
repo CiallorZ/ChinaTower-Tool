@@ -85,6 +85,24 @@ public class MqttWorkbenchViewModelTests
         viewModel.SummaryItems.ShouldContain(static item => item.Label == "Broker");
         viewModel.Logs.ShouldNotBeEmpty();
         harness.Transport.LastOptions!.Host.ShouldBe("127.0.0.1");
+        harness.Transport.LastOptions.ProtocolMode.ShouldBe(MqttProtocolMode.V311);
+        viewModel.SummaryItems.ShouldContain(static item => item.Label == "协议");
+    }
+
+    [Fact]
+    public async Task Selected_protocol_should_be_forwarded_to_the_transport()
+    {
+        using var harness = new MqttWorkbenchHarness();
+        var viewModel = harness.ViewModel;
+
+        viewModel.SelectedProtocol = viewModel.ProtocolOptions
+            .Single(static option => option.Mode == MqttProtocolMode.V500);
+
+        await harness.ConnectAsync();
+
+        harness.Transport.LastOptions!.ProtocolMode.ShouldBe(MqttProtocolMode.V500);
+        viewModel.SummaryItems.ShouldContain(static item =>
+            item.Label == "协议" && item.Value == "MQTT 5.0");
     }
 
     [Fact]

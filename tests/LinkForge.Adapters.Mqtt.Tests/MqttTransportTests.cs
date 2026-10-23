@@ -35,6 +35,21 @@ public class MqttTransportTests
         transport.IsConnected.ShouldBeFalse();
     }
 
+    [Theory]
+    [InlineData(MqttProtocolMode.V311)]
+    [InlineData(MqttProtocolMode.V500)]
+    public async Task Connect_should_support_the_selected_protocol_against_a_real_broker(
+        MqttProtocolMode protocolMode)
+    {
+        await using var broker = await LocalMqttBroker.StartAsync();
+        await using var transport = new MqttTransport();
+
+        await transport.ConnectAsync(Options(broker.Port, protocolMode: protocolMode));
+
+        transport.IsConnected.ShouldBeTrue();
+        await transport.DisconnectAsync();
+    }
+
     [Fact]
     public async Task Authentication_failure_should_be_reported_as_authentication_failed()
     {
@@ -139,7 +154,8 @@ public class MqttTransportTests
     private static MqttConnectionOptions Options(
         int port,
         string? username = null,
-        string? password = null) =>
+        string? password = null,
+        MqttProtocolMode protocolMode = MqttProtocolMode.V311) =>
         new(
             "127.0.0.1",
             port,
@@ -147,5 +163,6 @@ public class MqttTransportTests
             UseTls: false,
             Username: username,
             Password: password,
-            ConnectTimeout: TimeSpan.FromSeconds(3));
+            ConnectTimeout: TimeSpan.FromSeconds(3),
+            ProtocolMode: protocolMode);
 }

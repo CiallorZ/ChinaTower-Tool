@@ -2,6 +2,20 @@
 
 All notable changes to LinkForge are recorded here.
 
+## Unreleased
+
+### Added
+
+- MQTT 3.1.1 / 5.0 protocol selection in the MQTT workbench. The selected
+  protocol is passed to the real MQTTnet transport and recorded in copied
+  summaries; MQTT 3.1.1 remains the default.
+
+### Verified
+
+- Full solution build: 0 warnings, 0 errors.
+- Full test suite: 1006/1006 passed.
+- Application startup and close smoke test: exit code 0.
+
 ## 1.0.0 - 2026-10-24
 
 ### Added

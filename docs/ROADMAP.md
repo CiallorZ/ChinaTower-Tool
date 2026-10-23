@@ -35,28 +35,17 @@
 | V1.0 | 稳定性加固 + 双架构安装包 + 文档验收 | 已发布未签名 Inno Setup 用户级安装器与 x64/x86 便携包；自动更新、自动回滚与代码签名不在本版范围 |
 | V1.x | 厂商 SDK + GB/T 28181 + 更多 IoT 协议 + 智能诊断 | 厂商许可与再分发条款已书面确认 |
 
-## 3. 当前轮次（第一轮）范围声明
+## 3. 当前状态
 
-本轮只完成：
+- 设计令牌、基础组件、应用壳层、工作台与阶段 05 业务页面均已交付。
+- V1.0.0 已于 2026-10-24 发布，标签 `v1.0.0` 固定，不移动、不重写。
+- 当前进入 V1.1 增量：MQTT 双协议版本、项目包导入/导出、DPAPI 凭据存储、
+  CI 与发布文档收口。
 
-1. 仓库、目标框架、UI 方案、主题/导航机制、现有组件勘察（`REVIEW_V1.0.md` §1–2）
-2. 与 UI 规范 V1.1 的差异识别与可复用资产盘点（`REVIEW_V1.0.md` §3–4）
-3. 分阶段实施计划与风险、验证方式（`UI_IMPLEMENTATION_PLAN.md`）
-4. 技术决策与开发规范（`DECISIONS.md`、`DEV_STANDARDS.md`）
+## 4. 下一版本门槛
 
-本轮**不做**：设计令牌实现、基础组件实现、壳层实现、任何业务页面。
-
-## 4. 下一步（阶段 01 启动条件）
-
-启动阶段 01 需同时满足：
-
-- [ ] D-03 主题裁决已确认（默认跟随系统、浅色主体）
-- [ ] D-01 `git init` 已决定（强烈建议先做，否则无法 diff 审查）
-- [ ] 阶段 01 文件清单确认（见 `UI_IMPLEMENTATION_PLAN.md`）
-
-阶段 01 交付后需运行：
-
-```powershell
-& "$env:USERPROFILE\.dotnet\dotnet.exe" build LinkForge.slnx -c Debug
-& "$env:USERPROFILE\.dotnet\dotnet.exe" test LinkForge.slnx -c Debug --no-build
-```
+- [x] MQTT 3.1.1 / 5.0 真实协议选择与本地 Broker 双协议测试。
+- [ ] 项目包版本化 JSON 导入/导出，默认冲突拒绝与单事务回滚。
+- [ ] Windows CurrentUser DPAPI 凭据存储，落盘无明文。
+- [ ] Windows CI 执行构建、全量测试与发布包验证。
+- [ ] V1.1.0 正式门禁：全量测试、真实启动、干净检出、产物 SHA-256。

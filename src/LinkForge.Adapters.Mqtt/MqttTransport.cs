@@ -57,7 +57,14 @@ public sealed class MqttTransport : IMqttTransport, IDisposable
             var builder = new MqttClientOptionsBuilder()
                 .WithTcpServer(options.Host, options.Port)
                 .WithClientId(options.ClientId)
-                .WithProtocolVersion(MqttProtocolVersion.V500)
+                .WithProtocolVersion(options.ProtocolMode switch
+                {
+                    MqttProtocolMode.V311 => MqttProtocolVersion.V311,
+                    MqttProtocolMode.V500 => MqttProtocolVersion.V500,
+                    _ => throw new MqttTransportException(
+                        MqttFailureKind.InvalidOptions,
+                        "MQTT 协议版本无效。")
+                })
                 .WithCleanStart(true)
                 .WithTimeout(options.EffectiveConnectTimeout)
                 .WithKeepAlivePeriod(TimeSpan.FromSeconds(30));
@@ -367,6 +374,11 @@ public sealed class MqttTransport : IMqttTransport, IDisposable
         if (string.IsNullOrWhiteSpace(options.ClientId))
         {
             throw new MqttTransportException(MqttFailureKind.InvalidOptions, "Client ID 不能为空。");
+        }
+
+        if (!Enum.IsDefined(options.ProtocolMode))
+        {
+            throw new MqttTransportException(MqttFailureKind.InvalidOptions, "MQTT 协议版本无效。");
         }
     }
 

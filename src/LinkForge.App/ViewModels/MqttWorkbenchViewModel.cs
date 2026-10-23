@@ -23,6 +23,17 @@ public sealed record MqttSubscriptionItem(string TopicFilter, int GrantedQuality
         $"{TopicFilter} · QoS {GrantedQualityOfService}";
 }
 
+/// <summary>MQTT 协议版本选项。</summary>
+public sealed record MqttProtocolOption(MqttProtocolMode Mode, string Title, string Description)
+{
+    /// <summary>构建界面选项。</summary>
+    public static IReadOnlyList<MqttProtocolOption> BuildAll() =>
+    [
+        new(MqttProtocolMode.V311, "MQTT 3.1.1", "兼容现有现场 Broker 的默认选择"),
+        new(MqttProtocolMode.V500, "MQTT 5.0", "支持 5.0 连接属性与原因码")
+    ];
+}
+
 /// <summary>MQTT 基础调试器视图模型（LF-008）。</summary>
 /// <remarks>
 /// <para>
@@ -75,6 +86,8 @@ public sealed partial class MqttWorkbenchViewModel : ObservableObject
         Logs = [];
         Subscriptions = [];
         SummaryItems = [];
+        ProtocolOptions = MqttProtocolOption.BuildAll();
+        SelectedProtocol = ProtocolOptions[0];
 
         State = TaskRunState.Pending;
         ConnectionState = MqttUiConnectionState.Disconnected;
@@ -117,6 +130,13 @@ public sealed partial class MqttWorkbenchViewModel : ObservableObject
     /// <summary>是否使用 TLS。</summary>
     [ObservableProperty]
     public partial bool UseTls { get; set; }
+
+    /// <summary>可选 MQTT 协议版本。</summary>
+    public IReadOnlyList<MqttProtocolOption> ProtocolOptions { get; }
+
+    /// <summary>当前选择的协议版本。</summary>
+    [ObservableProperty]
+    public partial MqttProtocolOption? SelectedProtocol { get; set; }
 
     /// <summary>连接超时秒数文本。</summary>
     [ObservableProperty]
@@ -341,7 +361,8 @@ public sealed partial class MqttWorkbenchViewModel : ObservableObject
                     UseTls,
                     Username,
                     Password,
-                    TimeSpan.FromSeconds(ParseTimeout(ConnectTimeoutText))),
+                    TimeSpan.FromSeconds(ParseTimeout(ConnectTimeoutText)),
+                    SelectedProtocol?.Mode ?? MqttProtocolMode.V311),
                 linked.Token);
 
             ConnectionState = MqttUiConnectionState.Connected;
@@ -816,7 +837,8 @@ public sealed partial class MqttWorkbenchViewModel : ObservableObject
         ClientIdError = string.IsNullOrWhiteSpace(ClientId) ? "Client ID 不能为空。" : null;
         ConnectTimeoutError = IsTimeoutValid(ConnectTimeoutText) ? null : "超时必须是 1–300 秒的整数。";
 
-        return HostError is null && PortError is null && ClientIdError is null && ConnectTimeoutError is null;
+        return HostError is null && PortError is null && ClientIdError is null
+            && ConnectTimeoutError is null && SelectedProtocol is not null;
     }
 
     private string? ValidateSubscription()
@@ -960,6 +982,11 @@ public sealed partial class MqttWorkbenchViewModel : ObservableObject
         {
             Label = "TLS",
             Value = UseTls ? "启用（校验证书）" : "关闭"
+        });
+        SummaryItems.Add(new ResultSummaryItem
+        {
+            Label = "协议",
+            Value = SelectedProtocol?.Title ?? "MQTT 3.1.1"
         });
         SummaryItems.Add(new ResultSummaryItem
         {
