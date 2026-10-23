@@ -25,6 +25,14 @@ All notable changes to LinkForge are recorded here.
 - Full solution build: 0 warnings, 0 errors.
 - Full test suite: 1049/1049 passed.
 - Application startup and close smoke test: exit code 0.
+- Formal release gate passed for commit `64c5993`: unsigned `win-x64` and
+  `win-x86` portable packages plus the per-user installer were generated with
+  published SHA-256 checksums.
+- Installer silent install, repeat-install upgrade, application startup/close,
+  uninstall and user-data preservation passed. The standalone `win-x86`
+  payload started and closed with exit code 0.
+- Windows CI passed for the release commit; a clean checkout Release build and
+  all 1049 tests also passed.
 
 ### Security and release boundaries
 

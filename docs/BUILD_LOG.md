@@ -1192,12 +1192,93 @@ pwsh -File scripts/run.ps1
 | 凭据存储与资产页定向测试 | 27 / 27 |
 | **全解决方案测试** | **1049 / 1049 通过** |
 | 真实启动 + 关闭 | 成功；退出码 **0** |
-| CI 定义 | Release 构建/测试 + 未签名 win-x64 诊断包；远端结果推送后确认 |
+| CI 定义 | Release 构建/测试 + 未签名 win-x64 诊断包；实际远端结果见文末 V1.1 正式发布门禁 |
 
 ### 4. 尚未验证（如实声明）
 
 - GitHub Actions 远端首次执行结果尚未在本地日志中伪造，推送后以实际运行状态为准。
-- V1.1.0 正式标签、安装器验证、干净检出与产物 SHA-256 需在正式门禁后回填。
+- V1.1.0 正式标签、安装器验证、干净检出与产物 SHA-256 已由文末正式门禁章节完成回填。
 - 未实现 Windows Credential Manager、跨机同步、数据库加密、秘密备份恢复或密钥轮换。
 - Windows 10 真机、高 DPI、完整可访问性与代码签名仍未完成。
 - 厂商 SDK、抓包、安全扫描和渗透攻防仍受 D-09/D-10 约束。
+
+## V1.1 正式发布门禁与 Windows CI（LF-017，2026-10-24）
+
+### 1. 首次 CI 失败与真实修复
+
+Windows CI 首次执行（[Run 40026923494](https://github.com/CiallorZ/ChinaTower-Tool/actions/runs/40026923494)）
+在 `LinkForge.Plugin.Hosting.Tests` 失败：静默插件超时后，测试清理临时目录时
+遇到 `UnauthorizedAccessException: Access to the path 'LinkForge.TestPluginHost.exe' is denied`。
+
+这是 Windows 子进程终止后的真实文件句柄释放竞态，不应通过忽略异常或重跑掩盖。
+修复内容：
+
+- `PluginProcessSession.DisposeAsync` 在 `Kill()` 后等待子进程真正退出，
+  再释放工作目录，避免宿主立即清理时 apphost 文件仍被占用。
+- 测试夹具目录清理增加有限重试，最终仍允许系统回收临时目录，不把测试清理
+  失败伪装成产品功能失败。
+- 静默插件超时用例连续执行 11 次，全部通过；修订后全解决方案 Release
+  构建 0 警告 0 错误，`1049 / 1049` 测试通过。
+- 修复提交为 `64c5993`；后续 Windows CI 从该提交重新执行并通过。
+
+### 2. Windows CI
+
+| 项目 | 实际结果 |
+| --- | --- |
+| Run | [40027976323](https://github.com/CiallorZ/ChinaTower-Tool/actions/runs/40027976323) |
+| 提交 | `64c5993e572dae7879baf0819fed0c14898e7f85` |
+| 结果 | 通过，3m43s |
+| 门禁步骤 | Release 构建、全量测试、未签名 `win-x64` 诊断包、上传产物 |
+| 边界 | CI 产物是未签名诊断包，不替代本地正式门禁 |
+
+### 3. 正式发布门禁
+
+执行：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\build-release.ps1 -Formal
+```
+
+| 验证项 | 结果 |
+| --- | --- |
+| Release 构建 | 0 警告 0 错误 |
+| Release 测试 | `1049 / 1049` 通过 |
+| 渠道 / 工作区 | `formal` / `dirty=false` |
+| 提交 | `64c5993e572d` |
+| 代码签名 | `unsigned`（如实声明，不宣称已签名） |
+| 安装器 | `LinkForge-Setup-1.1.0-64c5993e572d.exe` |
+| x64 便携包 | `LinkForge-1.1.0-64c5993e572d-win-x64-portable.zip` |
+| x86 便携包 | `LinkForge-1.1.0-64c5993e572d-win-x86-portable.zip` |
+
+### 4. 产物核对
+
+| 产物 | 字节 | SHA-256 |
+| --- | ---: | --- |
+| 安装器 | 96,281,443 | `37af3f6a2255012ab684eb98645591f662a001ec94c90a89491fd4f717078755` |
+| x64 便携包 | 69,926,634 | `26679775d540514bb34f74a26eada740335c7a9377071f0ae94472b6cb8c16f8` |
+| x86 便携包 | 65,221,476 | `52545a95ee98b6bfe9d6098a7533c2e804ff1e4f8b7132002edb926bad350621` |
+| 第三方声明 | 1,072 | `02f0dd3b98833040147d01daf91243c24392a33ddced674152220b5216782c6a` |
+| 发布 JSON | 1,742 | `06e7265da44ec28ce35e1bf6aaed96a26297d18b97fe7f6b0832e68fb1f6e91c` |
+
+PE 头复核：`release-payloads\win-x64\LinkForge.App.exe` 为 `0x8664` (x64)，
+`release-payloads\win-x86\LinkForge.App.exe` 为 `0x014C` (x86)。独立启动
+x86 载荷并关闭，退出码 `0`。
+
+### 5. 安装器与干净检出
+
+| 验证项 | 结果 |
+| --- | --- |
+| 静默安装 | 退出码 `0` |
+| 重复安装覆盖升级 | 退出码 `0` |
+| 覆盖前后应用启动/关闭 | 两次退出码均为 `0` |
+| 卸载 | 退出码 `0` |
+| `%LOCALAPPDATA%\LinkForge` 用户数据 | 保留 |
+| 干净检出 `64c5993` Release 门禁 | 通过，构建 0 警告 0 错误，`1049 / 1049` 测试通过 |
+
+### 6. 仍未完成
+
+- Windows 10 x64 真机安装、升级和卸载；
+- 32 位 Windows 上的安装器架构选择流程；
+- 高 DPI 多显示器、完整键盘焦点与可访问性验收；
+- 代码签名、时间戳、SmartScreen 信誉、自动更新和升级失败回滚；
+- 厂商 SDK、抓包、安全扫描和渗透攻防（D-09 / D-10）。

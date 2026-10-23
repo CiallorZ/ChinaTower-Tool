@@ -18,8 +18,13 @@ Windows 本机凭据保护与发布可追溯性。
 
 - Debug 全解决方案：0 警告、0 错误，`1049 / 1049` 测试通过。
 - 应用真实启动/关闭冒烟：退出码 `0`。
-- 正式发布安装器、双架构载荷、干净检出与 GitHub Actions 结果以
-  `docs/RELEASE.md`、`docs/BUILD_LOG.md` 和 GitHub Release 附件为准。
+- 正式发布门禁在提交 `64c5993` 通过：`formal`、`dirty=false`。
+- Windows CI 通过：Release 构建、全量测试与未签名诊断包步骤成功。
+- 静默安装、覆盖安装、应用启动/关闭、卸载与用户数据保留通过。
+- 独立 x86 载荷启动/关闭退出码 `0`；PE 头确认 x64/x86 架构匹配。
+- 干净检出 Release 构建与 `1049 / 1049` 测试通过。
+- 具体产物大小、SHA-256 与执行记录见 `docs/RELEASE.md`、
+  `docs/BUILD_LOG.md` 和 GitHub Release 附件。
 
 ## 安全与范围边界
 

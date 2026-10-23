@@ -18,7 +18,7 @@
 | 设计令牌 / 基础组件 / 应用壳层 | 已完成 |
 | 项目资产、网络、HTTP、MQTT、RTSP、ONVIF、日志、报告、开发者工具、插件页 | 已完成真实实现与本地验证 |
 | 正式发布工程（LF-013） | **V1.0**：未签名双架构安装器、`win-x64`/`win-x86` 自包含便携包、依赖清单、SBOM、SHA-256 与干净构建脚本 |
-| V1.1 增量（LF-016 / LF-017） | **已实现**：MQTT 3.1.1 / 5.0、项目包导入导出、CurrentUser DPAPI 凭据库、Windows CI 与发布可追溯性 |
+| V1.1 增量（LF-016 / LF-017） | **已发布**：MQTT 3.1.1 / 5.0、项目包导入导出、CurrentUser DPAPI 凭据库、Windows CI 与发布可追溯性 |
 | 版本与签名信息 | **已实现**：真实读取程序集、系统、架构、安装形态与本机 Authenticode 信任状态 |
 
 > 当前版本为 `1.1.0`。安装器与便携包均**未签名**，会触发 SmartScreen；
@@ -27,9 +27,9 @@
 > 高 DPI/可访问性最终验收、厂商 SDK 与抓包/安全扫描边界仍未完成，详见
 > `docs/RELEASE.md`。
 
-正式发布页：[LinkForge V1.0.0](https://github.com/CiallorZ/ChinaTower-Tool/releases/tag/v1.0.0)
-
-V1.1.0 正式发布页在正式门禁与标签创建后提供。
+正式发布页：
+[LinkForge V1.1.0](https://github.com/CiallorZ/ChinaTower-Tool/releases/tag/v1.1.0)
+（历史版本：[V1.0.0](https://github.com/CiallorZ/ChinaTower-Tool/releases/tag/v1.0.0)）
 
 ## 文档索引
 

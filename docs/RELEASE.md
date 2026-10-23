@@ -3,8 +3,9 @@
 日期：2026-10-24
 版本：`1.1.0`
 渠道：正式版
-最终提交：正式门禁后回填
-Git 标签：`v1.1.0`（门禁通过后创建，不移动 `v1.0.0`）
+最终提交：`64c5993e572dae7879baf0819fed0c14898e7f85`
+Git 标签：`v1.1.0`（指向 `64c5993`，不移动 `v1.0.0`）
+Windows CI：[Run 40027976323](https://github.com/CiallorZ/ChinaTower-Tool/actions/runs/40027976323)
 
 ## 1. 发布物
 
@@ -17,8 +18,18 @@ Git 标签：`v1.1.0`（门禁通过后创建，不移动 `v1.0.0`）
 - `LinkForge-Setup-THIRD-PARTY-NOTICES.txt`
 - `LinkForge-Release-1.1.0-<commit>.json`
 
-具体文件名、字节数和 SHA-256 以本次正式门禁生成的
-`LinkForge-Release-1.1.0-<commit>.json` 及随附 `.sha256` 文件为准。
+本次正式产物：
+
+| 产物 | 字节 | SHA-256 |
+| --- | ---: | --- |
+| `LinkForge-Setup-1.1.0-64c5993e572d.exe` | 96,281,443 | `37af3f6a2255012ab684eb98645591f662a001ec94c90a89491fd4f717078755` |
+| `LinkForge-1.1.0-64c5993e572d-win-x64-portable.zip` | 69,926,634 | `26679775d540514bb34f74a26eada740335c7a9377071f0ae94472b6cb8c16f8` |
+| `LinkForge-1.1.0-64c5993e572d-win-x86-portable.zip` | 65,221,476 | `52545a95ee98b6bfe9d6098a7533c2e804ff1e4f8b7132002edb926bad350621` |
+| `LinkForge-Setup-THIRD-PARTY-NOTICES.txt` | 1,072 | `02f0dd3b98833040147d01daf91243c24392a33ddced674152220b5216782c6a` |
+
+发布清单 `LinkForge-Release-1.1.0-64c5993e572d.json` 的 SHA-256 为
+`06e7265da44ec28ce35e1bf6aaed96a26297d18b97fe7f6b0832e68fb1f6e91c`。
+清单内四个附件的字节数和 SHA-256 已逐项复核一致。
 
 便携包内含 `release.json`、`VERSION.txt`、依赖/许可证清单、CycloneDX 1.5
 SBOM、`SHA256SUMS.txt` 和 ZIP SHA-256。正式模式要求：
@@ -93,7 +104,9 @@ Remove-Item Env:LINKFORGE_UPDATE_SCREENSHOTS
 - 独立启动 x86 自包含载荷成功并关闭，退出码 `0`；
 - PE 头检查确认 `win-x64` 载荷为 x64、`win-x86` 载荷为 x86；
 - 全量测试 `1049 / 1049` 通过；
-- 正式提交的干净检出 Release 构建与全量测试通过；
+- 正式门禁渠道 `formal`、`dirty=false`，发布提交 `64c5993e572d`；
+- Windows CI 的 Release 构建、全量测试和未签名诊断包步骤通过；
+- 正式提交 `64c5993` 的干净检出 Release 构建与 `1049 / 1049` 测试通过；
 - 完整记录见 `docs/BUILD_LOG.md`。
 
 未完成最终实测：
