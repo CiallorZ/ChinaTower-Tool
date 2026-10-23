@@ -2,8 +2,11 @@
 
 日期：2026-10-24
 版本：`1.2.0`
-渠道：发布候选（正式门禁完成后回填提交、产物与 Release 链接）
+渠道：正式发布（提交 `5486fbee8c52`）
 历史版本：`v1.0.0`、`v1.1.0` 标签均保持不动
+
+正式发布页：
+https://github.com/CiallorZ/ChinaTower-Tool/releases/tag/v1.2.0
 
 ## 1. 本版目标
 
@@ -23,18 +26,18 @@ V1.2 不扩展协议或安全工具范围，只修复发布工程中的真实缺
 
 ## 2. 验证入口
 
-候选安装器：
+正式安装器：
 
 ```powershell
 pwsh -NoProfile -File scripts/verify-installer.ps1 `
-  -InstallerPath artifacts\LinkForge-Setup-1.2.0-<commit>.exe
+  -InstallerPath artifacts\LinkForge-Setup-1.2.0-5486fbee8c52.exe
 ```
 
-从旧正式安装器升级到候选安装器的独立失败注入：
+从旧正式安装器升级到 V1.2 正式安装器的独立失败注入：
 
 ```powershell
 pwsh -NoProfile -File scripts/verify-installer-upgrade-failure.ps1 `
-  -InstallerPath artifacts\LinkForge-Setup-1.2.0-<commit>.exe `
+  -InstallerPath artifacts\LinkForge-Setup-1.2.0-5486fbee8c52.exe `
   -BaseInstallerPath artifacts\LinkForge-Setup-1.0.0-879de49f4640.exe
 ```
 
@@ -49,7 +52,7 @@ pwsh -NoProfile -File scripts/verify-installer-upgrade-failure.ps1 `
 7. 再执行正常升级，要求退出码 `0` 且备份目录已删除。
 8. 卸载成功，程序与快捷方式删除，用户数据保留。
 
-候选安装器已完成的失败注入结果：
+正式安装器完成的失败注入结果：
 
 ```text
 InstallExitCode               : 0
@@ -64,11 +67,13 @@ UpgradeBackupRemoved          : True
 UserDataPreserved             : True
 ```
 
-同一候选安装器还完成了从 `v1.0.0` 正式安装器到 `v1.2.0` 候选安装器的
+同一正式安装器还完成了从 `v1.0.0` 正式安装器到 `v1.2.0` 正式安装器的
 独立失败注入：升级退出码 `7`，旧 EXE/DLL、安装标记、卸载器和开始菜单
 快捷方式全部保留，恢复后应用启动/关闭退出码 `0`，最终卸载退出码 `0`。
 
-该结果是候选安装器的本地真实执行记录，不替代正式提交上的最终门禁。
+该结果来自提交 `5486fbe` 生成的正式产物。Windows CI Run
+[40032659744](https://github.com/CiallorZ/ChinaTower-Tool/actions/runs/40032659744)
+通过，干净检出同一提交的 Release 构建与 `1049 / 1049` 测试也通过。
 
 ## 3. 正式发布流程
 
@@ -88,22 +93,29 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass `
 - 生成 `win-x64` / `win-x86` 自包含便携包与单一用户级安装器；
 - 生成每个产物的 SHA-256、第三方声明与发布 JSON。
 
-正式产物形成后再执行安装器验收、干净检出验证、Windows CI、标签与 GitHub
-Release 发布核验。产物大小、提交号、CI、标签和 Release 附件结果必须在正式
-门禁完成后回填；在此之前状态只能写“候选”。
+正式产物形成后已执行安装器验收、干净检出验证、Windows CI、标签与 GitHub
+Release 发布核验；本文件与 `docs/BUILD_LOG.md` 已回填最终结果。
 
 ## 4. 发布产物
 
-预期产物：
+正式产物：
 
-- `LinkForge-Setup-1.2.0-<commit>.exe`
-- `LinkForge-Setup-1.2.0-<commit>.exe.sha256`
-- `LinkForge-1.2.0-<commit>-win-x64-portable.zip`
+- `LinkForge-Setup-1.2.0-5486fbee8c52.exe`（96,270,699 字节）
+- `LinkForge-Setup-1.2.0-5486fbee8c52.exe.sha256`
+- `LinkForge-1.2.0-5486fbee8c52-win-x64-portable.zip`（69,926,494 字节）
 - 对应 `.sha256`
-- `LinkForge-1.2.0-<commit>-win-x86-portable.zip`
+- `LinkForge-1.2.0-5486fbee8c52-win-x86-portable.zip`（65,221,345 字节）
 - 对应 `.sha256`
 - `LinkForge-Setup-THIRD-PARTY-NOTICES.txt`
-- `LinkForge-Release-1.2.0-<commit>.json`
+- `LinkForge-Release-1.2.0-5486fbee8c52.json`
+
+| 产物 | SHA-256 |
+| --- | --- |
+| 安装器 | `61288ba44b55c54f2cbe2cd1a54acd413276b5fd7ea22261fbfd5ad313b271c8` |
+| x64 便携包 | `a04d41589ccc71b203f1fb2af0c160cf2b1682dddd2876d042b08c572215e3eb` |
+| x86 便携包 | `4d050a5dd1e42bc24156847e2a063e22977a4358ae19dd024e52e76d096a347f` |
+| 发布 JSON | `208e17704117152f88a34aa373ebf15443279bde86641d3daf273006f59366a8` |
+| 第三方声明 | `02f0dd3b98833040147d01daf91243c24392a33ddced674152220b5216782c6a` |
 
 便携包内含 `release.json`、`VERSION.txt`、依赖/许可证清单、CycloneDX 1.5
 SBOM、`SHA256SUMS.txt` 和 ZIP SHA-256。依赖清单只反映 NuGet nuspec 声明，
@@ -134,6 +146,7 @@ SBOM、`SHA256SUMS.txt` 和 ZIP SHA-256。依赖清单只反映 NuGet nuspec 声
 
 ## 7. 历史版本
 
+- V1.2.0：https://github.com/CiallorZ/ChinaTower-Tool/releases/tag/v1.2.0
 - V1.0.0：https://github.com/CiallorZ/ChinaTower-Tool/releases/tag/v1.0.0
 - V1.1.0：https://github.com/CiallorZ/ChinaTower-Tool/releases/tag/v1.1.0
 

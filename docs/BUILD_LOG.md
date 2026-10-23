@@ -1317,7 +1317,7 @@ Windows 10 环境问题，而是发布工程缺口。
 - 新增 `verify-installer-upgrade-failure.ps1`，用于验证从旧正式安装器升级到
   候选安装器时的失败恢复。
 
-### 3. 当前验证
+### 3. 提交前候选验证
 
 | 验证项 | 结果 |
 | --- | --- |
@@ -1335,10 +1335,9 @@ Windows 10 环境问题，而是发布工程缺口。
 | 跨版本恢复后应用启动 | 退出码 `0` |
 | 跨版本失败验证后的清理 | 卸载退出码 `0`，开始菜单测试目录无残留 |
 
-候选安装器为 `artifacts/test-installer-1.2/LinkForge-Setup-1.2.0-16a64e0961fd.exe`，
-它不是正式发布物。正式发布必须从干净提交重新执行
-`scripts/build-release.ps1 -Formal`，再以最终产物重复安装器验收、干净检出、
-Windows CI、标签和 GitHub Release 核验。
+提交前候选安装器为
+`artifacts/test-installer-1.2/LinkForge-Setup-1.2.0-16a64e0961fd.exe`，
+它不是正式发布物。以下记录从提交 `5486fbe` 重新执行正式门禁后的结果。
 
 ### 4. 边界
 
@@ -1346,3 +1345,67 @@ Windows CI、标签和 GitHub Release 核验。
 - 当前安装器和便携包仍未签名；无时间戳、SmartScreen 信誉或自动更新。
 - Windows 10 真机、32 位 Windows 安装流程、高 DPI 与完整可访问性未验收。
 - 厂商 SDK、抓包、安全扫描与渗透/攻防仍受 D-09 / D-10 约束。
+
+## V1.2.0 正式发布门禁与 GitHub Release（2026-10-24）
+
+### 1. 提交、CI 与构建
+
+| 项目 | 结果 |
+| --- | --- |
+| 功能提交 | `5486fbee8c52205f0a004e8a872ae0e17a886704` |
+| 标签 | `v1.2.0`，不移动 `v1.0.0` / `v1.1.0` |
+| Windows CI | [Run 40032659744](https://github.com/CiallorZ/ChinaTower-Tool/actions/runs/40032659744) 通过，4m30s |
+| 正式 Release 构建 | 0 警告、0 错误 |
+| 正式 Release 测试 | **1049 / 1049** 通过 |
+| 发布渠道 / 工作区 | `formal` / `dirty=false` |
+| 干净检出 `5486fbe` | Release 构建通过，`1049 / 1049` 测试通过 |
+
+正式门禁命令：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\build-release.ps1 -Formal
+pwsh -NoProfile -File scripts\verify-clean-checkout.ps1 -Configuration Release
+```
+
+### 2. 正式产物
+
+| 产物 | 字节数 | SHA-256 |
+| --- | ---: | --- |
+| `LinkForge-Setup-1.2.0-5486fbee8c52.exe` | 96,270,699 | `61288ba44b55c54f2cbe2cd1a54acd413276b5fd7ea22261fbfd5ad313b271c8` |
+| `LinkForge-1.2.0-5486fbee8c52-win-x64-portable.zip` | 69,926,494 | `a04d41589ccc71b203f1fb2af0c160cf2b1682dddd2876d042b08c572215e3eb` |
+| `LinkForge-1.2.0-5486fbee8c52-win-x86-portable.zip` | 65,221,345 | `4d050a5dd1e42bc24156847e2a063e22977a4358ae19dd024e52e76d096a347f` |
+| `LinkForge-Release-1.2.0-5486fbee8c52.json` | 1,742 | `208e17704117152f88a34aa373ebf15443279bde86641d3daf273006f59366a8` |
+| `LinkForge-Setup-THIRD-PARTY-NOTICES.txt` | 1,072 | `02f0dd3b98833040147d01daf91243c24392a33ddced674152220b5216782c6a` |
+
+安装器签名状态为 `NotSigned`。发布清单中的 `channel=formal`、
+`dirty=false`、`commit=5486fbee8c52`、`codeSigning=unsigned`。x64/x86 便携包
+均含 `release.json`、`VERSION.txt`、`DEPENDENCIES.txt`、
+`THIRD-PARTY-NOTICES.md` 和 `sbom.cdx.json`。
+
+### 3. 最终安装与运行验收
+
+| 验证项 | 结果 |
+| --- | --- |
+| 正式安装器静默安装 | 退出码 `0` |
+| 首次应用启动/关闭 | 退出码 `0` |
+| 锁定 DLL 的失败升级 | 退出码 `7`，旧 EXE/DLL/标记保留 |
+| 失败后卸载器/开始菜单入口 | 保留 |
+| 恢复后应用启动/关闭 | 退出码 `0` |
+| 正常覆盖升级 / 升级后启动 | `0` / `0` |
+| 成功升级后的临时备份 | 删除 |
+| 卸载 / 用户数据 | 退出码 `0` / 保留 |
+| 从 `v1.0.0` 安装器跨版本失败注入 | 退出码 `7`，恢复应用退出码 `0` |
+| x64 与 x86 便携载荷 | 均启动/关闭，退出码 `0` |
+| PE 文件版本 | 两者均为 `1.2.0.0` |
+| 测试后开始菜单目录残留 | 无 |
+
+### 4. GitHub Release 公开核验
+
+- 正式 Release：
+  https://github.com/CiallorZ/ChinaTower-Tool/releases/tag/v1.2.0
+- `isDraft=false`、`isPrerelease=false`，标签 `v1.2.0` 解析到提交
+  `5486fbee8c52205f0a004e8a872ae0e17a886704`。
+- 8 个附件全部为 `uploaded`：安装器、安装器 SHA-256、x64 便携包、x64
+  SHA-256、x86 便携包、x86 SHA-256、第三方声明、发布 JSON。
+- GitHub 远端附件大小与本地一致；正式 exe、两个便携 ZIP、发布 JSON 和第三方
+  声明的远端 SHA-256 摘要与本地计算结果逐项一致。

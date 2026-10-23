@@ -519,8 +519,17 @@
 - [x] 旧 EXE/DLL 哈希、安装标记、卸载器和开始菜单入口保留。
 - [x] 恢复后应用启动/关闭退出码 `0`；正常升级退出码 `0`。
 - [x] 成功升级后 `upgrade-backup` 删除，卸载成功且用户数据保留。
-- [x] 从 V1.0.0 正式安装器升级到 V1.2 候选安装器的失败注入通过：
+- [x] 从 V1.0.0 正式安装器升级到 V1.2 正式安装器的失败注入通过：
   `FailedUpgradeExitCode=7`，旧 EXE/DLL/标记/卸载器/快捷方式保留，
   恢复后应用退出码 `0`，最终卸载退出码 `0`。
-- [ ] V1.2 正式门禁、最终产物、Windows CI、标签与 GitHub Release 待完成。
+- [x] V1.2 正式门禁通过：Release 构建 0 警告 0 错误，`1049 / 1049`
+  测试通过，提交 `5486fbee8c52`。
+- [x] Windows CI Run
+  [40032659744](https://github.com/CiallorZ/ChinaTower-Tool/actions/runs/40032659744)
+  通过；干净检出 Release 构建与 `1049 / 1049` 测试通过。
+- [x] 双架构便携载荷启动/关闭退出码 `0`；正式安装器与 SHA-256 已复核。
+- [x] 标签 `v1.2.0` 指向 `5486fbe`，未移动 `v1.0.0` / `v1.1.0`。
+- [x] GitHub Release 已正式公开发布，非草稿、非预发布：
+  [v1.2.0](https://github.com/CiallorZ/ChinaTower-Tool/releases/tag/v1.2.0)。
+  8 个附件均为 `uploaded`，远端大小与 SHA-256 摘要同本地一致。
 - [ ] 无代码签名、Windows 10 真机、32 位 Windows 安装流程与系统级事务保证。

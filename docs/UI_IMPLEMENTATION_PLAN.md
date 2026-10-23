@@ -678,5 +678,6 @@ V1.2 不改变页面结构或设计令牌，只补齐阶段 06 的安装器失�
 - 成功升级清理临时备份；
 - 验收使用真实文件占用注入，而不是只覆盖安装成功路径。
 
-当前记录为发布候选；正式门禁、产物校验和 Release 结果以
-`docs/RELEASE.md`、`docs/BUILD_LOG.md` 的最终回填为准。
+V1.2.0 已完成正式门禁并发布；提交 `5486fbe`、产物校验、CI 与 Release 结果
+记录在 `docs/RELEASE.md`、`docs/BUILD_LOG.md` 和
+[GitHub Release v1.2.0](https://github.com/CiallorZ/ChinaTower-Tool/releases/tag/v1.2.0)。

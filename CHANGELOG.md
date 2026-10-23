@@ -15,15 +15,24 @@ All notable changes to LinkForge are recorded here.
 
 ### Verified
 
-- Debug build: 0 warnings, 0 errors.
+- Debug and formal Release builds: 0 warnings, 0 errors.
 - Full test suite: 1049/1049 passed.
+- Windows CI passed:
+  [Run 40032659744](https://github.com/CiallorZ/ChinaTower-Tool/actions/runs/40032659744).
+- Clean checkout of commit `5486fbee8c52` rebuilt and passed all tests.
 - Application startup and close smoke test: exit code 0.
 - Controlled failure injection locked `LinkForge.App.dll` during an upgrade:
-  the candidate installer exited non-zero while the previous EXE/DLL hashes,
+  the installer exited non-zero while the previous EXE/DLL hashes,
   install-local marker, uninstaller and Start Menu shortcut remained available;
   the recovered application started and closed with exit code 0.
 - A subsequent normal in-place upgrade succeeded, removed the backup directory,
   and the installed application started and closed with exit code 0.
+- The same failure recovery passed when upgrading from the published `v1.0.0`
+  installer to `v1.2.0`. Both x64 and x86 portable payloads started and closed
+  with exit code 0.
+- Published as
+  [LinkForge v1.2.0](https://github.com/CiallorZ/ChinaTower-Tool/releases/tag/v1.2.0)
+  with eight uploaded assets and matching SHA-256 digests.
 
 ### Release boundaries
 
