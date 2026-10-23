@@ -25,6 +25,8 @@ internal sealed class AssetCatalogHarness
         Environments = new FakeEnvironmentStore();
         Storage = new FakeStorageInitializer();
         Files = new FakeAssetCsvFileService();
+        PackageFiles = new FakeProjectPackageFileService();
+        PackageImporter = new FakeProjectPackageImporter();
 
         ViewModel = new AssetCatalogViewModel(
             Projects,
@@ -33,7 +35,10 @@ internal sealed class AssetCatalogHarness
             Storage,
             Files,
             new AssetCsvImportService(Assets),
-            new AssetCsvExportService());
+            new AssetCsvExportService(),
+            PackageFiles,
+            new ProjectPackageCodec(),
+            PackageImporter);
     }
 
     public FakeProjectStore Projects { get; }
@@ -45,6 +50,10 @@ internal sealed class AssetCatalogHarness
     public FakeStorageInitializer Storage { get; }
 
     public FakeAssetCsvFileService Files { get; }
+
+    public FakeProjectPackageFileService PackageFiles { get; }
+
+    public FakeProjectPackageImporter PackageImporter { get; }
 
     public AssetCatalogViewModel ViewModel { get; }
 }
@@ -267,6 +276,102 @@ internal sealed class FakeAssetCsvFileService : IAssetCsvFileService
         WrittenContent = content;
 
         return Task.FromResult(WriteResult);
+    }
+}
+
+/// <summary>记录项目包读写内容，不弹出系统文件对话框。</summary>
+internal sealed class FakeProjectPackageFileService : IProjectPackageFileService
+{
+    public ProjectPackageImportFile? ImportFile { get; set; }
+
+    public byte[]? WrittenContent { get; private set; }
+
+    public string? WrittenFileName { get; private set; }
+
+    public Exception? ImportFailure { get; set; }
+
+    public Exception? WriteFailure { get; set; }
+
+    public bool WriteResult { get; set; } = true;
+
+    public TaskCompletionSource? WriteStarted { get; set; }
+
+    public TaskCompletionSource? WriteRelease { get; set; }
+
+    public Task<ProjectPackageImportFile?> PickAndReadAsync(
+        CancellationToken cancellationToken = default)
+    {
+        if (ImportFailure is not null)
+        {
+            return Task.FromException<ProjectPackageImportFile?>(ImportFailure);
+        }
+
+        return Task.FromResult(ImportFile);
+    }
+
+    public async Task<bool> PickAndWriteAsync(
+        string suggestedFileName,
+        byte[] content,
+        CancellationToken cancellationToken = default)
+    {
+        WrittenFileName = suggestedFileName;
+        WrittenContent = content;
+        WriteStarted?.TrySetResult();
+
+        if (WriteRelease is not null)
+        {
+            await WriteRelease.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (WriteFailure is not null)
+        {
+            throw WriteFailure;
+        }
+
+        return WriteResult;
+    }
+}
+
+/// <summary>内存项目包导入器，保留最后一次解析结果供断言。</summary>
+internal sealed class FakeProjectPackageImporter : IProjectPackageImporter
+{
+    public ProjectPackage? LastPackage { get; private set; }
+
+    public Action<ProjectPackage>? OnImport { get; set; }
+
+    public Exception? Failure { get; set; }
+
+    public TaskCompletionSource? ImportStarted { get; set; }
+
+    public TaskCompletionSource? ImportRelease { get; set; }
+
+    public async Task<ProjectPackageImportResult> ImportAsync(
+        ProjectPackage package,
+        CancellationToken cancellationToken = default)
+    {
+        LastPackage = package;
+        ImportStarted?.TrySetResult();
+
+        if (ImportRelease is not null)
+        {
+            await ImportRelease.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (Failure is not null)
+        {
+            throw Failure;
+        }
+
+        OnImport?.Invoke(package);
+
+        return new ProjectPackageImportResult(
+            package.Project.Id,
+            package.Environments.Count,
+            package.Assets.Count);
     }
 }
 

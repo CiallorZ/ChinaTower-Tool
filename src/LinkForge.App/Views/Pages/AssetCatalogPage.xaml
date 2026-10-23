@@ -36,14 +36,8 @@
                 CornerRadius="{DynamicResource LfRadiusPanel}"
                 Padding="{DynamicResource LfCardPadding}"
                 Margin="{DynamicResource LfContentPadding}">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-
-                <StackPanel Grid.Column="0" Orientation="Horizontal">
+            <StackPanel>
+                <WrapPanel>
                     <Button Content="导入 CSV"
                             Command="{Binding ImportCsvCommand}"
                             MinWidth="{DynamicResource LfActionButtonMinWidth}"
@@ -59,6 +53,22 @@
                             ToolTip="把当前筛选后可见的资产导出为 CSV；只含凭据引用键"
                             AutomationProperties.Name="导出 CSV" />
 
+                    <Button Content="导入项目包"
+                            Command="{Binding ImportProjectPackageCommand}"
+                            MinWidth="{DynamicResource LfActionButtonMinWidth}"
+                            Height="{DynamicResource LfControlHeight}"
+                            Margin="{DynamicResource LfInlineSpacingLeading}"
+                            ToolTip="导入版本化 LinkForge 项目包；任一冲突时整包回滚"
+                            AutomationProperties.Name="导入项目包" />
+
+                    <Button Content="导出项目包"
+                            Command="{Binding ExportProjectPackageCommand}"
+                            MinWidth="{DynamicResource LfActionButtonMinWidth}"
+                            Height="{DynamicResource LfControlHeight}"
+                            Margin="{DynamicResource LfInlineSpacingLeading}"
+                            ToolTip="导出当前项目、环境与资产；文件只含凭据引用键"
+                            AutomationProperties.Name="导出项目包" />
+
                     <Button Content="刷新"
                             Command="{Binding RefreshCommand}"
                             MinWidth="{DynamicResource LfButtonMinWidth}"
@@ -66,36 +76,107 @@
                             Margin="{DynamicResource LfInlineSpacingLeading}"
                             ToolTip="重新读取数据库"
                             AutomationProperties.Name="刷新资产" />
-                </StackPanel>
+                </WrapPanel>
 
-                <StackPanel Grid.Column="1"
-                            Orientation="Horizontal"
-                            VerticalAlignment="Center"
-                            Margin="{DynamicResource LfInlineSpacingLeading}">
-                    <TextBlock Text="存储位置"
-                               VerticalAlignment="Center"
-                               FontSize="{DynamicResource LfFontSizeCaption}"
-                               Foreground="{DynamicResource LfBrushTextMuted}" />
+                <Grid Margin="{DynamicResource LfInlineSpacing}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
 
-                    <TextBlock Text="{Binding StorageLocation}"
+                    <StackPanel Grid.Column="0"
+                                Orientation="Horizontal"
+                                VerticalAlignment="Center">
+                        <TextBlock Text="存储位置"
+                                   VerticalAlignment="Center"
+                                   FontSize="{DynamicResource LfFontSizeCaption}"
+                                   Foreground="{DynamicResource LfBrushTextMuted}" />
+
+                        <TextBlock Text="{Binding StorageLocation}"
+                                   VerticalAlignment="Center"
+                                   Margin="{DynamicResource LfLabelSpacing}"
+                                   FontFamily="{DynamicResource LfFontFamilyMono}"
+                                   FontSize="{DynamicResource LfFontSizeCaption}"
+                                   Foreground="{DynamicResource LfBrushTextSecondary}"
+                                   TextTrimming="CharacterEllipsis"
+                                   ToolTip="{Binding StorageLocation}" />
+                    </StackPanel>
+
+                    <TextBlock Grid.Column="1"
+                               Text="{Binding ActionFeedback}"
                                VerticalAlignment="Center"
-                               Margin="{DynamicResource LfLabelSpacing}"
-                               FontFamily="{DynamicResource LfFontFamilyMono}"
+                               Margin="{DynamicResource LfInlineSpacingLeading}"
                                FontSize="{DynamicResource LfFontSizeCaption}"
                                Foreground="{DynamicResource LfBrushTextSecondary}"
-                               TextTrimming="CharacterEllipsis"
-                               ToolTip="{Binding StorageLocation}" />
-                </StackPanel>
+                               TextWrapping="Wrap"
+                               MaxWidth="{DynamicResource LfAssetFeedbackMaxWidth}" />
+                </Grid>
 
-                <TextBlock Grid.Column="2"
-                           Text="{Binding ActionFeedback}"
-                           VerticalAlignment="Center"
-                           Margin="{DynamicResource LfInlineSpacingLeading}"
-                           FontSize="{DynamicResource LfFontSizeCaption}"
-                           Foreground="{DynamicResource LfBrushTextSecondary}"
-                           TextWrapping="Wrap"
-                           MaxWidth="{DynamicResource LfAssetFeedbackMaxWidth}" />
-            </Grid>
+                <Border Margin="{DynamicResource LfInlineSpacing}"
+                        Background="{DynamicResource LfBrushSurface}"
+                        BorderBrush="{DynamicResource LfBrushBorder}"
+                        BorderThickness="{DynamicResource LfBorderThickness}"
+                        CornerRadius="{DynamicResource LfRadiusPanel}"
+                        Padding="{DynamicResource LfBadgePadding}"
+                        Visibility="{Binding HasPackageResult,
+                                             Converter={StaticResource LfBoolToVisibility}}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <controls:StatusBadge Grid.Column="0"
+                                              TaskState="{Binding PackageState}"
+                                              TextOverride="{Binding PackageStatusText}"
+                                              VerticalAlignment="Center"
+                                              Margin="{DynamicResource LfLabelSpacing}" />
+
+                        <TextBlock Grid.Column="1"
+                                   Text="{Binding PackageFeedback}"
+                                   VerticalAlignment="Center"
+                                   FontSize="{DynamicResource LfFontSizeCaption}"
+                                   Foreground="{DynamicResource LfBrushTextSecondary}"
+                                   TextWrapping="Wrap" />
+                    </Grid>
+                </Border>
+
+                <StackPanel Orientation="Horizontal"
+                            Margin="{DynamicResource LfInlineSpacing}"
+                            Visibility="{Binding IsPackageBusy,
+                                                 Converter={StaticResource LfBoolToVisibility}}">
+                    <controls:StatusBadge TaskState="{Binding PackageState}"
+                                          VerticalAlignment="Center"
+                                          Margin="{DynamicResource LfLabelSpacing}" />
+
+                    <TextBlock Text="{Binding PackageFeedback}"
+                               VerticalAlignment="Center"
+                               FontSize="{DynamicResource LfFontSizeCaption}"
+                               Foreground="{DynamicResource LfBrushTextSecondary}"
+                               TextWrapping="Wrap"
+                               MaxWidth="{DynamicResource LfAssetFeedbackMaxWidth}" />
+
+                    <Button Content="取消导入项目包"
+                            Command="{Binding CancelProjectPackageImportCommand}"
+                            MinWidth="{DynamicResource LfActionButtonMinWidth}"
+                            Height="{DynamicResource LfControlHeight}"
+                            Margin="{DynamicResource LfInlineSpacingLeading}"
+                            ToolTip="取消项目包导入；事务不会写入任何记录"
+                            AutomationProperties.Name="取消导入项目包"
+                            Visibility="{Binding IsImportingPackage,
+                                                 Converter={StaticResource LfBoolToVisibility}}" />
+
+                    <Button Content="取消导出项目包"
+                            Command="{Binding CancelProjectPackageExportCommand}"
+                            MinWidth="{DynamicResource LfActionButtonMinWidth}"
+                            Height="{DynamicResource LfControlHeight}"
+                            Margin="{DynamicResource LfInlineSpacingLeading}"
+                            ToolTip="取消项目包导出；不会写出文件"
+                            AutomationProperties.Name="取消导出项目包"
+                            Visibility="{Binding IsExportingPackage,
+                                                 Converter={StaticResource LfBoolToVisibility}}" />
+                </StackPanel>
+            </StackPanel>
         </Border>
 
         <!-- ===== 加载 / 失败（覆盖整页） ===== -->

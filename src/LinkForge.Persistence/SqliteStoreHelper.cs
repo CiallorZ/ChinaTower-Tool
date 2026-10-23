@@ -8,8 +8,11 @@ namespace LinkForge.Persistence;
 /// </summary>
 internal static class SqliteStoreHelper
 {
-    /// <summary>SQLite 约束冲突的错误码。</summary>
-    private const int SqliteConstraint = 19;
+    /// <summary>SQLite 主键冲突的扩展错误码。</summary>
+    private const int SqliteConstraintPrimaryKey = 1555;
+
+    /// <summary>SQLite 唯一索引冲突的扩展错误码。</summary>
+    private const int SqliteConstraintUnique = 2067;
 
     /// <summary>
     /// 判断异常是否为唯一约束冲突。
@@ -26,7 +29,9 @@ internal static class SqliteStoreHelper
 
         for (var current = exception; current is not null; current = current.InnerException)
         {
-            if (current is SqliteException sqlite && sqlite.SqliteErrorCode == SqliteConstraint)
+            if (current is SqliteException sqlite
+                && sqlite.SqliteExtendedErrorCode
+                    is SqliteConstraintPrimaryKey or SqliteConstraintUnique)
             {
                 return true;
             }

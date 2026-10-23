@@ -306,6 +306,29 @@ ONVIF 标准接入采用 `App → Adapters.Onvif → Domain / Plugin.Abstraction
   媒体已解码或首帧已显示；PTZ、事件、录像、厂商 SDK 与 GB/T 28181 未实现。
 - 集成测试使用本地 HTTP 设备服务与受控组播报文，不依赖公网或真实设备。
 
+### 4.11 项目包依赖边（阶段 05）
+
+项目包导入导出采用
+`App → Application.Projects / Persistence`，且项目包契约不引用 WPF：
+
+```mermaid
+flowchart LR
+  UI[资产页] --> VM[AssetCatalogViewModel]
+  VM --> FILES[IProjectPackageFileService]
+  VM --> CODEC[ProjectPackageCodec]
+  VM --> IMPORT[IProjectPackageImporter]
+  CODEC --> DOMAIN[Project / Environment / Asset]
+  IMPORT --> SQLITE[SqliteProjectPackageImporter]
+  SQLITE --> DB[(SQLite)]
+```
+
+- `ProjectPackageCodec` 只处理严格、版本化的非秘密 JSON；格式错误转换为
+  可展示的 `ProjectPackageFormatException`。
+- `IProjectPackageImporter` 契约在 Application，SQLite 实现在 Persistence；
+  导入器使用单事务并默认拒绝覆盖。
+- 文件对话框和字节读写属于 App；页面与其他业务逻辑不直接处理文件路径。
+- 导入导出通过异步命令执行，提供取消入口；项目包、CSV 和存储写操作互斥。
+
 
 ## 5. 关键领域模型
 - Project：项目元数据与 SchemaVersion。

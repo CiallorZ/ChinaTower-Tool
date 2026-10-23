@@ -9,11 +9,15 @@ All notable changes to LinkForge are recorded here.
 - MQTT 3.1.1 / 5.0 protocol selection in the MQTT workbench. The selected
   protocol is passed to the real MQTTnet transport and recorded in copied
   summaries; MQTT 3.1.1 remains the default.
+- Versioned `.lfpkg` project packages that export and import projects,
+  environments and assets without plaintext credentials. Imports use strict
+  schema validation and a single SQLite transaction; conflicts or failures
+  roll back the whole package.
 
 ### Verified
 
 - Full solution build: 0 warnings, 0 errors.
-- Full test suite: 1006/1006 passed.
+- Full test suite: 1034/1034 passed.
 - Application startup and close smoke test: exit code 0.
 
 ## 1.0.0 - 2026-10-24

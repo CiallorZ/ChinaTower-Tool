@@ -224,6 +224,11 @@ public partial class App : System.Windows.Application
         services.AddSingleton<IAssetCsvFileService, AssetCsvFileService>();
         services.AddSingleton<AssetCsvImportService>();
         services.AddSingleton<AssetCsvExportService>();
+        services.AddSingleton<IProjectPackageFileService, ProjectPackageFileService>();
+        services.AddSingleton<ProjectPackageCodec>();
+        services.AddSingleton<IProjectPackageImporter>(static provider =>
+            new SqliteProjectPackageImporter(
+                provider.GetRequiredService<SqliteContextFactory>()));
 
         // 自检适配器：以适配器契约注册，
         // 之后接入海康 / 大华等进程外适配器时，调用方（工作台）无需改动。

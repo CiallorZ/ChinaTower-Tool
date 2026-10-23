@@ -8,6 +8,7 @@ using LinkForge.Application.Assets;
 using LinkForge.Application.Projects;
 using LinkForge.Application.Storage;
 using LinkForge.Domain.Assets;
+using LinkForge.Domain.Diagnostics;
 using LinkForge.Domain.Projects;
 
 namespace LinkForge.App.ViewModels;
@@ -38,12 +39,17 @@ public sealed partial class AssetCatalogViewModel : ObservableObject
     private readonly IEnvironmentStore _environmentStore;
     private readonly IStorageInitializer _storage;
     private readonly IAssetCsvFileService _fileService;
+    private readonly IProjectPackageFileService _packageFileService;
     private readonly AssetCsvImportService _importer;
     private readonly AssetCsvExportService _exporter;
+    private readonly ProjectPackageCodec _packageCodec;
+    private readonly IProjectPackageImporter _packageImporter;
     private readonly SynchronizationContext? _uiContext;
 
     private CancellationTokenSource? _loadCts;
     private CancellationTokenSource? _importCts;
+    private CancellationTokenSource? _packageImportCts;
+    private CancellationTokenSource? _packageExportCts;
     private IReadOnlyList<AssetDisplayItem> _visibleAssets = [];
 
     /// <summary>创建资产目录视图模型。</summary>
@@ -54,7 +60,10 @@ public sealed partial class AssetCatalogViewModel : ObservableObject
         IStorageInitializer storage,
         IAssetCsvFileService fileService,
         AssetCsvImportService importer,
-        AssetCsvExportService exporter)
+        AssetCsvExportService exporter,
+        IProjectPackageFileService packageFileService,
+        ProjectPackageCodec packageCodec,
+        IProjectPackageImporter packageImporter)
     {
         ArgumentNullException.ThrowIfNull(projectStore);
         ArgumentNullException.ThrowIfNull(assetStore);
@@ -63,6 +72,9 @@ public sealed partial class AssetCatalogViewModel : ObservableObject
         ArgumentNullException.ThrowIfNull(fileService);
         ArgumentNullException.ThrowIfNull(importer);
         ArgumentNullException.ThrowIfNull(exporter);
+        ArgumentNullException.ThrowIfNull(packageFileService);
+        ArgumentNullException.ThrowIfNull(packageCodec);
+        ArgumentNullException.ThrowIfNull(packageImporter);
 
         _projectStore = projectStore;
         _assetStore = assetStore;
@@ -71,6 +83,9 @@ public sealed partial class AssetCatalogViewModel : ObservableObject
         _fileService = fileService;
         _importer = importer;
         _exporter = exporter;
+        _packageFileService = packageFileService;
+        _packageCodec = packageCodec;
+        _packageImporter = packageImporter;
         _uiContext = SynchronizationContext.Current;
 
         Projects = [];
@@ -217,6 +232,14 @@ public sealed partial class AssetCatalogViewModel : ObservableObject
     [ObservableProperty]
     public partial bool IsExporting { get; private set; }
 
+    /// <summary>是否正在导入项目包。</summary>
+    [ObservableProperty]
+    public partial bool IsImportingPackage { get; private set; }
+
+    /// <summary>是否正在导出项目包。</summary>
+    [ObservableProperty]
+    public partial bool IsExportingPackage { get; private set; }
+
     /// <summary>是否正在保存资产表单。</summary>
     [ObservableProperty]
     public partial bool IsSaving { get; private set; }
@@ -247,6 +270,41 @@ public sealed partial class AssetCatalogViewModel : ObservableObject
     /// <summary>导入是否整体失败。</summary>
     [ObservableProperty]
     public partial bool IsFailedImport { get; private set; }
+
+    /// <summary>项目包操作反馈；与 CSV 单独显示，避免两种导入结论互相覆盖。</summary>
+    [ObservableProperty]
+    public partial string PackageFeedback { get; private set; } = string.Empty;
+
+    /// <summary>是否有项目包操作结论。</summary>
+    [ObservableProperty]
+    public partial bool HasPackageResult { get; private set; }
+
+    /// <summary>项目包结论标签。</summary>
+    [ObservableProperty]
+    public partial string PackageStatusText { get; private set; } = string.Empty;
+
+    /// <summary>项目包操作是否失败。</summary>
+    [ObservableProperty]
+    public partial bool IsPackageFailure { get; private set; }
+
+    /// <summary>项目包操作是否被取消。</summary>
+    [ObservableProperty]
+    public partial bool IsPackageCancelled { get; private set; }
+
+    /// <summary>项目包操作的统一状态语义。</summary>
+    public TaskRunState PackageState =>
+        IsImportingPackage || IsExportingPackage
+            ? TaskRunState.Running
+            : IsPackageCancelled
+                ? TaskRunState.Cancelled
+                : IsPackageFailure
+                    ? TaskRunState.Failed
+                    : HasPackageResult
+                        ? TaskRunState.Completed
+                        : TaskRunState.Pending;
+
+    /// <summary>是否有项目包操作正在运行。</summary>
+    public bool IsPackageBusy => IsImportingPackage || IsExportingPackage;
 
     /// <summary>
     /// 导入结论的状态文案。
@@ -290,10 +348,36 @@ public sealed partial class AssetCatalogViewModel : ObservableObject
     public bool HasCurrentProject => SelectedProject is not null;
 
     /// <summary>能否导入 CSV。</summary>
-    public bool CanImport => HasCurrentProject && !IsImporting && !IsLoading;
+    public bool CanImport =>
+        HasCurrentProject
+        && !IsImporting
+        && !IsImportingPackage
+        && !IsExportingPackage
+        && !IsLoading;
 
     /// <summary>能否导出 CSV。</summary>
-    public bool CanExport => HasVisibleAssets && !IsExporting;
+    public bool CanExport =>
+        HasVisibleAssets
+        && !IsExporting
+        && !IsImportingPackage
+        && !IsExportingPackage;
+
+    /// <summary>能否导入项目包。</summary>
+    public bool CanImportProjectPackage =>
+        !IsLoading
+        && !IsImporting
+        && !IsExporting
+        && !IsImportingPackage
+        && !IsExportingPackage;
+
+    /// <summary>能否导出当前项目包。</summary>
+    public bool CanExportProjectPackage =>
+        HasCurrentProject
+        && !IsLoading
+        && !IsImporting
+        && !IsExporting
+        && !IsImportingPackage
+        && !IsExportingPackage;
 
     /// <summary>能否新增资产。</summary>
     public bool CanAddAsset => HasCurrentProject && !IsSaving;
@@ -365,6 +449,7 @@ public sealed partial class AssetCatalogViewModel : ObservableObject
         OnPropertyChanged(nameof(CanImport));
         OnPropertyChanged(nameof(CanAddAsset));
         OnPropertyChanged(nameof(CanActivateEnvironment));
+        OnPropertyChanged(nameof(CanExportProjectPackage));
 
         if (value is not null)
         {
@@ -403,20 +488,54 @@ public sealed partial class AssetCatalogViewModel : ObservableObject
         OnPropertyChanged(nameof(IsEmptyAfterLoad));
         OnPropertyChanged(nameof(CanImport));
         OnPropertyChanged(nameof(CanExport));
+        OnPropertyChanged(nameof(CanImportProjectPackage));
+        OnPropertyChanged(nameof(CanExportProjectPackage));
         NotifyCommands();
     }
 
     partial void OnIsImportingChanged(bool value)
     {
         OnPropertyChanged(nameof(CanImport));
+        OnPropertyChanged(nameof(CanImportProjectPackage));
+        OnPropertyChanged(nameof(CanExportProjectPackage));
         NotifyCommands();
     }
 
     partial void OnIsExportingChanged(bool value)
     {
         OnPropertyChanged(nameof(CanExport));
+        OnPropertyChanged(nameof(CanImportProjectPackage));
+        OnPropertyChanged(nameof(CanExportProjectPackage));
         NotifyCommands();
     }
+
+    partial void OnIsImportingPackageChanged(bool value)
+    {
+        OnPropertyChanged(nameof(PackageState));
+        OnPropertyChanged(nameof(IsPackageBusy));
+        OnPropertyChanged(nameof(CanImport));
+        OnPropertyChanged(nameof(CanExport));
+        OnPropertyChanged(nameof(CanImportProjectPackage));
+        OnPropertyChanged(nameof(CanExportProjectPackage));
+        NotifyCommands();
+    }
+
+    partial void OnIsExportingPackageChanged(bool value)
+    {
+        OnPropertyChanged(nameof(PackageState));
+        OnPropertyChanged(nameof(IsPackageBusy));
+        OnPropertyChanged(nameof(CanImport));
+        OnPropertyChanged(nameof(CanExport));
+        OnPropertyChanged(nameof(CanImportProjectPackage));
+        OnPropertyChanged(nameof(CanExportProjectPackage));
+        NotifyCommands();
+    }
+
+    partial void OnHasPackageResultChanged(bool value) => OnPropertyChanged(nameof(PackageState));
+
+    partial void OnIsPackageFailureChanged(bool value) => OnPropertyChanged(nameof(PackageState));
+
+    partial void OnIsPackageCancelledChanged(bool value) => OnPropertyChanged(nameof(PackageState));
 
     partial void OnIsSavingChanged(bool value)
     {
@@ -431,7 +550,9 @@ public sealed partial class AssetCatalogViewModel : ObservableObject
     /// 加载项目与资产。
     /// </summary>
     /// <param name="cancellationToken">取消令牌。</param>
-    public async Task LoadAsync(CancellationToken cancellationToken = default)
+    public async Task LoadAsync(
+        string? preferredProjectId = null,
+        CancellationToken cancellationToken = default)
     {
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         _loadCts = linked;
@@ -462,7 +583,10 @@ public sealed partial class AssetCatalogViewModel : ObservableObject
                 OnPropertyChanged(nameof(HasProjects));
 
                 // 默认选中最近修改的项目：用户打开这一页通常是要继续上次的工作。
-                SelectedProject = items.FirstOrDefault();
+                SelectedProject = preferredProjectId is null
+                    ? items.FirstOrDefault()
+                    : items.FirstOrDefault(item => item.Id == preferredProjectId)
+                        ?? items.FirstOrDefault();
 
                 IsLoading = false;
                 HasLoaded = true;
@@ -990,6 +1114,222 @@ public sealed partial class AssetCatalogViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// 导入一个版本化 LinkForge 项目包。
+    /// </summary>
+    /// <param name="cancellationToken">取消令牌。</param>
+    [RelayCommand(CanExecute = nameof(CanImportProjectPackage))]
+    private async Task ImportProjectPackageAsync(CancellationToken cancellationToken)
+    {
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        _packageImportCts = linked;
+
+        ProjectPackageImportFile? file;
+
+        try
+        {
+            file = await _packageFileService.PickAndReadAsync(linked.Token)
+                .ConfigureAwait(true);
+        }
+        catch (OperationCanceledException)
+        {
+            await SetPackageResultAsync("已取消项目包导入。", success: false, cancelled: true)
+                .ConfigureAwait(false);
+            return;
+        }
+        catch (Exception ex) when (IsStorageFailure(ex))
+        {
+            await SetPackageResultAsync(
+                $"读取项目包失败：{ex.Message}",
+                success: false,
+                cancelled: false).ConfigureAwait(false);
+            return;
+        }
+
+        if (file is null)
+        {
+            await SetPackageResultAsync("已取消项目包导入。", success: false, cancelled: true)
+                .ConfigureAwait(false);
+            return;
+        }
+
+        await PostAsync(() =>
+        {
+            IsImportingPackage = true;
+            HasPackageResult = false;
+            IsPackageFailure = false;
+            IsPackageCancelled = false;
+            PackageFeedback = "正在解析并校验项目包…";
+        }).ConfigureAwait(false);
+
+        try
+        {
+            var package = await Task.Run(
+                    () => _packageCodec.Decode(file.Value.Content),
+                    linked.Token)
+                .ConfigureAwait(false);
+
+            var result = await _packageImporter
+                .ImportAsync(package, linked.Token)
+                .ConfigureAwait(false);
+
+            await PostAsync(() =>
+            {
+                IsImportingPackage = false;
+                HasPackageResult = true;
+                IsPackageFailure = false;
+                IsPackageCancelled = false;
+                PackageStatusText = "导入成功";
+                PackageFeedback =
+                    $"已导入项目“{package.Project.Name}”：{result.EnvironmentCount} 个环境、"
+                    + $"{result.AssetCount} 条资产。项目包不含明文凭据。";
+                ActionFeedback = "项目包导入成功。";
+            }).ConfigureAwait(false);
+
+            await LoadAsync(result.ProjectId, linked.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            await SetPackageResultAsync(
+                "项目包导入已取消；事务已回滚，未写入任何记录。",
+                success: false,
+                cancelled: true).ConfigureAwait(false);
+        }
+        catch (ProjectPackageFormatException ex)
+        {
+            await SetPackageResultAsync(
+                $"项目包校验失败：{ex.Message}",
+                success: false,
+                cancelled: false).ConfigureAwait(false);
+        }
+        catch (StorageException ex)
+        {
+            await SetPackageResultAsync(
+                ex.Message,
+                success: false,
+                cancelled: false).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (IsStorageFailure(ex))
+        {
+            await SetPackageResultAsync(
+                $"项目包导入失败：{ex.Message}",
+                success: false,
+                cancelled: false).ConfigureAwait(false);
+        }
+        finally
+        {
+            _packageImportCts = null;
+            await PostAsync(() =>
+            {
+                IsImportingPackage = false;
+                NotifyCommands();
+            }).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>取消项目包导入。</summary>
+    [RelayCommand]
+    private void CancelProjectPackageImport() => _packageImportCts?.Cancel();
+
+    /// <summary>
+    /// 把当前项目、环境和资产导出为版本化项目包。
+    /// </summary>
+    /// <param name="cancellationToken">取消令牌。</param>
+    [RelayCommand(CanExecute = nameof(CanExportProjectPackage))]
+    private async Task ExportProjectPackageAsync(CancellationToken cancellationToken)
+    {
+        var selected = SelectedProject;
+
+        if (selected is null)
+        {
+            await SetPackageResultAsync(
+                "请先选择要导出的项目。",
+                success: false,
+                cancelled: false).ConfigureAwait(false);
+            return;
+        }
+
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        _packageExportCts = linked;
+
+        await PostAsync(() =>
+        {
+            IsExportingPackage = true;
+            HasPackageResult = false;
+            IsPackageFailure = false;
+            IsPackageCancelled = false;
+            PackageFeedback = "正在从本地数据库读取项目并生成项目包…";
+        }).ConfigureAwait(false);
+
+        try
+        {
+            var project = await _projectStore.FindAsync(selected.Id, linked.Token)
+                .ConfigureAwait(false)
+                ?? throw new StorageException("所选项目已不存在，请刷新后重试。");
+            var environments = await _environmentStore.ListAsync(project.Id, linked.Token)
+                .ConfigureAwait(false);
+            var assets = await _assetStore.ListAsync(project.Id, linked.Token)
+                .ConfigureAwait(false);
+
+            var content = await Task.Run(
+                    () => _packageCodec.Encode(project, environments, assets),
+                    linked.Token)
+                .ConfigureAwait(false);
+            var fileName = ProjectPackageFileNames.Build(project.Name, DateTimeOffset.Now);
+            var written = await _packageFileService
+                .PickAndWriteAsync(fileName, content, linked.Token)
+                .ConfigureAwait(true);
+
+            await PostAsync(() =>
+            {
+                IsExportingPackage = false;
+                HasPackageResult = true;
+                IsPackageFailure = false;
+                IsPackageCancelled = !written;
+                PackageStatusText = written ? "导出成功" : "已取消";
+                PackageFeedback = written
+                    ? $"已导出项目“{project.Name}”：{environments.Count} 个环境、"
+                        + $"{assets.Count} 条资产。文件只含凭据引用键，不含任何密码或令牌。"
+                    : "已取消项目包导出，未写出文件。";
+                ActionFeedback = written ? "项目包导出成功。" : "已取消项目包导出。";
+            }).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            await SetPackageResultAsync(
+                "项目包导出已取消，未写出文件。",
+                success: false,
+                cancelled: true).ConfigureAwait(false);
+        }
+        catch (ProjectPackageFormatException ex)
+        {
+            await SetPackageResultAsync(
+                $"当前项目无法导出：{ex.Message}",
+                success: false,
+                cancelled: false).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (IsStorageFailure(ex))
+        {
+            await SetPackageResultAsync(
+                $"项目包导出失败：{ex.Message}",
+                success: false,
+                cancelled: false).ConfigureAwait(false);
+        }
+        finally
+        {
+            _packageExportCts = null;
+            await PostAsync(() =>
+            {
+                IsExportingPackage = false;
+                NotifyCommands();
+            }).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>取消项目包导出。</summary>
+    [RelayCommand]
+    private void CancelProjectPackageExport() => _packageExportCts?.Cancel();
+
     /// <summary>刷新当前项目的资产与环境。</summary>
     [RelayCommand]
     private void Refresh() => _ = LoadAsync();
@@ -1308,6 +1648,29 @@ public sealed partial class AssetCatalogViewModel : ObservableObject
         ActionFeedback = $"已导入 {outcome.ImportedCount} 条资产。";
     }
 
+    /// <summary>把项目包操作的最终状态投递到 UI。</summary>
+    private async Task SetPackageResultAsync(
+        string message,
+        bool success,
+        bool cancelled)
+    {
+        await PostAsync(() =>
+        {
+            IsImportingPackage = false;
+            IsExportingPackage = false;
+            HasPackageResult = true;
+            IsPackageFailure = !success && !cancelled;
+            IsPackageCancelled = cancelled;
+            PackageStatusText = cancelled
+                ? "已取消"
+                : success
+                    ? "成功"
+                    : "失败";
+            PackageFeedback = message;
+            ActionFeedback = message;
+        }).ConfigureAwait(false);
+    }
+
     /// <summary>按名称排序环境列表。</summary>
     private void SortEnvironments()
     {
@@ -1346,6 +1709,8 @@ public sealed partial class AssetCatalogViewModel : ObservableObject
         DeleteAssetCommand.NotifyCanExecuteChanged();
         ImportCsvCommand.NotifyCanExecuteChanged();
         ExportCsvCommand.NotifyCanExecuteChanged();
+        ImportProjectPackageCommand.NotifyCanExecuteChanged();
+        ExportProjectPackageCommand.NotifyCanExecuteChanged();
     }
 
     /// <summary>

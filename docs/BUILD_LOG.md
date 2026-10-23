@@ -1121,3 +1121,43 @@ pwsh -File scripts/run.ps1
 - 遗嘱、保留消息管理、Topic 树、自动重连与指标面板。
 - Zigbee、海康/大华开放平台 SDK、抓包、安全扫描与渗透攻防。
 - Windows 10 真机、高 DPI 与完整可访问性最终验收。
+
+## 阶段 05 增量 · 项目包安全导入导出（LF-015，2026-10-24）
+
+### 1. 交付物
+
+- `src/LinkForge.Application/Projects/ProjectPackage.cs`、
+  `ProjectPackageCodec.cs`
+- `src/LinkForge.Persistence/SqliteProjectPackageImporter.cs`
+- `src/LinkForge.App/Services/ProjectPackageFileService.cs`
+- 资产页项目包导入/导出、运行/取消、成功/失败反馈与 CSV 互斥
+- Application、Persistence、App 三层项目包测试
+
+### 2. 关键边界
+
+- schema 为 `linkforge.project-package` v1，UTF-8 JSON，文件上限 2 MiB。
+- 项目包只含项目、环境、资产和凭据引用键；不包含密码、令牌、Cookie、
+  授权头或其他秘密值。
+- 读取严格拒绝未知/重复字段、未知版本/枚举、重复 ID、跨项目引用、
+  多个激活环境与秘密形状字段。
+- 导入默认拒绝覆盖已有项目 ID、项目名称、环境 ID 或资产 ID。
+- 导入使用单个 SQLite 事务；唯一约束冲突、触发器异常和取消均整体回滚。
+
+### 3. 验证记录
+
+| 验证项 | 结果 |
+| --- | --- |
+| 全解决方案构建 | 通过，0 警告 0 错误 |
+| Application 项目包定向测试 | 12 / 12 |
+| Persistence 项目包定向测试 | 5 / 5 |
+| App 项目包定向测试 | 12 / 12 |
+| **全解决方案测试** | **1034 / 1034 通过** |
+| 真实启动 + 关闭 | 成功；退出码 **0** |
+| 截图 | `stage05-assets-light.png` / `stage05-assets-dark.png` 已更新并人工检查 |
+
+### 4. 尚未验证（如实声明）
+
+- 项目包文件未签名；格式有效不等于来源可信。
+- 不包含凭据库本体、数据库加密、项目合并/覆盖策略或跨机同步。
+- 尚未在 Windows 10 真机和高 DPI 环境执行最终交互验收。
+- x86 运行仍受 D-08；厂商 SDK、抓包、安全扫描与渗透攻防仍受 D-09/D-10。
