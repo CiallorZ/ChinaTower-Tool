@@ -220,7 +220,7 @@ internal sealed class PluginProcessSession : IAsyncDisposable
                 }
                 catch (OperationCanceledException)
                 {
-                    TryKill(_process);
+                    await KillAndWaitAsync(_process).ConfigureAwait(false);
                 }
             }
 
@@ -230,13 +230,36 @@ internal sealed class PluginProcessSession : IAsyncDisposable
             or System.ComponentModel.Win32Exception
             or IOException)
         {
-            TryKill(_process);
+            await KillAndWaitAsync(_process).ConfigureAwait(false);
         }
         finally
         {
             _input.Dispose();
             _output.Dispose();
             _process.Dispose();
+        }
+    }
+
+    private static async Task KillAndWaitAsync(Process process)
+    {
+        try
+        {
+            if (!process.HasExited)
+            {
+                process.Kill(entireProcessTree: true);
+            }
+
+            // Kill 只表示终止请求已提交。等待句柄真正关闭，避免测试或插件目录
+            // 立即清理时出现短暂的 Windows 文件占用竞态。
+            using var waitCts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+            await process.WaitForExitAsync(waitCts.Token).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException
+            or System.ComponentModel.Win32Exception
+            or NotSupportedException
+            or OperationCanceledException)
+        {
+            // 进程已退出、已被系统回收，或终止请求本身失败；不向宿主冒泡。
         }
     }
 

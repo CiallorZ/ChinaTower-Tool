@@ -99,13 +99,22 @@ internal sealed class PluginTestContext : IDisposable
 
     public void Dispose()
     {
-        try
+        for (var attempt = 0; attempt < 5; attempt++)
         {
-            Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-            // 子进程句柄偶尔会延迟释放；临时目录留给系统清理。
+            try
+            {
+                Directory.Delete(_root, recursive: true);
+                return;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // Windows 在子进程退出后可能短暂保留 apphost 文件句柄。
+                // 重试，但仍不把测试清理失败伪装成产品失败；最后一次留给系统清理。
+                if (attempt < 4)
+                {
+                    Thread.Sleep(100 * (attempt + 1));
+                }
+            }
         }
     }
 
