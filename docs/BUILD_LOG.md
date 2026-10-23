@@ -699,18 +699,21 @@ pwsh -File scripts/run.ps1
 - x86 运行仍受 D-08 缺少 x86 .NET 10 运行时约束；本阶段仅验证 x64。
 - 厂商 SDK（D-09）、抓包与安全扫描/渗透攻防（D-10）仍未接入。
 
-## V1.0 正式发布候选验证（2026-10-24）
+## V1.0 正式发布验证（2026-10-24）
 
 ### 1. 构建与测试
 
 | 验证项 | 结果 |
 | --- | --- |
-| `pwsh -NoProfile -File scripts/build.ps1` | 通过，0 警告 0 错误 |
+| 正式门禁提交 | `879de49f4640c1f0c6455636e45f01d578d2319b` |
+| `powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/build-release.ps1 -Formal` | 通过，0 警告 0 错误 |
+| 发布渠道 / 工作区 | `formal` / `dirty=false` |
 | Domain / Application / Persistence | 54 / 142 / 41 |
 | Network / HTTP / MQTT / RTSP / ONVIF | 10 / 15 / 8 / 17 / 14 |
 | DeveloperTools / Reporting / Plugin.Hosting | 41 / 42 / 30 |
 | App | 589 / 589 |
 | **全解决方案测试** | **1003 / 1003 通过** |
+| 干净检出 Release 验证 | `879de49f4640...` 克隆、还原、构建和 **1003 / 1003** 测试通过 |
 
 新增 `ReleasePackagingTests` 8 项，覆盖：
 
@@ -733,6 +736,7 @@ pwsh -File scripts/run.ps1
 | `%LOCALAPPDATA%\LinkForge` 用户数据 | 保留 |
 | PE 架构检查 | `win-x64` 载荷为 x64；`win-x86` 载荷为 x86 |
 | x86 自包含程序启动/关闭 | 退出码 0 |
+| x64 独立载荷启动/关闭 | 退出码 0 |
 
 验证中发现并修复：
 
@@ -746,14 +750,30 @@ pwsh -File scripts/run.ps1
 4. 正式发布门禁首次执行时，截图用例会重写受版本控制的 `screenshots/`，
    使测试成功后工作区仍为脏状态。截图测试现默认写入进程级临时目录；
    仅设置 `LINKFORGE_UPDATE_SCREENSHOTS=1` 时才更新仓库证据图。
+5. 发布脚本在 Windows PowerShell 5.1 下存在 JSON 反序列化、哈希 API
+   和相对路径 API 兼容问题；现改用 5.1 可用实现。
+6. `ReleasePackagingTests` 原先位于被 `.gitignore` 排除的目录，导致干净
+   检出少 8 项测试；现迁入可跟踪的 `tests/LinkForge.App.Tests/Packaging/`。
 
-### 3. 正式产物边界
+### 3. 最终发布产物
 
-- 候选验证时版本为 `1.0.0`，无预发布后缀。
-- 正式 `build-release.ps1 -Formal` 必须在全部改动提交、工作区干净后重新执行；
-  最终提交号、产物大小和 SHA-256 以发布 JSON 与 GitHub Release 附件为准。
+| 产物 | 字节数 | SHA-256 |
+| --- | ---: | --- |
+| `LinkForge-Setup-1.0.0-879de49f4640.exe` | 96,228,385 | `9ac224a6ad4454f507ad030ffc5606bdf88dca0513e6a972e50a5cc13fd70ff1` |
+| `LinkForge-1.0.0-879de49f4640-win-x64-portable.zip` | 69,884,361 | `0b16fa1d6e985b3bc63f7c805458e6d98208ec43b7ac04d95036f3e7cec853f6` |
+| `LinkForge-1.0.0-879de49f4640-win-x86-portable.zip` | 65,179,221 | `17dec419103c03f529287812ac1a5bc55648617eb33f3cc3fac8d457c9a20ef7` |
+| `LinkForge-Setup-THIRD-PARTY-NOTICES.txt` | 1,072 | `02f0dd3b98833040147d01daf91243c24392a33ddced674152220b5216782c6a` |
+
+发布 JSON 为 `LinkForge-Release-1.0.0-879de49f4640.json`，三个主要产物均另带
+`.sha256`。发布 JSON、独立文件哈希和实际文件逐项复核一致。
+
+### 4. 正式产物边界
+
+- 版本为 `1.0.0`，无预发布后缀；Git 标签为 `v1.0.0`。
 - 安装器和便携包未签名；未完成 Windows 10 真机、32 位 Windows 安装流程、
   高 DPI 与完整可访问性最终验收。
+- 安装器是 Inno Setup 用户级安装包，不是 MSIX/WiX；没有自动更新或自动回滚。
+- 不得宣称 bit-for-bit 可复现；已验证的是干净 checkout 可重复构建和通过测试。
 
 ## 阶段 05 · 插件清单校验与进程外隔离（LF-012，2026-10-22）
 

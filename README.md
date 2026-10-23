@@ -26,6 +26,8 @@
 > 高 DPI/可访问性最终验收、厂商 SDK 与抓包/安全扫描边界仍未完成，详见
 > `docs/RELEASE.md`。
 
+正式发布页：[LinkForge V1.0.0](https://github.com/CiallorZ/ChinaTower-Tool/releases/tag/v1.0.0)
+
 ## 文档索引
 
 | 文档 | 用途 |

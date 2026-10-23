@@ -24,11 +24,12 @@ All notable changes to LinkForge are recorded here.
 ### Verified
 
 - Full solution build: 0 warnings, 0 errors.
-- Full test suite: see `docs/BUILD_LOG.md` for the final V1.0 count.
+- Full test suite: 1003/1003 passed.
 - Installer: silent install, repeat-install upgrade, application startup/close,
   uninstall and user-data preservation.
 - `win-x86` self-contained application starts and closes with exit code `0`.
-- Clean-checkout build/test verification is recorded in `docs/BUILD_LOG.md`.
+- Clean-checkout Release build and 1003/1003 tests passed for commit
+  `879de49f4640`.
 
 ### Security and release boundaries
 

@@ -3,17 +3,25 @@
 日期：2026-10-24
 版本：`1.0.0`
 渠道：正式版
+最终提交：`879de49f4640c1f0c6455636e45f01d578d2319b`
+Git 标签：`v1.0.0`
 
 ## 1. 发布物
 
 正式发布由 `scripts/build-release.ps1 -Formal` 从干净提交生成：
 
-- `LinkForge-1.0.0-<commit>-win-x64-portable.zip`
-- `LinkForge-1.0.0-<commit>-win-x86-portable.zip`
-- `LinkForge-Setup-1.0.0-<commit>.exe`
+- `LinkForge-1.0.0-879de49f4640-win-x64-portable.zip`
+- `LinkForge-1.0.0-879de49f4640-win-x86-portable.zip`
+- `LinkForge-Setup-1.0.0-879de49f4640.exe`
 - 安装器 SHA-256 文件
 - `LinkForge-Setup-THIRD-PARTY-NOTICES.txt`
-- `LinkForge-Release-1.0.0-<commit>.json`
+- `LinkForge-Release-1.0.0-879de49f4640.json`
+
+| 产物 | 字节数 | SHA-256 |
+| --- | ---: | --- |
+| 安装器 | 96,228,385 | `9ac224a6ad4454f507ad030ffc5606bdf88dca0513e6a972e50a5cc13fd70ff1` |
+| `win-x64` 便携包 | 69,884,361 | `0b16fa1d6e985b3bc63f7c805458e6d98208ec43b7ac04d95036f3e7cec853f6` |
+| `win-x86` 便携包 | 65,179,221 | `17dec419103c03f529287812ac1a5bc55648617eb33f3cc3fac8d457c9a20ef7` |
 
 便携包内含 `release.json`、`VERSION.txt`、依赖/许可证清单、CycloneDX 1.5
 SBOM、`SHA256SUMS.txt` 和 ZIP SHA-256。正式模式要求：
@@ -50,7 +58,7 @@ V1.0 使用 Inno Setup 6 构建单个用户级安装器，同时嵌入 `win-x64`
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass `
   -File scripts/verify-installer.ps1 `
-  -InstallerPath artifacts/LinkForge-Setup-1.0.0-<commit>.exe
+  -InstallerPath artifacts/LinkForge-Setup-1.0.0-879de49f4640.exe
 ```
 
 脚本验证静默安装、开始菜单入口、应用启动/关闭、重复安装升级、卸载和
@@ -66,7 +74,7 @@ artifacts\release-payloads\win-x86\LinkForge.App.exe
 干净检出验证：
 
 ```powershell
-pwsh -NoProfile -File scripts/verify-clean-checkout.ps1
+pwsh -NoProfile -File scripts/verify-clean-checkout.ps1 -Configuration Release
 ```
 
 截图验收测试默认写入系统临时目录，避免正式发布门禁污染工作区。需要有意
@@ -86,7 +94,9 @@ Remove-Item Env:LINKFORGE_UPDATE_SCREENSHOTS
 - 安装器内 x64 载荷真实启动并关闭，退出码 `0`；
 - 独立启动 x86 自包含载荷成功并关闭，退出码 `0`；
 - PE 头检查确认 `win-x64` 载荷为 x64、`win-x86` 载荷为 x86；
-- 全量构建/测试与干净检出结果见 `docs/BUILD_LOG.md`。
+- 全量测试 `1003 / 1003` 通过；
+- 提交 `879de49f4640...` 的干净检出 Release 构建与 `1003 / 1003` 测试通过；
+- 完整记录见 `docs/BUILD_LOG.md`。
 
 未完成最终实测：
 
