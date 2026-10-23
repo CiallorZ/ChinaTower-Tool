@@ -1275,7 +1275,20 @@ x86 载荷并关闭，退出码 `0`。
 | `%LOCALAPPDATA%\LinkForge` 用户数据 | 保留 |
 | 干净检出 `64c5993` Release 门禁 | 通过，构建 0 警告 0 错误，`1049 / 1049` 测试通过 |
 
-### 6. 仍未完成
+### 6. GitHub Release 发布核验
+
+- GitHub Release `v1.1.0` 已公开发布：
+  https://github.com/CiallorZ/ChinaTower-Tool/releases/tag/v1.1.0
+- `isDraft=false`、`isPrerelease=false`，8 个附件全部为 `uploaded`；
+- 远端安装器、双架构便携包、校验文件、第三方声明和发布 JSON 的字节数
+  与本地正式产物一致；
+- `v1.1.0` 标签解引用后指向 `64c5993e572dae7879baf0819fed0c14898e7f85`，
+  `v1.0.0` 标签仍指向原发布提交；
+- 记录正式门禁的文档提交 `ffc2a4a` 已推送，Windows CI
+  [Run 40029279139](https://github.com/CiallorZ/ChinaTower-Tool/actions/runs/40029279139)
+  通过。
+
+### 7. 仍未完成
 
 - Windows 10 x64 真机安装、升级和卸载；
 - 32 位 Windows 上的安装器架构选择流程；

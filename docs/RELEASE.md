@@ -6,6 +6,7 @@
 最终提交：`64c5993e572dae7879baf0819fed0c14898e7f85`
 Git 标签：`v1.1.0`（指向 `64c5993`，不移动 `v1.0.0`）
 Windows CI：[Run 40027976323](https://github.com/CiallorZ/ChinaTower-Tool/actions/runs/40027976323)
+GitHub Release：[LinkForge v1.1.0](https://github.com/CiallorZ/ChinaTower-Tool/releases/tag/v1.1.0)
 
 ## 1. 发布物
 
@@ -108,6 +109,13 @@ Remove-Item Env:LINKFORGE_UPDATE_SCREENSHOTS
 - Windows CI 的 Release 构建、全量测试和未签名诊断包步骤通过；
 - 正式提交 `64c5993` 的干净检出 Release 构建与 `1049 / 1049` 测试通过；
 - 完整记录见 `docs/BUILD_LOG.md`。
+
+公开发布后已核验：GitHub Release 为正式公开状态，不是草稿或预发布；
+8 个附件全部 `uploaded`，远端字节数与本地一致；`v1.1.0` 标签解引用后
+精确指向 `64c5993e572dae7879baf0819fed0c14898e7f85`，既有 `v1.0.0`
+标签未移动。发布记录文档提交 `ffc2a4a` 的 Windows CI
+[Run 40029279139](https://github.com/CiallorZ/ChinaTower-Tool/actions/runs/40029279139)
+也已通过。
 
 未完成最终实测：
 
