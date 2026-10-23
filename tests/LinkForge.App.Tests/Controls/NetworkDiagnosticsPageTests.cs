@@ -245,7 +245,7 @@ public class NetworkDiagnosticsPageTests
         window.Close();
         Pump();
 
-        var directory = Path.Combine(FindRepositoryRoot(), "screenshots");
+        var directory = ScreenshotArtifacts.Directory;
         Directory.CreateDirectory(directory);
 
         var file = Path.Combine(

@@ -322,7 +322,7 @@ public class DeveloperToolsPageTests
             window.Close();
             Pump();
 
-            var directory = Path.Combine(FindRepositoryRoot(), "screenshots");
+            var directory = ScreenshotArtifacts.Directory;
             Directory.CreateDirectory(directory);
             var finalFile = Path.Combine(directory, $"stage05-developer-{paletteName.ToLowerInvariant()}.png");
             var encoder = new PngBitmapEncoder();

@@ -168,7 +168,7 @@ public class ApiWorkbenchPageTests
         window.Close();
         Pump();
 
-        var directory = Path.Combine(FindRepositoryRoot(), "screenshots");
+        var directory = ScreenshotArtifacts.Directory;
         Directory.CreateDirectory(directory);
         var file = Path.Combine(directory, $"stage05-api-{paletteName.ToLowerInvariant()}.png");
 

@@ -159,7 +159,7 @@ public class MainWindowScreenshotTests
             window.Close();
         }
 
-        var directory = Path.Combine(FindRepositoryRoot(), "screenshots");
+        var directory = ScreenshotArtifacts.Directory;
         Directory.CreateDirectory(directory);
 
         var file = Path.Combine(directory, $"stage02-mainwindow-{paletteName.ToLowerInvariant()}.png");

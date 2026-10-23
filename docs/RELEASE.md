@@ -69,6 +69,15 @@ artifacts\release-payloads\win-x86\LinkForge.App.exe
 pwsh -NoProfile -File scripts/verify-clean-checkout.ps1
 ```
 
+截图验收测试默认写入系统临时目录，避免正式发布门禁污染工作区。需要有意
+更新仓库中的 `screenshots/` 证据图时，显式设置环境变量后运行构建：
+
+```powershell
+$env:LINKFORGE_UPDATE_SCREENSHOTS = '1'
+pwsh -NoProfile -File scripts/build.ps1
+Remove-Item Env:LINKFORGE_UPDATE_SCREENSHOTS
+```
+
 ## 4. V1.0 验收边界
 
 已实测：

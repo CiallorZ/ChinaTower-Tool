@@ -222,7 +222,7 @@ public sealed class AboutPageTests
             window.Close();
             Pump();
 
-            var directory = Path.Combine(FindRepositoryRoot(), "screenshots");
+            var directory = ScreenshotArtifacts.Directory;
             Directory.CreateDirectory(directory);
             var finalFile = Path.Combine(
                 directory,

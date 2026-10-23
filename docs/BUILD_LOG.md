@@ -743,6 +743,9 @@ pwsh -File scripts/run.ps1
    `LinkForge` 目录，并在目录已存在时拒绝测试，避免误删用户快捷方式。
 3. 带空格参数原先可能被 `Start-Process` 拆分；现对 `/DIR` 与 `/LOG`
    显式加引号。
+4. 正式发布门禁首次执行时，截图用例会重写受版本控制的 `screenshots/`，
+   使测试成功后工作区仍为脏状态。截图测试现默认写入进程级临时目录；
+   仅设置 `LINKFORGE_UPDATE_SCREENSHOTS=1` 时才更新仓库证据图。
 
 ### 3. 正式产物边界
 

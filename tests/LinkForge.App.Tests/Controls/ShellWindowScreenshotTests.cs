@@ -150,7 +150,7 @@ public class ShellWindowScreenshotTests
                 new Action(() => { }));
         }
 
-        var directory = Path.Combine(FindRepositoryRoot(), "screenshots");
+        var directory = ScreenshotArtifacts.Directory;
         Directory.CreateDirectory(directory);
 
         var file = Path.Combine(

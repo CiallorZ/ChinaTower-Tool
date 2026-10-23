@@ -216,7 +216,7 @@ public class MqttWorkbenchPageTests
         window.Close();
         Pump();
 
-        var directory = Path.Combine(FindRepositoryRoot(), "screenshots");
+        var directory = ScreenshotArtifacts.Directory;
         Directory.CreateDirectory(directory);
         var file = Path.Combine(directory, $"stage05-mqtt-{paletteName.ToLowerInvariant()}.png");
 
