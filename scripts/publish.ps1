@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Build and package a traceable portable LinkForge release.
 
@@ -89,15 +89,15 @@ function Read-PackageInventory {
         throw "project.assets.json not found after restore: $ProjectAssetsPath"
     }
 
-    $assets = Get-Content $ProjectAssetsPath -Raw | ConvertFrom-Json -AsHashtable
-    $packageRoot = ($assets.packageFolders.Keys | Select-Object -First 1)
+    $assets = Get-Content $ProjectAssetsPath -Raw | ConvertFrom-Json
+    $packageRoot = ($assets.packageFolders.PSObject.Properties | Select-Object -First 1).Name
 
-    foreach ($entry in $assets.libraries.GetEnumerator()) {
+    foreach ($entry in $assets.libraries.PSObject.Properties) {
         if ($entry.Value.type -ne 'package') {
             continue
         }
 
-        $key = [string]$entry.Key
+        $key = [string]$entry.Name
         $separator = $key.LastIndexOf('/')
 
         if ($separator -le 0) {
@@ -154,8 +154,13 @@ function Convert-Base64ToHex {
 function New-DeterministicUuid {
     param([string]$Value)
 
-    $bytes = [Security.Cryptography.SHA256]::HashData(
-        [Text.Encoding]::UTF8.GetBytes($Value))
+    $sha256 = [Security.Cryptography.SHA256]::Create()
+    try {
+        $bytes = $sha256.ComputeHash([Text.Encoding]::UTF8.GetBytes($Value))
+    }
+    finally {
+        $sha256.Dispose()
+    }
     $uuidBytes = [byte[]]$bytes[0..15]
 
     # RFC 9562 version 5 shape, derived from the release identity.
@@ -163,6 +168,22 @@ function New-DeterministicUuid {
     $uuidBytes[8] = [byte](($uuidBytes[8] -band 0x3f) -bor 0x80)
 
     return [Guid]::new($uuidBytes).ToString()
+}
+
+function Get-PortableRelativePath {
+    param(
+        [string]$Root,
+        [string]$Path
+    )
+
+    $fullRoot = [IO.Path]::GetFullPath($Root).TrimEnd('\') + '\'
+    $fullPath = [IO.Path]::GetFullPath($Path)
+
+    if (-not $fullPath.StartsWith($fullRoot, [StringComparison]::OrdinalIgnoreCase)) {
+        throw "Path is not under the portable package root: $fullPath"
+    }
+
+    return $fullPath.Substring($fullRoot.Length).Replace('\', '/')
 }
 
 function Write-Utf8NoBom {
@@ -358,7 +379,7 @@ Write-Utf8NoBom -Path (Join-Path $stagingDirectory 'VERSION.txt') -Content ($ver
 $checksumLines = Get-ChildItem -LiteralPath $stagingDirectory -File -Recurse |
     Sort-Object FullName |
     ForEach-Object {
-        $relative = [IO.Path]::GetRelativePath($stagingDirectory, $_.FullName).Replace('\', '/')
+        $relative = Get-PortableRelativePath -Root $stagingDirectory -Path $_.FullName
         $hash = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
         "$hash *$relative"
     }
