@@ -121,6 +121,11 @@ public partial class App : System.Windows.Application
         services.AddSingleton(static provider =>
             new AppEnvironment(provider.GetRequiredService<AppSettingsStore>().FilePath));
 
+        // 关于页：版本与路径读取在后台线程完成，签名状态由 WinVerifyTrust 真实返回。
+        services.AddSingleton<ICodeSignatureVerifier, WindowsCodeSignatureVerifier>();
+        services.AddSingleton<IAboutInfoService, WindowsAboutInfoService>();
+        services.AddSingleton<IAboutActionService, AboutActionService>();
+
         // 脱敏：Application 层定义契约，这里注入唯一实现（ADR-004）。
         // 注册为 ITextRedactor 而不是具体类型，
         // 是为了让"忘记注入真实实现"在解析期就失败，而不是在上线后泄漏明文。
@@ -240,6 +245,7 @@ public partial class App : System.Windows.Application
         services.AddSingleton<DeveloperToolsViewModel>();
         services.AddSingleton<PluginManagerViewModel>();
         services.AddSingleton<AssetCatalogViewModel>();
+        services.AddSingleton<AboutViewModel>();
 
         // 视图
         services.AddSingleton<ShellWindow>();

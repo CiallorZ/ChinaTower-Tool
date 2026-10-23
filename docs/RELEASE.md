@@ -1,97 +1,121 @@
-# LinkForge 发布与验收
+# LinkForge V1.0 发布与验收
 
-日期：2026-10-22
-适用范围：LF-013 的发布工程增量。
+日期：2026-10-24
+版本：`1.0.0`
+渠道：正式版
 
-## 当前发布方式
+## 1. 发布物
 
-MVP 采用**免安装便携 ZIP**，不写成安装器，也不声称已经完成安装/卸载验收。
+正式发布由 `scripts/build-release.ps1 -Formal` 从干净提交生成：
+
+- `LinkForge-1.0.0-<commit>-win-x64-portable.zip`
+- `LinkForge-1.0.0-<commit>-win-x86-portable.zip`
+- `LinkForge-Setup-1.0.0-<commit>.exe`
+- 安装器 SHA-256 文件
+- `LinkForge-Setup-THIRD-PARTY-NOTICES.txt`
+- `LinkForge-Release-1.0.0-<commit>.json`
+
+便携包内含 `release.json`、`VERSION.txt`、依赖/许可证清单、CycloneDX 1.5
+SBOM、`SHA256SUMS.txt` 和 ZIP SHA-256。正式模式要求：
+
+- `Directory.Build.props` 中 `VersionSuffix` 为空；
+- 工作区干净；
+- Release 全量构建和测试门禁成功；
+- 安装器与应用程序版本、提交号一致。
 
 ```powershell
-pwsh -NoProfile -File scripts/publish.ps1
+pwsh -NoProfile -File scripts/build-release.ps1 -Formal
 ```
 
-默认行为：
+## 2. 安装器
 
-- 完整执行 Release 构建与全量测试；
-- 发布 `win-x64` 自包含包；
-- 输出到 `artifacts/LinkForge-<版本>-<commit>-win-x64-portable/`；
-- 同时生成 ZIP 与 ZIP 的 SHA-256；
-- 包内生成 `release.json`、`VERSION.txt`、`DEPENDENCIES.txt`、
-  `THIRD-PARTY-NOTICES.md`、`sbom.cdx.json` 和 `SHA256SUMS.txt`。
+V1.0 使用 Inno Setup 6 构建单个用户级安装器，同时嵌入 `win-x64` 与
+`win-x86` 自包含载荷，由安装时的 `IsWin64` 选择匹配架构。
 
-工作区不干净时脚本默认拒绝打包。仅用于本地诊断时可显式使用 `-AllowDirty`，
-产物会带 `.dirty` 标记。
+- 默认目录：`%LOCALAPPDATA%\Programs\LinkForge`
+- 权限：`PrivilegesRequired=lowest`、`asInvoker`，不需要管理员权限
+- 快捷方式：开始菜单；桌面快捷方式为可选
+- 卸载：删除程序文件、开始菜单/桌面快捷方式和卸载入口
+- 用户数据：`%LOCALAPPDATA%\LinkForge` 保留，不随卸载删除
+- 升级：同一 AppId 重复安装覆盖程序目录；不支持自动回滚
+- 语言：简体中文 + 英文；中文语言包随仓库固定，来源和 MIT 许可见
+  `installer/Languages/README.md`
 
-`-SkipTests` 只用于快速检查发布流程，不得作为正式交付或阶段验收证据。
+安装器不是 MSIX/WiX，不包含自动更新器，也不支持失败自动回滚。
 
-## 版本来源
+## 3. 验证命令
 
-版本号由根目录 `Directory.Build.props` 统一维护：
+安装器完整验收：
 
-- `VersionPrefix`：产品版本；
-- `VersionSuffix`：预发布通道；
-- 程序集信息版本自动附带 Git 短提交号；
-- 发布脚本在 `release.json` 与文件名中记录提交号。
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass `
+  -File scripts/verify-installer.ps1 `
+  -InstallerPath artifacts/LinkForge-Setup-1.0.0-<commit>.exe
+```
 
-当前版本为 `0.5.0-preview.1`，不是 V1.0 正式版。
+脚本验证静默安装、开始菜单入口、应用启动/关闭、重复安装升级、卸载和
+`%LOCALAPPDATA%\LinkForge` 用户数据保留。若开始菜单已存在 `LinkForge`
+目录，脚本会拒绝继续，避免误删既有安装快捷方式。
 
-## 依赖与许可证
+两个架构载荷也可单独验证：
 
-发布脚本从发布后的 `project.assets.json` 读取全部 NuGet 包（含传递依赖），
-从本机 NuGet 缓存的 `.nuspec` 提取声明的许可证表达式，生成：
+```powershell
+artifacts\release-payloads\win-x86\LinkForge.App.exe
+```
 
-- `DEPENDENCIES.txt`：机器可读的扁平清单；
-- `THIRD-PARTY-NOTICES.md`：人工核对清单；
-- `sbom.cdx.json`：CycloneDX 1.5 JSON SBOM；
-- `SHA256SUMS.txt`：包内所有文件的 SHA-256。
-
-“声明许可证”不等于已完成法律审查。正式对外发布前仍需逐项复核完整许可证文本、
-再分发义务和 NOTICE 要求。
-
-## 干净检出验证
+干净检出验证：
 
 ```powershell
 pwsh -NoProfile -File scripts/verify-clean-checkout.ps1
 ```
 
-脚本将当前已提交的 `HEAD` 克隆到临时目录，确认 checkout 干净后重新执行
-还原、构建和测试，避免本机 `bin/obj` 或未跟踪文件掩盖缺失引用。
+## 4. V1.0 验收边界
 
-## 2026-10-22 本地验证记录
+已实测：
 
-- Debug 与 Release 构建均为 0 警告、0 错误；
-- 全解决方案测试 937 / 937 通过；
-- `-AllowDirty -SkipTests` 诊断包成功生成；
-- NuGet 依赖清单包含 25 个组件，许可证声明可解析；
-- CycloneDX 1.5 SBOM 可解析，序列号由版本与提交确定；
-- 包内逐文件 SHA-256 复核 0 失败；
-- 发布目录中的 `LinkForge.App.exe` 真实启动并关闭，退出码 0；
-- 干净 checkout 验证已针对提交 `3bd8af769ad1` 执行并通过；
-  克隆后的还原、构建与 937 / 937 测试均成功。
+- Windows 11 10.0.26300 x64 安装、覆盖安装、启动/关闭、卸载与用户数据保留；
+- 安装器内 x64 载荷真实启动并关闭，退出码 `0`；
+- 独立启动 x86 自包含载荷成功并关闭，退出码 `0`；
+- PE 头检查确认 `win-x64` 载荷为 x64、`win-x86` 载荷为 x86；
+- 全量构建/测试与干净检出结果见 `docs/BUILD_LOG.md`。
 
-最终干净版便携包为
-`artifacts/LinkForge-0.5.0-preview.1-3bd8af769ad1-win-x64-portable.zip`，
-ZIP SHA-256 为
-`9c542574a73f899b957e5694e6c2a15aaeb8a4f4ba0d4df9c1d6376007272c8e`。
+未完成最终实测：
 
-## 升级与卸载（便携包）
+- Windows 10 x64 真机安装与升级；
+- 32 位 Windows 10 上的安装器架构选择和运行；
+- 高 DPI 多显示器、完整键盘焦点顺序与可访问性验收；
+- 恶意/损坏安装包、系统策略阻断和升级失败恢复。
 
-- 升级：退出应用后，用新便携包替换程序目录；用户数据位于
-  `%LOCALAPPDATA%\LinkForge`，不会因替换程序目录自动删除。
-- 卸载：删除便携包目录。用户数据、日志、数据库与报告需要用户另行决定是否清理。
-- 当前没有 MSIX/WiX/Inno Setup 安装器，也没有升级失败自动回滚。
+应用清单声明支持 Windows 10/11、PerMonitorV2、`asInvoker` 和 long path，
+但这不等于上述真机/辅助功能场景已经全部验收。
 
-## 签名状态
+## 5. 签名状态
 
-当前便携包**未签名**。没有证书、时间戳服务与发布者信任配置，
-因此不得在界面、文档或交付说明中标注“已签名”或“已验证发布者”。
+V1.0 安装器和便携包**未签名**：
 
-## 尚未完成
+- 没有代码签名证书、时间戳服务和发布者信任配置；
+- Windows SmartScreen 可能显示未知发布者或阻止下载/运行；
+- About 页只读取本机 Authenticode 信任链结果，不联网验证发布者；
+- 不得把“本机信任链通过”表述为软件供应链审计完成。
 
-- Windows 10 真机安装/升级/卸载验收；
-- x86 运行时验证（D-08）；
-- 代码签名证书、时间戳与 SmartScreen 验证；
-- MSIX/WiX/Inno Setup 安装器及卸载残留验证；
-- 高 DPI、键盘焦点与可访问性最终验收；
-- 厂商 SDK（D-09）与抓包/安全扫描/渗透攻防边界（D-10）。
+代码签名、时间戳、SmartScreen 信誉和自动更新属于后续版本工作。
+
+## 6. 依赖与许可证
+
+发布脚本从 `project.assets.json` 和 NuGet `.nuspec` 生成 NuGet 依赖与声明
+许可证清单，并生成 CycloneDX 1.5 SBOM。声明许可证不等于完成法律审查。
+
+Inno Setup 简体中文语言包采用 MIT 许可，许可证文本随安装器发布物提供。
+仓库当前没有为 LinkForge 自身增加 `LICENSE` 或 EULA；安装器不伪造许可协议。
+正式对外再分发前，产品所有者仍需明确 LinkForge 自身授权策略并完成依赖
+许可证复核。
+
+## 7. 已知功能边界
+
+- 海康/大华开放平台 SDK、GB/T 28181、RTP 接收、媒体解码、首帧和持续播放未交付；
+- 抓包、端口/安全扫描和渗透攻防工具未交付，授权边界仍未确认；
+- MQTT 遗嘱、保留消息管理、Topic 树和自动重连未交付；
+- RTSP 当前只做 DNS/TCP/OPTIONS/DESCRIBE/SDP 与 Basic 认证；
+- ONVIF Stream URI 可用不等于媒体已经播放；
+- 日志文件不加密，未实现轮转保留、归档和签名；
+- 便携包和安装器都不是 bit-for-bit 可复现；只能说干净 checkout 可重复构建和验证。

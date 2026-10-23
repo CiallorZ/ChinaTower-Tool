@@ -241,6 +241,44 @@ public class ShellWindowTests
     }
 
     [Fact]
+    public void Selecting_about_should_show_the_about_page_and_hide_other_pages()
+    {
+        var (dashboard, about, placeholder, dataContext) = StaRunner.Run(() =>
+        {
+            ThemedHost.EnsureResources();
+
+            using var aboutHarness = new AboutHarness();
+            var viewModel = new ShellViewModel(
+                dashboard: new DashboardHarness().ViewModel,
+                about: aboutHarness.ViewModel);
+            var window = new ShellWindow(viewModel);
+
+            window.Show();
+            PumpDispatcher();
+            Layout(window, ReferenceWidth, ReferenceHeight);
+
+            viewModel.NavigateTo(NavigationCatalog.Find("settings.about"));
+            PumpDispatcher();
+            window.UpdateLayout();
+
+            var result = (
+                ((FrameworkElement)window.FindName("DashboardContent")!).Visibility,
+                ((FrameworkElement)window.FindName("AboutContent")!).Visibility,
+                ((FrameworkElement)window.FindName("NotImplementedContent")!).Visibility,
+                ((FrameworkElement)window.FindName("AboutContent")!).DataContext);
+
+            window.Close();
+            PumpDispatcher();
+            return result;
+        });
+
+        dashboard.ShouldBe(Visibility.Collapsed);
+        about.ShouldBe(Visibility.Visible);
+        placeholder.ShouldBe(Visibility.Collapsed);
+        dataContext.ShouldBeOfType<AboutViewModel>();
+    }
+
+    [Fact]
     public void Selecting_api_workbench_should_show_the_api_page_and_hide_other_pages()
     {
         var (dashboard, network, api, placeholder, dataContext) = StaRunner.Run(() =>

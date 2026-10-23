@@ -57,7 +57,8 @@ public sealed partial class ShellViewModel : ObservableObject
         PluginManagerViewModel? pluginManager = null,
         AssetCatalogViewModel? assetCatalog = null,
         IStructuredLogService? structuredLogs = null,
-        ILogPanelExporter? logExporter = null)
+        ILogPanelExporter? logExporter = null,
+        AboutViewModel? about = null)
     {
         _themeManager = themeManager;
         _settingsStore = settingsStore;
@@ -73,6 +74,7 @@ public sealed partial class ShellViewModel : ObservableObject
         DeveloperTools = developerTools;
         PluginManager = pluginManager;
         AssetCatalog = assetCatalog;
+        About = about;
 
         NavigationItems = new ObservableCollection<NavigationNode>(NavigationCatalog.TopLevel);
         LogEntries = structuredLogs?.Entries ?? _localLogs;
@@ -142,6 +144,9 @@ public sealed partial class ShellViewModel : ObservableObject
 
     /// <summary>设备与资产视图模型。</summary>
     public AssetCatalogViewModel? AssetCatalog { get; }
+
+    /// <summary>关于与版本信息视图模型。</summary>
+    public AboutViewModel? About { get; }
 
     /// <summary>底部日志面板显示的应用级日志。</summary>
     public ObservableCollection<LogEntry> LogEntries { get; }
@@ -235,6 +240,9 @@ public sealed partial class ShellViewModel : ObservableObject
     /// <summary>是否显示设备与资产页。</summary>
     public bool IsAssetCatalogSelected => CurrentPageId == "assets";
 
+    /// <summary>是否显示关于与诊断包页面。</summary>
+    public bool IsAboutSelected => CurrentPageId == "settings.about";
+
     /// <summary>当前页面是否已实现（false 时内容区显示明确的未实现状态）。</summary>
     [ObservableProperty]
     public partial bool IsCurrentModuleImplemented { get; set; }
@@ -309,6 +317,7 @@ public sealed partial class ShellViewModel : ObservableObject
         OnPropertyChanged(nameof(IsDeveloperToolsSelected));
         OnPropertyChanged(nameof(IsPluginManagerSelected));
         OnPropertyChanged(nameof(IsAssetCatalogSelected));
+        OnPropertyChanged(nameof(IsAboutSelected));
 
         // 每次进入报告页都重新读取历史：用户刚跑完一次诊断再切过来，
         // 看到的必须是包含这次结果的最新列表，而不是启动时的快照。
@@ -322,6 +331,11 @@ public sealed partial class ShellViewModel : ObservableObject
         if (node.Id == "assets")
         {
             _ = AssetCatalog?.LoadAsync();
+        }
+
+        if (node.Id == "settings.about")
+        {
+            _ = About?.LoadCommand.ExecuteAsync(null);
         }
     }
 

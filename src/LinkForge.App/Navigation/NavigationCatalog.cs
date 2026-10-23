@@ -178,7 +178,7 @@ public static class NavigationCatalog
 
                 new("settings.about", "关于与诊断包", LfGlyph.Certificate,
                     "版本、依赖与许可清单、诊断包导出。",
-                    LfModuleAvailability.NotImplemented, [])
+                    LfModuleAvailability.Available, [])
             ])
     ];
 

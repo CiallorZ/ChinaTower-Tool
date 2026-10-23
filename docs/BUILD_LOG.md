@@ -699,6 +699,59 @@ pwsh -File scripts/run.ps1
 - x86 运行仍受 D-08 缺少 x86 .NET 10 运行时约束；本阶段仅验证 x64。
 - 厂商 SDK（D-09）、抓包与安全扫描/渗透攻防（D-10）仍未接入。
 
+## V1.0 正式发布候选验证（2026-10-24）
+
+### 1. 构建与测试
+
+| 验证项 | 结果 |
+| --- | --- |
+| `pwsh -NoProfile -File scripts/build.ps1` | 通过，0 警告 0 错误 |
+| Domain / Application / Persistence | 54 / 142 / 41 |
+| Network / HTTP / MQTT / RTSP / ONVIF | 10 / 15 / 8 / 17 / 14 |
+| DeveloperTools / Reporting / Plugin.Hosting | 41 / 42 / 30 |
+| App | 589 / 589 |
+| **全解决方案测试** | **1003 / 1003 通过** |
+
+新增 `ReleasePackagingTests` 8 项，覆盖：
+
+- Inno 文件版本 `1.0.0` → `1.0.0.0`、`0.5.0-preview.1` → `0.5.0.1`
+  及非法版本拒绝；
+- 安装器同时声明 x64/x86 自包含载荷、用户级安装目录和简体中文语言包；
+- 正式发布门禁、未签名元数据、安装器第三方声明和卸载保留用户数据；
+- 应用清单的 `asInvoker`、PerMonitorV2 和 long path 声明；
+- 随仓库固定的 Inno 中文语言包及其 MIT 许可证文本。
+
+### 2. 安装器与架构实测
+
+| 验证项 | 结果 |
+| --- | --- |
+| Inno Setup 安装器编译 | 成功；简体中文语言包从仓库读取 |
+| 静默安装 | 退出码 0 |
+| 重复安装升级 | 退出码 0 |
+| 安装版启动/关闭 | 两次退出码均为 0 |
+| 卸载 | 退出码 0；程序与开始菜单入口删除 |
+| `%LOCALAPPDATA%\LinkForge` 用户数据 | 保留 |
+| PE 架构检查 | `win-x64` 载荷为 x64；`win-x86` 载荷为 x86 |
+| x86 自包含程序启动/关闭 | 退出码 0 |
+
+验证中发现并修复：
+
+1. Inno 中文语言包原先引用本机 `compiler:Languages`，本机缺失导致编译失败；
+   现固定 MIT 许可语言包到 `installer/Languages`。
+2. 验证脚本使用 `/GROUP` 生成唯一开始菜单目录，但 Inno 在
+   `DisableProgramGroupPage=yes` 时明确规定忽略该参数；现改为使用真实
+   `LinkForge` 目录，并在目录已存在时拒绝测试，避免误删用户快捷方式。
+3. 带空格参数原先可能被 `Start-Process` 拆分；现对 `/DIR` 与 `/LOG`
+   显式加引号。
+
+### 3. 正式产物边界
+
+- 候选验证时版本为 `1.0.0`，无预发布后缀。
+- 正式 `build-release.ps1 -Formal` 必须在全部改动提交、工作区干净后重新执行；
+  最终提交号、产物大小和 SHA-256 以发布 JSON 与 GitHub Release 附件为准。
+- 安装器和便携包未签名；未完成 Windows 10 真机、32 位 Windows 安装流程、
+  高 DPI 与完整可访问性最终验收。
+
 ## 阶段 05 · 插件清单校验与进程外隔离（LF-012，2026-10-22）
 
 ### 1. 交付物

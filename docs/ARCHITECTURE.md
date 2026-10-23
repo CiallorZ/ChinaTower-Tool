@@ -332,7 +332,8 @@ ONVIF 标准接入采用 `App → Adapters.Onvif → Domain / Plugin.Abstraction
 控制：秘密分离、脱敏、授权范围确认、速率限制、签名/哈希校验、最小权限、进程隔离、依赖清单、可审计日志。
 
 ## 8. 发布与交付
-- 当前发布物是未签名的 `win-x64` 自包含便携 ZIP，**不是安装器**。
+- V1.0 发布物是未签名的双架构 Inno Setup 用户级安装器，以及
+  `win-x64` / `win-x86` 自包含便携 ZIP。
 - `Directory.Build.props` 统一版本、产品、公司、仓库与确定性构建元数据；
   程序集信息版本附带 Git 提交号。
 - `scripts/publish.ps1` 默认执行 Release 全量构建/测试，再发布到 `artifacts/`，
@@ -342,7 +343,13 @@ ONVIF 标准接入采用 `App → Adapters.Onvif → Domain / Plugin.Abstraction
   产物文件名与元数据会带 `.dirty`。
 - `scripts/verify-clean-checkout.ps1` 将已提交 `HEAD` 克隆到临时目录，
   重新还原、构建和测试，避免本机 `bin/obj` 掩盖缺失引用。
-- 支持矩阵：当前实测 Windows 11 x64 + .NET SDK 10.0.402；Windows 10 x64、
-  x86、高 DPI 与代码签名仍未验证。
-- 安装、升级回滚、签名验证和自动更新尚未实现；不得把便携替换描述为
-  “已完成安装器验收”或“已签名发布”。
+- 安装器由单一 AppId 管理，默认安装到
+  `%LOCALAPPDATA%\Programs\LinkForge`，不要求管理员权限；同时嵌入两套
+  自包含载荷，并按安装环境选择架构。
+- 卸载保留 `%LOCALAPPDATA%\LinkForge` 用户数据；重复安装覆盖程序文件，
+  但没有自动回滚或自动更新。
+- 支持矩阵：已实测 Windows 11 10.0.26300 x64 安装链路，以及 x86 自包含载荷
+  在 WOW64 下的启动/关闭；Windows 10 真机与 32 位 Windows 安装器选择流程
+  仍未完成实测。
+- 代码签名、时间戳与 SmartScreen 尚未配置；About 页只展示本机 Authenticode
+  信任结果，不能据此宣称供应链审计或发布者信誉已完成。

@@ -228,7 +228,8 @@ public sealed class NavigationCatalogTests
                 "network",
                 "developer",
                 "reports",
-                "settings.plugins"
+                "settings.plugins",
+                "settings.about"
             ]);
     }
 
@@ -268,7 +269,8 @@ public sealed class NavigationCatalogTests
             ["assets"] = ("AssetCatalogViewModel", "AssetCatalogContent"),
             ["reports"] = ("ReportPageViewModel", "ReportContent"),
             ["developer"] = ("DeveloperToolsViewModel", "DeveloperToolsContent"),
-            ["settings.plugins"] = ("PluginManagerViewModel", "PluginManagerContent")
+            ["settings.plugins"] = ("PluginManagerViewModel", "PluginManagerContent"),
+            ["settings.about"] = ("AboutViewModel", "AboutContent")
         };
 
     [Fact]

@@ -17,10 +17,14 @@
 | 解决方案骨架与业务模块 | 13 个源码项目、12 个测试项目，Debug/Release 构建均通过 |
 | 设计令牌 / 基础组件 / 应用壳层 | 已完成 |
 | 项目资产、网络、HTTP、MQTT、RTSP、ONVIF、日志、报告、开发者工具、插件页 | 已完成真实实现与本地验证 |
-| 发布工程（LF-013） | **部分完成**：未签名 `win-x64` 自包含便携 ZIP、依赖清单、SBOM、SHA-256 与干净构建脚本已落地 |
+| 正式发布工程（LF-013） | **V1.0**：未签名双架构安装器、`win-x64`/`win-x86` 自包含便携包、依赖清单、SBOM、SHA-256 与干净构建脚本 |
+| 版本与签名信息 | **已实现**：真实读取程序集、系统、架构、安装形态与本机 Authenticode 信任状态 |
 
-> 当前版本为 `0.5.0-preview.1`。便携 ZIP 不是安装器且未签名；Windows 10 真机、
-> 高 DPI、x86 运行、厂商 SDK 与抓包/安全扫描边界仍未完成，详见 `docs/RELEASE.md`。
+> 当前版本为 `1.0.0`。安装器与便携包均**未签名**，会触发 SmartScreen；
+> 安装器是 Inno Setup 用户级安装包，不是 MSIX/WiX，也没有自动更新或失败回滚。
+> 本机已实测 Windows 11、x64 安装链路与 x86 自包含载荷；Windows 10 真机、
+> 高 DPI/可访问性最终验收、厂商 SDK 与抓包/安全扫描边界仍未完成，详见
+> `docs/RELEASE.md`。
 
 ## 文档索引
 
@@ -40,8 +44,8 @@
 | `docs/LinkForge_UI_Design_Guidelines_V1.1.md` | UI 开发强约束规范 |
 | `docs/CODEX_START_PROMPT.md` | 启动提示词存档 |
 | `docs/UI_IMPLEMENTATION_PLAN.md` | 六个阶段的分阶段实施计划 |
-| `docs/RELEASE.md` | 便携包、版本、依赖清单、SBOM、签名与未完成项 |
-| `CHANGELOG.md` | 当前预览版本变更摘要 |
+| `docs/RELEASE.md` | 正式发布物、安装/卸载、版本、依赖清单、SBOM、签名与未完成项 |
+| `CHANGELOG.md` | V1.0 与历史预览版本变更摘要 |
 
 ## 环境要求（目标）
 
@@ -53,12 +57,12 @@
 ## 下一步
 
 1. 在 Windows 10 x64 真机执行安装、启动、升级替换与卸载残留验收。
-2. 评估代码签名证书、时间戳、MSIX/WiX/Inno Setup 与升级失败回滚。
-3. 关闭 D-08（x86 运行时）、D-09（海康/大华 SDK 许可）与 D-10（抓包/安全扫描授权边界）。
+2. 评估代码签名证书、时间戳、自动更新与升级失败回滚。
+3. 关闭 D-09（海康/大华 SDK 许可）与 D-10（抓包/安全扫描授权边界）。
 
 发布命令：
 
 ```powershell
-pwsh -NoProfile -File scripts/publish.ps1
+pwsh -NoProfile -File scripts/build-release.ps1 -Formal
 pwsh -NoProfile -File scripts/verify-clean-checkout.ps1
 ```
