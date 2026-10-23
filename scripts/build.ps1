@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     按 LinkForge 规范执行构建与测试（DEV_STANDARDS.md §4）。
 

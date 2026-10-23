@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     启动 LinkForge 客户端（开发期）。
 
