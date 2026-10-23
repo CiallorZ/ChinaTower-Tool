@@ -1158,6 +1158,46 @@ pwsh -File scripts/run.ps1
 ### 4. 尚未验证（如实声明）
 
 - 项目包文件未签名；格式有效不等于来源可信。
-- 不包含凭据库本体、数据库加密、项目合并/覆盖策略或跨机同步。
+- 项目包本身不包含凭据库本体、数据库加密、项目合并/覆盖策略或跨机同步；
+  LF-016 已在应用内提供独立的 CurrentUser DPAPI 凭据库。
 - 尚未在 Windows 10 真机和高 DPI 环境执行最终交互验收。
 - x86 运行仍受 D-08；厂商 SDK、抓包、安全扫描与渗透攻防仍受 D-09/D-10。
+
+## 阶段 05 / V1.1 增量 · CurrentUser DPAPI 凭据库与 Windows CI（LF-016 / LF-017，2026-10-24）
+
+### 1. 交付物
+
+- `src/LinkForge.Application/Secrets/ISecretStore.cs`
+- `src/LinkForge.App/Services/WindowsDpapiSecretStore.cs`
+- `tests/LinkForge.App.Tests/Services/WindowsDpapiSecretStoreTests.cs`
+- `tests/LinkForge.App.Tests/ViewModels/AssetCatalogCredentialTests.cs`
+- 资产页凭据保存、状态检查和删除入口
+- `.github/workflows/windows-ci.yml`
+
+### 2. 关键边界
+
+- 只支持 `SecretProvider.DpapiCurrentUser`；其他提供方明确失败。
+- 每条秘密独立保存为 `%LOCALAPPDATA%\LinkForge\secrets\*.dpapi`；
+  文件名是引用键 SHA-256，DPAPI 附加熵绑定应用标识、schema、提供方与引用键。
+- `Missing / Available / Unreadable` 三态；损坏或无法解密不得显示为“未保存”。
+- 保存后立即清空视图模型明文；引用键变化时也清空旧输入。
+- 项目包、日志、历史、复制、导出和报告不读取秘密值。
+- 凭据文件不提供跨机同步；CurrentUser DPAPI 不能防御同用户恶意软件。
+
+### 3. 验证记录
+
+| 验证项 | 结果 |
+| --- | --- |
+| Debug 构建 | 通过，0 警告 0 错误 |
+| 凭据存储与资产页定向测试 | 27 / 27 |
+| **全解决方案测试** | **1049 / 1049 通过** |
+| 真实启动 + 关闭 | 成功；退出码 **0** |
+| CI 定义 | Release 构建/测试 + 未签名 win-x64 诊断包；远端结果推送后确认 |
+
+### 4. 尚未验证（如实声明）
+
+- GitHub Actions 远端首次执行结果尚未在本地日志中伪造，推送后以实际运行状态为准。
+- V1.1.0 正式标签、安装器验证、干净检出与产物 SHA-256 需在正式门禁后回填。
+- 未实现 Windows Credential Manager、跨机同步、数据库加密、秘密备份恢复或密钥轮换。
+- Windows 10 真机、高 DPI、完整可访问性与代码签名仍未完成。
+- 厂商 SDK、抓包、安全扫描和渗透攻防仍受 D-09/D-10 约束。

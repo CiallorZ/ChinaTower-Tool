@@ -1,27 +1,24 @@
-# LinkForge V1.0 发布与验收
+# LinkForge V1.1 发布与验收
 
 日期：2026-10-24
-版本：`1.0.0`
+版本：`1.1.0`
 渠道：正式版
-最终提交：`879de49f4640c1f0c6455636e45f01d578d2319b`
-Git 标签：`v1.0.0`
+最终提交：正式门禁后回填
+Git 标签：`v1.1.0`（门禁通过后创建，不移动 `v1.0.0`）
 
 ## 1. 发布物
 
 正式发布由 `scripts/build-release.ps1 -Formal` 从干净提交生成：
 
-- `LinkForge-1.0.0-879de49f4640-win-x64-portable.zip`
-- `LinkForge-1.0.0-879de49f4640-win-x86-portable.zip`
-- `LinkForge-Setup-1.0.0-879de49f4640.exe`
+- `LinkForge-1.1.0-<commit>-win-x64-portable.zip`
+- `LinkForge-1.1.0-<commit>-win-x86-portable.zip`
+- `LinkForge-Setup-1.1.0-<commit>.exe`
 - 安装器 SHA-256 文件
 - `LinkForge-Setup-THIRD-PARTY-NOTICES.txt`
-- `LinkForge-Release-1.0.0-879de49f4640.json`
+- `LinkForge-Release-1.1.0-<commit>.json`
 
-| 产物 | 字节数 | SHA-256 |
-| --- | ---: | --- |
-| 安装器 | 96,228,385 | `9ac224a6ad4454f507ad030ffc5606bdf88dca0513e6a972e50a5cc13fd70ff1` |
-| `win-x64` 便携包 | 69,884,361 | `0b16fa1d6e985b3bc63f7c805458e6d98208ec43b7ac04d95036f3e7cec853f6` |
-| `win-x86` 便携包 | 65,179,221 | `17dec419103c03f529287812ac1a5bc55648617eb33f3cc3fac8d457c9a20ef7` |
+具体文件名、字节数和 SHA-256 以本次正式门禁生成的
+`LinkForge-Release-1.1.0-<commit>.json` 及随附 `.sha256` 文件为准。
 
 便携包内含 `release.json`、`VERSION.txt`、依赖/许可证清单、CycloneDX 1.5
 SBOM、`SHA256SUMS.txt` 和 ZIP SHA-256。正式模式要求：
@@ -30,6 +27,7 @@ SBOM、`SHA256SUMS.txt` 和 ZIP SHA-256。正式模式要求：
 - 工作区干净；
 - Release 全量构建和测试门禁成功；
 - 安装器与应用程序版本、提交号一致。
+- Windows CI 的 Release 构建与全量测试通过；CI 产出的未签名诊断包不替代正式门禁。
 
 ```powershell
 pwsh -NoProfile -File scripts/build-release.ps1 -Formal
@@ -37,7 +35,7 @@ pwsh -NoProfile -File scripts/build-release.ps1 -Formal
 
 ## 2. 安装器
 
-V1.0 使用 Inno Setup 6 构建单个用户级安装器，同时嵌入 `win-x64` 与
+V1.1 继续使用 Inno Setup 6 构建单个用户级安装器，同时嵌入 `win-x64` 与
 `win-x86` 自包含载荷，由安装时的 `IsWin64` 选择匹配架构。
 
 - 默认目录：`%LOCALAPPDATA%\Programs\LinkForge`
@@ -57,8 +55,8 @@ V1.0 使用 Inno Setup 6 构建单个用户级安装器，同时嵌入 `win-x64`
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass `
-  -File scripts/verify-installer.ps1 `
-  -InstallerPath artifacts/LinkForge-Setup-1.0.0-879de49f4640.exe
+-File scripts/verify-installer.ps1 `
+  -InstallerPath artifacts/LinkForge-Setup-1.1.0-<commit>.exe
 ```
 
 脚本验证静默安装、开始菜单入口、应用启动/关闭、重复安装升级、卸载和
@@ -86,7 +84,7 @@ pwsh -NoProfile -File scripts/build.ps1
 Remove-Item Env:LINKFORGE_UPDATE_SCREENSHOTS
 ```
 
-## 4. V1.0 验收边界
+## 4. V1.1 验收边界
 
 已实测：
 
@@ -94,8 +92,8 @@ Remove-Item Env:LINKFORGE_UPDATE_SCREENSHOTS
 - 安装器内 x64 载荷真实启动并关闭，退出码 `0`；
 - 独立启动 x86 自包含载荷成功并关闭，退出码 `0`；
 - PE 头检查确认 `win-x64` 载荷为 x64、`win-x86` 载荷为 x86；
-- 全量测试 `1003 / 1003` 通过；
-- 提交 `879de49f4640...` 的干净检出 Release 构建与 `1003 / 1003` 测试通过；
+- 全量测试 `1049 / 1049` 通过；
+- 正式提交的干净检出 Release 构建与全量测试通过；
 - 完整记录见 `docs/BUILD_LOG.md`。
 
 未完成最终实测：
@@ -108,9 +106,16 @@ Remove-Item Env:LINKFORGE_UPDATE_SCREENSHOTS
 应用清单声明支持 Windows 10/11、PerMonitorV2、`asInvoker` 和 long path，
 但这不等于上述真机/辅助功能场景已经全部验收。
 
-## 5. 签名状态
+## 5. 凭据库边界
 
-V1.0 安装器和便携包**未签名**：
+- 资产密码可保存到当前 Windows 用户的 DPAPI CurrentUser 凭据库；
+- 密文文件位于 `%LOCALAPPDATA%\LinkForge\secrets`，文件名不包含引用键；
+- 项目包、日志、历史、剪贴板、导出和报告只使用凭据引用键，不读取秘密值；
+- DPAPI CurrentUser 不支持跨机同步，也不能防御已经以同一用户身份运行的恶意软件。
+
+## 6. 签名状态
+
+V1.1 安装器和便携包**未签名**：
 
 - 没有代码签名证书、时间戳服务和发布者信任配置；
 - Windows SmartScreen 可能显示未知发布者或阻止下载/运行；
@@ -119,7 +124,7 @@ V1.0 安装器和便携包**未签名**：
 
 代码签名、时间戳、SmartScreen 信誉和自动更新属于后续版本工作。
 
-## 6. 依赖与许可证
+## 7. 依赖与许可证
 
 发布脚本从 `project.assets.json` 和 NuGet `.nuspec` 生成 NuGet 依赖与声明
 许可证清单，并生成 CycloneDX 1.5 SBOM。声明许可证不等于完成法律审查。
@@ -129,7 +134,7 @@ Inno Setup 简体中文语言包采用 MIT 许可，许可证文本随安装器�
 正式对外再分发前，产品所有者仍需明确 LinkForge 自身授权策略并完成依赖
 许可证复核。
 
-## 7. 已知功能边界
+## 8. 已知功能边界
 
 - 海康/大华开放平台 SDK、GB/T 28181、RTP 接收、媒体解码、首帧和持续播放未交付；
 - 抓包、端口/安全扫描和渗透攻防工具未交付，授权边界仍未确认；
@@ -137,4 +142,5 @@ Inno Setup 简体中文语言包采用 MIT 许可，许可证文本随安装器�
 - RTSP 当前只做 DNS/TCP/OPTIONS/DESCRIBE/SDP 与 Basic 认证；
 - ONVIF Stream URI 可用不等于媒体已经播放；
 - 日志文件不加密，未实现轮转保留、归档和签名；
+- DPAPI 凭据库不提供跨机同步、秘密备份恢复、密钥轮换或 Windows Credential Manager；
 - 便携包和安装器都不是 bit-for-bit 可复现；只能说干净 checkout 可重复构建和验证。

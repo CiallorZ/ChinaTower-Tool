@@ -329,6 +329,33 @@ flowchart LR
 - 文件对话框和字节读写属于 App；页面与其他业务逻辑不直接处理文件路径。
 - 导入导出通过异步命令执行，提供取消入口；项目包、CSV 和存储写操作互斥。
 
+### 4.12 凭据库依赖边（V1.1 / LF-016）
+
+秘密存储采用 `App → Application.Secrets → Domain.Secrets`：
+
+```mermaid
+flowchart LR
+  VM[AssetCatalogViewModel] --> CONTRACT[ISecretStore]
+  CONTRACT --> REF[SecretReference]
+  IMPL[WindowsDpapiSecretStore] -. 实现 .-> CONTRACT
+  IMPL --> DPAPI[Windows DPAPI CurrentUser]
+  IMPL --> FILES[%LOCALAPPDATA%\\LinkForge\\secrets\\*.dpapi]
+```
+
+- `SecretReference` 只包含引用键、提供方和秘密类型；项目、环境、资产与项目包
+  只保存引用键，不保存秘密值。
+- `ISecretStore` 契约位于 Application，Windows DPAPI 实现在 App；
+  只有真正发起认证的组件可以显式调用 `ReadAsync`。
+- 每条秘密独立保存为 CurrentUser DPAPI 密文文件；文件名是引用键的 SHA-256，
+  附加熵绑定应用标识、提供方和引用键，密文改名后不能作为另一条秘密使用。
+- 状态明确区分 `Missing / Available / Unreadable`。文件存在但无法解密时
+  不得误报为“未保存”。
+- 资产页支持保存、检查和删除；保存尝试后立即清空视图模型中的明文输入，
+  引用键变化时也清空旧输入，避免把旧秘密静默保存到新引用下。
+- 凭据库不进入日志、历史、剪贴板、导出、报告或项目包。DPAPI CurrentUser
+  只保护当前 Windows 用户在本机的离线文件，不提供跨机同步，
+  也不能防御已经以同一用户身份运行的恶意软件。
+
 
 ## 5. 关键领域模型
 - Project：项目元数据与 SchemaVersion。
@@ -355,7 +382,7 @@ flowchart LR
 控制：秘密分离、脱敏、授权范围确认、速率限制、签名/哈希校验、最小权限、进程隔离、依赖清单、可审计日志。
 
 ## 8. 发布与交付
-- V1.0 发布物是未签名的双架构 Inno Setup 用户级安装器，以及
+- V1.0 / V1.1 发布物是未签名的双架构 Inno Setup 用户级安装器，以及
   `win-x64` / `win-x86` 自包含便携 ZIP。
 - `Directory.Build.props` 统一版本、产品、公司、仓库与确定性构建元数据；
   程序集信息版本附带 Git 提交号。
@@ -364,6 +391,8 @@ flowchart LR
   包内 `SHA256SUMS.txt` 与 ZIP 的 SHA-256。
 - 工作区不干净时脚本默认拒绝发布；`-AllowDirty` 只用于本地诊断包，
   产物文件名与元数据会带 `.dirty`。
+- Windows CI 在 `windows-latest` 上执行 Release 全量构建/测试，并生成
+  `win-x64` 未签名诊断便携包；CI 诊断包不是正式发布物。
 - `scripts/verify-clean-checkout.ps1` 将已提交 `HEAD` 克隆到临时目录，
   重新还原、构建和测试，避免本机 `bin/obj` 掩盖缺失引用。
 - 安装器由单一 AppId 管理，默认安装到

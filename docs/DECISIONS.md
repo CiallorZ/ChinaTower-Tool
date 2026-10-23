@@ -17,7 +17,7 @@
 | ADR-005 | HTTP/API | HttpClientFactory + 自研请求模型 | 提议 |
 | ADR-006 | MQTT | MQTTnet（纯托管），不用 Paho C | 提议 |
 | ADR-007 | RTSP/媒体 | 自研信令诊断 + 播放组件抽象 | 提议（分发许可待定） |
-| ADR-008 | 凭据存储 | Windows DPAPI（CurrentUser）+ SecretReference | 提议 |
+| ADR-008 | 凭据存储 | Windows DPAPI（CurrentUser）+ SecretReference | 已采纳（实现见 ADR-039） |
 | ADR-009 | 外部进程调用 | `ProcessStartInfo.ArgumentList`，禁止 shell 拼接 | 已接受（安全红线） |
 | ADR-010 | HTML 报告 | 内置模板 + `HtmlEncoder` 转义 | 提议 |
 | ADR-011 | 插件与原生 SDK | 进程内契约先行，原生 SDK 进程外隔离 | 提议 |
@@ -963,8 +963,8 @@ LinkForge.Application 与 LinkForge.Domain 都不依赖 EF Core
 
 - 数据库文件本身**不加密**。只是不存明文凭据，不等于文件被保护。
 - 损坏隔离靠"改名保留"，占用的是同一目录；磁盘满时隔离也会失败，此时直接抛可读错误。
-- `CredentialReference` 只是指针，本阶段**没有**凭据库本体，
-  填入引用键不会让应用自动取到密码。
+- `CredentialReference` 在 LF-004 交付时只是指针，尚未有凭据库本体。
+  V1.1 的 LF-016 已补齐 Windows CurrentUser DPAPI 凭据库，见 ADR-039。
 
 **约束**
 
@@ -1223,3 +1223,44 @@ Windows 分发物，同时保留便携使用方式。产品没有代码签名证
 - 项目包不是秘密库，不得添加密码、令牌或 Cookie 明文字段。
 - 未实现覆盖/合并策略前，不得把冲突导入提示成成功。
 - 文件格式有效不代表来源可信；需要来源认证时必须另行引入签名机制。
+
+## ADR-039：Windows CurrentUser DPAPI 凭据库（LF-016）
+
+**背景**
+
+V1.0 之前资产只保存凭据引用键，项目数据不含明文密码，但用户仍无法在应用内
+安全保存和检查真正的凭据。引入明文文件、数据库列或可跨机复制的秘密存储都会
+破坏已有的“项目包只交换非秘密配置”边界。
+
+**决策**
+
+1. **范围**：只实现 `SecretProvider.DpapiCurrentUser`；其他提供方（包括
+   Windows Credential Manager）明确拒绝，不伪装为可用。
+2. **落盘格式**：每条秘密独立保存为 `.dpapi` 文件，位于
+   `%LOCALAPPDATA%\LinkForge\secrets`；文件名为引用键的 SHA-256，
+   磁盘路径不泄漏引用键。
+3. **绑定与校验**：DPAPI 附加熵绑定应用标识、存储格式版本、提供方和引用键；
+   解密后的 JSON 信封再次校验 schema、提供方、类型和引用键。
+   密文改名后不能作为另一条秘密使用。
+4. **状态语义**：`Missing` 表示没有文件；`Available` 表示可解密；
+   `Unreadable` 表示文件存在但损坏、被替换、权限不足或属于其他用户。
+   不得把 `Unreadable` 误报成 `Missing`。
+5. **输入边界**：秘密值上限 64 KiB UTF-8；保存尝试后立即清空视图模型中的
+   明文输入；引用键变化时也清空旧输入，避免把旧秘密保存到新引用下。
+6. **异步与 I/O**：文件读写和 DPAPI 调用通过后台任务执行，支持取消；
+   使用临时文件、`WriteThrough` 与原子替换，避免把半写文件当成有效秘密。
+7. **不扩散**：复制、日志、历史、导出、报告和项目包永远不读取秘密值；
+   只有未来真正发起认证的适配器才可显式调用 `ISecretStore.ReadAsync`。
+
+**验证**
+
+- DPAPI 往返、明文不在密文文件中出现、不同引用隔离、损坏文件报告
+  `Unreadable`、删除、非法引用、上限、取消和资产页状态测试。
+- 全量构建 0 警告 0 错误；测试 1049 / 1049 通过；真实启动/关闭退出码 0。
+
+**边界与剩余风险**
+
+- CurrentUser DPAPI 只保护当前 Windows 用户在本机的离线文件，不提供跨机同步，
+  也不能防御已经以同一用户身份运行的恶意软件。
+- 本项目不实现 Windows Credential Manager、数据库加密、密钥轮换或备份恢复。
+- 凭据引用键本身不是秘密；项目包仍可能暴露它指向的业务命名。

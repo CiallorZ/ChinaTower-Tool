@@ -18,15 +18,18 @@
 | 设计令牌 / 基础组件 / 应用壳层 | 已完成 |
 | 项目资产、网络、HTTP、MQTT、RTSP、ONVIF、日志、报告、开发者工具、插件页 | 已完成真实实现与本地验证 |
 | 正式发布工程（LF-013） | **V1.0**：未签名双架构安装器、`win-x64`/`win-x86` 自包含便携包、依赖清单、SBOM、SHA-256 与干净构建脚本 |
+| V1.1 增量（LF-016 / LF-017） | **已实现**：MQTT 3.1.1 / 5.0、项目包导入导出、CurrentUser DPAPI 凭据库、Windows CI 与发布可追溯性 |
 | 版本与签名信息 | **已实现**：真实读取程序集、系统、架构、安装形态与本机 Authenticode 信任状态 |
 
-> 当前版本为 `1.0.0`。安装器与便携包均**未签名**，会触发 SmartScreen；
+> 当前版本为 `1.1.0`。安装器与便携包均**未签名**，会触发 SmartScreen；
 > 安装器是 Inno Setup 用户级安装包，不是 MSIX/WiX，也没有自动更新或失败回滚。
 > 本机已实测 Windows 11、x64 安装链路与 x86 自包含载荷；Windows 10 真机、
 > 高 DPI/可访问性最终验收、厂商 SDK 与抓包/安全扫描边界仍未完成，详见
 > `docs/RELEASE.md`。
 
 正式发布页：[LinkForge V1.0.0](https://github.com/CiallorZ/ChinaTower-Tool/releases/tag/v1.0.0)
+
+V1.1.0 正式发布页在正式门禁与标签创建后提供。
 
 ## 文档索引
 
@@ -47,7 +50,8 @@
 | `docs/CODEX_START_PROMPT.md` | 启动提示词存档 |
 | `docs/UI_IMPLEMENTATION_PLAN.md` | 六个阶段的分阶段实施计划 |
 | `docs/RELEASE.md` | 正式发布物、安装/卸载、版本、依赖清单、SBOM、签名与未完成项 |
-| `CHANGELOG.md` | V1.0 与历史预览版本变更摘要 |
+| `docs/RELEASE_NOTES_V1.1.0.md` | V1.1.0 用户发布说明与安全边界 |
+| `CHANGELOG.md` | V1.1、V1.0 与历史预览版本变更摘要 |
 
 ## 环境要求（目标）
 

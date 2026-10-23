@@ -587,6 +587,65 @@
                                                  Margin="{DynamicResource LfInlineSpacing}"
                                                  AutomationProperties.Name="资产凭据引用键" />
 
+                        <Border Margin="{DynamicResource LfInlineSpacing}"
+                                Padding="{DynamicResource LfControlPadding}"
+                                Background="{DynamicResource LfBrushSurfaceSubtle}"
+                                BorderBrush="{DynamicResource LfBrushBorder}"
+                                BorderThickness="{DynamicResource LfBorderThickness}"
+                                CornerRadius="{DynamicResource LfRadiusControl}">
+                            <StackPanel>
+                                <TextBlock Text="当前 Windows 用户凭据库"
+                                           FontSize="{DynamicResource LfFontSizeCaption}"
+                                           Foreground="{DynamicResource LfBrushTextPrimary}" />
+
+                                <TextBlock Text="密码使用 DPAPI CurrentUser 加密保存，不进入项目包、日志、历史、复制或报告。"
+                                           Margin="{DynamicResource LfRowSpacing}"
+                                           FontSize="{DynamicResource LfFontSizeCaption}"
+                                           Foreground="{DynamicResource LfBrushTextSecondary}"
+                                           TextWrapping="Wrap" />
+
+                                <controls:SecretTextBox Label="凭据值（仅用于保存到本机）"
+                                                        Placeholder="输入密码或令牌"
+                                                        Secret="{Binding AssetSecretValue, Mode=TwoWay}"
+                                                        Margin="{DynamicResource LfInlineSpacing}"
+                                                        AutomationProperties.Name="资产凭据值" />
+
+                                <WrapPanel Margin="{DynamicResource LfInlineSpacing}">
+                                    <Button Content="保存到凭据库"
+                                            Command="{Binding SaveCredentialCommand}"
+                                            MinWidth="{DynamicResource LfActionButtonMinWidth}"
+                                            Height="{DynamicResource LfControlHeight}"
+                                            AutomationProperties.Name="保存到凭据库" />
+
+                                    <Button Content="检查状态"
+                                            Command="{Binding CheckCredentialCommand}"
+                                            MinWidth="{DynamicResource LfButtonMinWidth}"
+                                            Height="{DynamicResource LfControlHeight}"
+                                            Margin="{DynamicResource LfInlineSpacingLeading}"
+                                            AutomationProperties.Name="检查凭据状态" />
+
+                                    <Button Content="删除凭据"
+                                            Command="{Binding DeleteCredentialCommand}"
+                                            MinWidth="{DynamicResource LfButtonMinWidth}"
+                                            Height="{DynamicResource LfControlHeight}"
+                                            Margin="{DynamicResource LfInlineSpacingLeading}"
+                                            AutomationProperties.Name="删除凭据" />
+                                </WrapPanel>
+
+                                <TextBlock Text="{Binding CredentialStatusText}"
+                                           Margin="{DynamicResource LfInlineSpacing}"
+                                           FontSize="{DynamicResource LfFontSizeCaption}"
+                                           Foreground="{DynamicResource LfBrushTextPrimary}"
+                                           TextWrapping="Wrap" />
+
+                                <TextBlock Text="{Binding CredentialFeedback}"
+                                           Margin="{DynamicResource LfInlineSpacing}"
+                                           FontSize="{DynamicResource LfFontSizeCaption}"
+                                           Foreground="{DynamicResource LfBrushTextSecondary}"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+
                         <controls:LabeledTextBox Label="备注（可选）"
                                                  Text="{Binding AssetNote}"
                                                  Placeholder="安装位置、责任人等"

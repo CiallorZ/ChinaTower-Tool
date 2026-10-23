@@ -2,7 +2,7 @@
 
 All notable changes to LinkForge are recorded here.
 
-## Unreleased
+## 1.1.0 - 2026-10-24
 
 ### Added
 
@@ -13,12 +13,28 @@ All notable changes to LinkForge are recorded here.
   environments and assets without plaintext credentials. Imports use strict
   schema validation and a single SQLite transaction; conflicts or failures
   roll back the whole package.
+- Windows CurrentUser DPAPI credential storage for asset passwords. Each entry
+  is stored as a separate DPAPI-protected file under the local application data
+  directory; project packages, logs, history, clipboard and reports contain
+  reference keys only.
+- Windows CI for Release build, full test gate and an unsigned `win-x64`
+  diagnostic portable package.
 
 ### Verified
 
 - Full solution build: 0 warnings, 0 errors.
-- Full test suite: 1034/1034 passed.
+- Full test suite: 1049/1049 passed.
 - Application startup and close smoke test: exit code 0.
+
+### Security and release boundaries
+
+- The DPAPI credential store protects secrets for the current Windows user on
+  the current machine. It does not provide cross-machine sync or protection
+  from malware already running as the same user.
+- The installer and portable packages remain **unsigned**. SmartScreen may
+  warn; Authenticode status is reported truthfully.
+- Vendor SDKs, packet capture, security scanning and offensive tooling remain
+  outside this release.
 
 ## 1.0.0 - 2026-10-24
 

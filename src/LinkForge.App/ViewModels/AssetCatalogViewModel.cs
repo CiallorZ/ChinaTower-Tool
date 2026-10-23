@@ -6,10 +6,12 @@ using LinkForge.App.Presentation;
 using LinkForge.App.Services;
 using LinkForge.Application.Assets;
 using LinkForge.Application.Projects;
+using LinkForge.Application.Secrets;
 using LinkForge.Application.Storage;
 using LinkForge.Domain.Assets;
 using LinkForge.Domain.Diagnostics;
 using LinkForge.Domain.Projects;
+using LinkForge.Domain.Secrets;
 
 namespace LinkForge.App.ViewModels;
 
@@ -44,6 +46,7 @@ public sealed partial class AssetCatalogViewModel : ObservableObject
     private readonly AssetCsvExportService _exporter;
     private readonly ProjectPackageCodec _packageCodec;
     private readonly IProjectPackageImporter _packageImporter;
+    private readonly ISecretStore _secretStore;
     private readonly SynchronizationContext? _uiContext;
 
     private CancellationTokenSource? _loadCts;
@@ -63,7 +66,8 @@ public sealed partial class AssetCatalogViewModel : ObservableObject
         AssetCsvExportService exporter,
         IProjectPackageFileService packageFileService,
         ProjectPackageCodec packageCodec,
-        IProjectPackageImporter packageImporter)
+        IProjectPackageImporter packageImporter,
+        ISecretStore secretStore)
     {
         ArgumentNullException.ThrowIfNull(projectStore);
         ArgumentNullException.ThrowIfNull(assetStore);
@@ -75,6 +79,7 @@ public sealed partial class AssetCatalogViewModel : ObservableObject
         ArgumentNullException.ThrowIfNull(packageFileService);
         ArgumentNullException.ThrowIfNull(packageCodec);
         ArgumentNullException.ThrowIfNull(packageImporter);
+        ArgumentNullException.ThrowIfNull(secretStore);
 
         _projectStore = projectStore;
         _assetStore = assetStore;
@@ -86,6 +91,7 @@ public sealed partial class AssetCatalogViewModel : ObservableObject
         _packageFileService = packageFileService;
         _packageCodec = packageCodec;
         _packageImporter = packageImporter;
+        _secretStore = secretStore;
         _uiContext = SynchronizationContext.Current;
 
         Projects = [];
@@ -389,6 +395,16 @@ public sealed partial class AssetCatalogViewModel : ObservableObject
     public bool CanActivateEnvironment =>
         SelectedEnvironment is { IsActive: false } && HasCurrentProject;
 
+    /// <summary>能否从凭据库检查当前引用。</summary>
+    public bool CanCheckCredential => !IsCredentialBusy && BuildSecretReference() is not null;
+
+    /// <summary>能否保存当前凭据输入。</summary>
+    public bool CanSaveCredential =>
+        CanCheckCredential && !string.IsNullOrEmpty(AssetSecretValue);
+
+    /// <summary>能否删除当前引用对应的凭据。</summary>
+    public bool CanDeleteCredential => CanCheckCredential;
+
     // ==================== 资产表单 ====================
 
     /// <summary>表单资产名称。</summary>
@@ -417,7 +433,37 @@ public sealed partial class AssetCatalogViewModel : ObservableObject
 
     /// <summary>表单凭据引用键（不是密码本身）。</summary>
     [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(CheckCredentialCommand))]
+    [NotifyCanExecuteChangedFor(nameof(SaveCredentialCommand))]
+    [NotifyCanExecuteChangedFor(nameof(DeleteCredentialCommand))]
     public partial string AssetCredentialReference { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 待保存到当前用户凭据库的明文；保存尝试结束后立即清空。
+    /// </summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SaveCredentialCommand))]
+    public partial string AssetSecretValue { get; set; } = string.Empty;
+
+    /// <summary>凭据库操作是否正在运行。</summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(CheckCredentialCommand))]
+    [NotifyCanExecuteChangedFor(nameof(SaveCredentialCommand))]
+    [NotifyCanExecuteChangedFor(nameof(DeleteCredentialCommand))]
+    public partial bool IsCredentialBusy { get; private set; }
+
+    /// <summary>凭据库状态，不包含秘密值。</summary>
+    [ObservableProperty]
+    public partial string CredentialStatusText { get; private set; } =
+        "未配置凭据引用。";
+
+    /// <summary>凭据库操作的可读反馈，不包含秘密值。</summary>
+    [ObservableProperty]
+    public partial string CredentialFeedback { get; private set; } = string.Empty;
+
+    /// <summary>凭据状态是否为不可读取或操作失败。</summary>
+    [ObservableProperty]
+    public partial bool IsCredentialFailure { get; private set; }
 
     /// <summary>表单备注。</summary>
     [ObservableProperty]
@@ -471,6 +517,17 @@ public sealed partial class AssetCatalogViewModel : ObservableObject
     }
 
     partial void OnSearchTextChanged(string value) => ApplyFilter();
+
+    partial void OnAssetCredentialReferenceChanged(string value)
+    {
+        // 引用键变化后，旧输入属于旧引用；不得把它静默保存到新引用下。
+        AssetSecretValue = string.Empty;
+        CredentialFeedback = string.Empty;
+        IsCredentialFailure = false;
+        CredentialStatusText = BuildSecretReference() is null
+            ? "未配置有效的凭据引用。"
+            : "尚未检查；点击“检查状态”验证当前 Windows 用户的凭据库。";
+    }
 
     partial void OnSelectedKindOptionChanged(AssetKindOption? value) => ApplyFilter();
 
@@ -959,6 +1016,190 @@ public sealed partial class AssetCatalogViewModel : ObservableObject
     /// <summary>清空资产表单（回到新建状态）。</summary>
     [RelayCommand]
     private void ResetAssetForm() => ClearAssetForm();
+
+    /// <summary>检查当前引用键是否已有可读取的凭据。</summary>
+    [RelayCommand(CanExecute = nameof(CanCheckCredential))]
+    private async Task CheckCredentialAsync(CancellationToken cancellationToken)
+    {
+        var reference = BuildSecretReference();
+
+        if (reference is null)
+        {
+            CredentialStatusText = "凭据引用键无效，无法检查。";
+            IsCredentialFailure = true;
+            return;
+        }
+
+        await PostAsync(() =>
+        {
+            IsCredentialBusy = true;
+            CredentialFeedback = string.Empty;
+            IsCredentialFailure = false;
+        }).ConfigureAwait(false);
+
+        try
+        {
+            var status = await _secretStore.GetStatusAsync(reference.Value, cancellationToken)
+                .ConfigureAwait(false);
+
+            await PostAsync(() =>
+            {
+                CredentialStatusText = status.State switch
+                {
+                    SecretEntryState.Available =>
+                        $"已保存；最后更新 {status.UpdatedAtUtc?.ToLocalTime():yyyy-MM-dd HH:mm:ss}。",
+                    SecretEntryState.Unreadable => status.Message,
+                    _ => status.Message
+                };
+                IsCredentialFailure = status.State == SecretEntryState.Unreadable;
+            }).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            await PostAsync(() =>
+            {
+                CredentialFeedback = "已取消检查凭据状态。";
+                IsCredentialFailure = false;
+            }).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (IsSecretFailure(ex))
+        {
+            await PostAsync(() =>
+            {
+                CredentialStatusText = "凭据状态不可用。";
+                CredentialFeedback = $"检查失败：{ex.Message}";
+                IsCredentialFailure = true;
+            }).ConfigureAwait(false);
+        }
+        finally
+        {
+            await PostAsync(() => IsCredentialBusy = false).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>把当前输入保存到当前 Windows 用户的 DPAPI 凭据库。</summary>
+    [RelayCommand(CanExecute = nameof(CanSaveCredential))]
+    private async Task SaveCredentialAsync(CancellationToken cancellationToken)
+    {
+        var reference = BuildSecretReference();
+
+        if (reference is null)
+        {
+            CredentialStatusText = "请先填写有效的凭据引用键。";
+            IsCredentialFailure = true;
+            return;
+        }
+
+        if (string.IsNullOrEmpty(AssetSecretValue))
+        {
+            CredentialFeedback = "凭据值不能为空。";
+            IsCredentialFailure = true;
+            return;
+        }
+
+        var value = AssetSecretValue;
+        await PostAsync(() =>
+        {
+            IsCredentialBusy = true;
+            AssetSecretValue = string.Empty;
+            CredentialFeedback = string.Empty;
+            IsCredentialFailure = false;
+        }).ConfigureAwait(false);
+
+        try
+        {
+            await _secretStore.SaveAsync(reference.Value, value, cancellationToken)
+                .ConfigureAwait(false);
+            var status = await _secretStore.GetStatusAsync(reference.Value, cancellationToken)
+                .ConfigureAwait(false);
+
+            await PostAsync(() =>
+            {
+                CredentialStatusText = status.State == SecretEntryState.Available
+                    ? $"已保存；最后更新 {status.UpdatedAtUtc?.ToLocalTime():yyyy-MM-dd HH:mm:ss}。"
+                    : status.Message;
+                CredentialFeedback = status.State == SecretEntryState.Available
+                    ? "凭据已加密保存到当前 Windows 用户。项目包与导出文件不包含凭据值。"
+                    : "凭据已写入，但状态复查未通过。";
+                IsCredentialFailure = status.State != SecretEntryState.Available;
+            }).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            await PostAsync(() =>
+            {
+                CredentialFeedback = "已取消保存凭据。";
+                IsCredentialFailure = false;
+            }).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (IsSecretFailure(ex))
+        {
+            await PostAsync(() =>
+            {
+                CredentialFeedback = $"保存凭据失败：{ex.Message}";
+                IsCredentialFailure = true;
+            }).ConfigureAwait(false);
+        }
+        finally
+        {
+            value = string.Empty;
+            await PostAsync(() => IsCredentialBusy = false).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>从当前 Windows 用户的凭据库删除该引用键。</summary>
+    [RelayCommand(CanExecute = nameof(CanDeleteCredential))]
+    private async Task DeleteCredentialAsync(CancellationToken cancellationToken)
+    {
+        var reference = BuildSecretReference();
+
+        if (reference is null)
+        {
+            return;
+        }
+
+        await PostAsync(() =>
+        {
+            IsCredentialBusy = true;
+            AssetSecretValue = string.Empty;
+            CredentialFeedback = string.Empty;
+            IsCredentialFailure = false;
+        }).ConfigureAwait(false);
+
+        try
+        {
+            var deleted = await _secretStore.DeleteAsync(reference.Value, cancellationToken)
+                .ConfigureAwait(false);
+
+            await PostAsync(() =>
+            {
+                CredentialStatusText = "凭据条目未保存。";
+                CredentialFeedback = deleted
+                    ? "已从当前 Windows 用户的凭据库删除。"
+                    : "该引用键当前没有已保存的凭据。";
+            }).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            await PostAsync(() =>
+            {
+                CredentialFeedback = "已取消删除凭据。";
+                IsCredentialFailure = false;
+            }).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (IsSecretFailure(ex))
+        {
+            await PostAsync(() =>
+            {
+                CredentialFeedback = $"删除凭据失败：{ex.Message}";
+                IsCredentialFailure = true;
+            }).ConfigureAwait(false);
+        }
+        finally
+        {
+            await PostAsync(() => IsCredentialBusy = false).ConfigureAwait(false);
+        }
+    }
 
     /// <summary>
     /// 从 CSV 导入资产。
@@ -1576,8 +1817,12 @@ public sealed partial class AssetCatalogViewModel : ObservableObject
         AssetVendor = string.Empty;
         AssetTags = string.Empty;
         AssetCredentialReference = string.Empty;
+        AssetSecretValue = string.Empty;
         AssetNote = string.Empty;
         AssetFormError = string.Empty;
+        CredentialStatusText = "未配置凭据引用。";
+        CredentialFeedback = string.Empty;
+        IsCredentialFailure = false;
         IsEditingExistingAsset = false;
     }
 
@@ -1697,6 +1942,33 @@ public sealed partial class AssetCatalogViewModel : ObservableObject
             or IOException
             or UnauthorizedAccessException
             or InvalidOperationException;
+
+    /// <summary>凭据库失败是否应按可读错误呈现。</summary>
+    private static bool IsSecretFailure(Exception ex) =>
+        ex is SecretStoreException
+            or IOException
+            or UnauthorizedAccessException
+            or ArgumentException
+            or NotSupportedException;
+
+    /// <summary>
+    /// 从当前表单引用键构造秘密引用；键无效时返回 null。
+    /// </summary>
+    private SecretReference? BuildSecretReference()
+    {
+        var key = Application.Assets.AssetCredentialReference.Normalize(AssetCredentialReference);
+
+        if (key is null || !Application.Assets.AssetCredentialReference.IsValidKey(key))
+        {
+            return null;
+        }
+
+        return new SecretReference(
+            key,
+            SecretProvider.DpapiCurrentUser,
+            SecretKind.Password,
+            $"资产凭据 {AssetName.Trim()}".TrimEnd());
+    }
 
     /// <summary>刷新受状态影响的命令可用性。</summary>
     private void NotifyCommands()

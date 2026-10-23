@@ -14,6 +14,7 @@ using LinkForge.Application.Environment;
 using LinkForge.Application.Assets;
 using LinkForge.Application.Logging;
 using LinkForge.Application.Projects;
+using LinkForge.Application.Secrets;
 using LinkForge.Application.Storage;
 using LinkForge.Plugin.Abstractions;
 using LinkForge.Persistence;
@@ -229,6 +230,15 @@ public partial class App : System.Windows.Application
         services.AddSingleton<IProjectPackageImporter>(static provider =>
             new SqliteProjectPackageImporter(
                 provider.GetRequiredService<SqliteContextFactory>()));
+
+        // 凭据库：Windows DPAPI CurrentUser 密文文件。
+        // 资产只保存引用键；界面、日志、项目包和导出都拿不到明文。
+        services.AddSingleton<ISecretStore>(static provider =>
+            new WindowsDpapiSecretStore(
+                Path.Combine(
+                    provider.GetRequiredService<AppEnvironment>().SettingsDirectory
+                    ?? throw new InvalidOperationException("无法确定数据目录，凭据库不可用。"),
+                    "secrets")));
 
         // 自检适配器：以适配器契约注册，
         // 之后接入海康 / 大华等进程外适配器时，调用方（工作台）无需改动。

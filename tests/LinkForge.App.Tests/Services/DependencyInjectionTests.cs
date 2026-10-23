@@ -110,6 +110,7 @@ public class DependencyInjectionTests
         typeof(LinkForge.Application.Projects.IProjectStore),
         typeof(LinkForge.Application.Projects.IEnvironmentStore),
         typeof(LinkForge.Application.Assets.IAssetStore),
+        typeof(LinkForge.Application.Secrets.ISecretStore),
         typeof(LinkForge.App.Services.IAssetCsvFileService),
         typeof(LinkForge.App.Services.AssetCsvImportService),
         typeof(LinkForge.App.Services.AssetCsvExportService),

@@ -2,9 +2,11 @@ using LinkForge.App.Services;
 using LinkForge.App.ViewModels;
 using LinkForge.Application.Assets;
 using LinkForge.Application.Projects;
+using LinkForge.Application.Secrets;
 using LinkForge.Application.Storage;
 using LinkForge.Domain.Assets;
 using LinkForge.Domain.Projects;
+using LinkForge.Domain.Secrets;
 
 namespace LinkForge.App.Tests.ViewModels;
 
@@ -27,6 +29,7 @@ internal sealed class AssetCatalogHarness
         Files = new FakeAssetCsvFileService();
         PackageFiles = new FakeProjectPackageFileService();
         PackageImporter = new FakeProjectPackageImporter();
+        Secrets = new FakeSecretStore();
 
         ViewModel = new AssetCatalogViewModel(
             Projects,
@@ -38,7 +41,8 @@ internal sealed class AssetCatalogHarness
             new AssetCsvExportService(),
             PackageFiles,
             new ProjectPackageCodec(),
-            PackageImporter);
+            PackageImporter,
+            Secrets);
     }
 
     public FakeProjectStore Projects { get; }
@@ -55,7 +59,93 @@ internal sealed class AssetCatalogHarness
 
     public FakeProjectPackageImporter PackageImporter { get; }
 
+    public FakeSecretStore Secrets { get; }
+
     public AssetCatalogViewModel ViewModel { get; }
+}
+
+/// <summary>内存凭据库：只用于验证视图模型状态机，不模拟 DPAPI。</summary>
+internal sealed class FakeSecretStore : ISecretStore
+{
+    private readonly Dictionary<string, Entry> _entries = new(StringComparer.Ordinal);
+
+    public Exception? StatusFailure { get; set; }
+
+    public Exception? SaveFailure { get; set; }
+
+    public Exception? DeleteFailure { get; set; }
+
+    public TaskCompletionSource? StatusStarted { get; set; }
+
+    public TaskCompletionSource? StatusRelease { get; set; }
+
+    public int SaveCallCount { get; private set; }
+
+    public int DeleteCallCount { get; private set; }
+
+    public async Task<SecretEntryStatus> GetStatusAsync(
+        SecretReference reference,
+        CancellationToken cancellationToken = default)
+    {
+        StatusStarted?.TrySetResult();
+
+        if (StatusRelease is not null)
+        {
+            await StatusRelease.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (StatusFailure is not null)
+        {
+            throw StatusFailure;
+        }
+
+        return _entries.TryGetValue(reference.Key, out var entry)
+            ? SecretEntryStatus.Available(entry.UpdatedAtUtc)
+            : SecretEntryStatus.Missing;
+    }
+
+    public Task SaveAsync(
+        SecretReference reference,
+        string secretValue,
+        CancellationToken cancellationToken = default)
+    {
+        if (SaveFailure is not null)
+        {
+            return Task.FromException(SaveFailure);
+        }
+
+        SaveCallCount++;
+        _entries[reference.Key] = new Entry(secretValue, DateTimeOffset.Now);
+        return Task.CompletedTask;
+    }
+
+    public Task<string?> ReadAsync(
+        SecretReference reference,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(
+            _entries.TryGetValue(reference.Key, out var entry)
+                ? entry.Value
+                : null);
+
+    public Task<bool> DeleteAsync(
+        SecretReference reference,
+        CancellationToken cancellationToken = default)
+    {
+        if (DeleteFailure is not null)
+        {
+            return Task.FromException<bool>(DeleteFailure);
+        }
+
+        DeleteCallCount++;
+        return Task.FromResult(_entries.Remove(reference.Key));
+    }
+
+    public string? FindValue(string key) =>
+        _entries.TryGetValue(key, out var entry) ? entry.Value : null;
+
+    private sealed record Entry(string Value, DateTimeOffset UpdatedAtUtc);
 }
 
 /// <summary>内存项目存储：行为可编排，不碰磁盘。</summary>
