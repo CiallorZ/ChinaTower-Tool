@@ -47,6 +47,10 @@ public class ReleasePackagingTests
         source.ShouldContain("Check: IsX64Install");
         source.ShouldContain("Check: not IsX64Install");
         source.ShouldContain(@"MessagesFile: ""Languages\ChineseSimplified.isl""");
+        source.ShouldContain("PrepareToInstall");
+        source.ShouldContain("DeinitializeSetup");
+        source.ShouldContain("upgrade-backup");
+        source.ShouldContain("CopyDirectoryTree");
     }
 
     [Fact]
@@ -55,6 +59,10 @@ public class ReleasePackagingTests
         var root = FindRepositoryRoot();
         var releaseScript = File.ReadAllText(Path.Combine(root, "scripts", "build-release.ps1"));
         var installerVerifier = File.ReadAllText(Path.Combine(root, "scripts", "verify-installer.ps1"));
+        var upgradeFailureVerifier = File.ReadAllText(Path.Combine(
+            root,
+            "scripts",
+            "verify-installer-upgrade-failure.ps1"));
 
         releaseScript.ShouldContain("Formal release requires a clean worktree");
         releaseScript.ShouldContain("Formal release requires an empty VersionSuffix");
@@ -63,9 +71,21 @@ public class ReleasePackagingTests
         releaseScript.ShouldContain("LinkForge-Setup-THIRD-PARTY-NOTICES.txt");
 
         installerVerifier.ShouldContain("UpgradeExitCode");
+        installerVerifier.ShouldContain("FailedUpgradeExitCode");
+        installerVerifier.ShouldContain("PreviousInstallationPreserved");
+        installerVerifier.ShouldContain("UpgradeBackupRemoved");
+        installerVerifier.ShouldContain("NOCLOSEAPPLICATIONS");
+        installerVerifier.ShouldContain("removed the previous uninstaller");
+        installerVerifier.ShouldContain("removed the previous Start Menu shortcut");
         installerVerifier.ShouldContain("UninstallExitCode");
         installerVerifier.ShouldContain("UserDataPreserved");
         installerVerifier.ShouldContain("Uninstall unexpectedly removed user data");
+
+        upgradeFailureVerifier.ShouldContain("locks LinkForge.App.dll");
+        upgradeFailureVerifier.ShouldContain("FailedUpgradeExitCode");
+        upgradeFailureVerifier.ShouldContain("PreviousUninstallerPreserved");
+        upgradeFailureVerifier.ShouldContain("PreviousStartMenuShortcutPreserved");
+        upgradeFailureVerifier.ShouldContain("PreviousApplicationExitCode");
     }
 
     [Fact]

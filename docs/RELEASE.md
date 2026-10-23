@@ -1,167 +1,141 @@
-# LinkForge V1.1 发布与验收
+# LinkForge V1.2 发布与验收
 
 日期：2026-10-24
-版本：`1.1.0`
-渠道：正式版
-最终提交：`64c5993e572dae7879baf0819fed0c14898e7f85`
-Git 标签：`v1.1.0`（指向 `64c5993`，不移动 `v1.0.0`）
-Windows CI：[Run 40027976323](https://github.com/CiallorZ/ChinaTower-Tool/actions/runs/40027976323)
-GitHub Release：[LinkForge v1.1.0](https://github.com/CiallorZ/ChinaTower-Tool/releases/tag/v1.1.0)
+版本：`1.2.0`
+渠道：发布候选（正式门禁完成后回填提交、产物与 Release 链接）
+历史版本：`v1.0.0`、`v1.1.0` 标签均保持不动
 
-## 1. 发布物
+## 1. 本版目标
 
-正式发布由 `scripts/build-release.ps1 -Formal` 从干净提交生成：
+V1.2 不扩展协议或安全工具范围，只修复发布工程中的真实缺口：
 
-- `LinkForge-1.1.0-<commit>-win-x64-portable.zip`
-- `LinkForge-1.1.0-<commit>-win-x86-portable.zip`
-- `LinkForge-Setup-1.1.0-<commit>.exe`
-- 安装器 SHA-256 文件
-- `LinkForge-Setup-THIRD-PARTY-NOTICES.txt`
-- `LinkForge-Release-1.1.0-<commit>.json`
+- 覆盖安装失败时，原安装器在 Inno 回滚后可能只剩非程序文件，旧程序目录
+  无法继续运行。
+- V1.2 在升级前复制完整程序目录到
+  `%LOCALAPPDATA%\LinkForge\upgrade-backup`。
+- 安装未成功时恢复旧 EXE、DLL、卸载器、快捷方式及安装目录内其他文件；
+  恢复不完整时保留备份并写入安装日志。
+- 成功升级后删除临时备份；普通卸载仍保留
+  `%LOCALAPPDATA%\LinkForge` 用户项目、日志、报告与凭据文件。
 
-本次正式产物：
+这不是系统级事务安装，也不能保证被其他进程长期占用、磁盘损坏或权限被撤销时
+一定恢复成功。恢复失败必须保留备份和日志，不得声称成功。
 
-| 产物 | 字节 | SHA-256 |
-| --- | ---: | --- |
-| `LinkForge-Setup-1.1.0-64c5993e572d.exe` | 96,281,443 | `37af3f6a2255012ab684eb98645591f662a001ec94c90a89491fd4f717078755` |
-| `LinkForge-1.1.0-64c5993e572d-win-x64-portable.zip` | 69,926,634 | `26679775d540514bb34f74a26eada740335c7a9377071f0ae94472b6cb8c16f8` |
-| `LinkForge-1.1.0-64c5993e572d-win-x86-portable.zip` | 65,221,476 | `52545a95ee98b6bfe9d6098a7533c2e804ff1e4f8b7132002edb926bad350621` |
-| `LinkForge-Setup-THIRD-PARTY-NOTICES.txt` | 1,072 | `02f0dd3b98833040147d01daf91243c24392a33ddced674152220b5216782c6a` |
+## 2. 验证入口
 
-发布清单 `LinkForge-Release-1.1.0-64c5993e572d.json` 的 SHA-256 为
-`06e7265da44ec28ce35e1bf6aaed96a26297d18b97fe7f6b0832e68fb1f6e91c`。
-清单内四个附件的字节数和 SHA-256 已逐项复核一致。
-
-便携包内含 `release.json`、`VERSION.txt`、依赖/许可证清单、CycloneDX 1.5
-SBOM、`SHA256SUMS.txt` 和 ZIP SHA-256。正式模式要求：
-
-- `Directory.Build.props` 中 `VersionSuffix` 为空；
-- 工作区干净；
-- Release 全量构建和测试门禁成功；
-- 安装器与应用程序版本、提交号一致。
-- Windows CI 的 Release 构建与全量测试通过；CI 产出的未签名诊断包不替代正式门禁。
+候选安装器：
 
 ```powershell
-pwsh -NoProfile -File scripts/build-release.ps1 -Formal
+pwsh -NoProfile -File scripts/verify-installer.ps1 `
+  -InstallerPath artifacts\LinkForge-Setup-1.2.0-<commit>.exe
 ```
 
-## 2. 安装器
+从旧正式安装器升级到候选安装器的独立失败注入：
 
-V1.1 继续使用 Inno Setup 6 构建单个用户级安装器，同时嵌入 `win-x64` 与
-`win-x86` 自包含载荷，由安装时的 `IsWin64` 选择匹配架构。
+```powershell
+pwsh -NoProfile -File scripts/verify-installer-upgrade-failure.ps1 `
+  -InstallerPath artifacts\LinkForge-Setup-1.2.0-<commit>.exe `
+  -BaseInstallerPath artifacts\LinkForge-Setup-1.0.0-879de49f4640.exe
+```
+
+`verify-installer.ps1` 必须在隔离目录完成：
+
+1. 静默安装并启动/关闭应用。
+2. 记录 EXE/DLL 哈希并写入安装目录标记。
+3. 以 `FileShare.None` 锁定 `LinkForge.App.dll`。
+4. 使用 `/NOCLOSEAPPLICATIONS` 执行升级，要求安装器返回非零。
+5. 要求旧 EXE/DLL、安装目录标记、卸载器与开始菜单快捷方式仍存在。
+6. 恢复后应用启动/关闭退出码必须为 `0`。
+7. 再执行正常升级，要求退出码 `0` 且备份目录已删除。
+8. 卸载成功，程序与快捷方式删除，用户数据保留。
+
+候选安装器已完成的失败注入结果：
+
+```text
+InstallExitCode               : 0
+FailedUpgradeExitCode         : 7
+UpgradeExitCode               : 0
+FirstApplicationExitCode      : 0
+RecoveredApplicationExitCode  : 0
+SecondApplicationExitCode     : 0
+UninstallExitCode             : 0
+PreviousInstallationPreserved : True
+UpgradeBackupRemoved          : True
+UserDataPreserved             : True
+```
+
+同一候选安装器还完成了从 `v1.0.0` 正式安装器到 `v1.2.0` 候选安装器的
+独立失败注入：升级退出码 `7`，旧 EXE/DLL、安装标记、卸载器和开始菜单
+快捷方式全部保留，恢复后应用启动/关闭退出码 `0`，最终卸载退出码 `0`。
+
+该结果是候选安装器的本地真实执行记录，不替代正式提交上的最终门禁。
+
+## 3. 正式发布流程
+
+正式产物必须从干净提交生成：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass `
+  -File scripts\build-release.ps1 -Formal
+```
+
+正式模式要求：
+
+- `Directory.Build.props` 中 `VersionSuffix` 为空；
+- Git 工作区干净；
+- Release 全量构建与测试门禁成功；
+- 安装器、应用程序、发布清单中的版本和提交一致；
+- 生成 `win-x64` / `win-x86` 自包含便携包与单一用户级安装器；
+- 生成每个产物的 SHA-256、第三方声明与发布 JSON。
+
+正式产物形成后再执行安装器验收、干净检出验证、Windows CI、标签与 GitHub
+Release 发布核验。产物大小、提交号、CI、标签和 Release 附件结果必须在正式
+门禁完成后回填；在此之前状态只能写“候选”。
+
+## 4. 发布产物
+
+预期产物：
+
+- `LinkForge-Setup-1.2.0-<commit>.exe`
+- `LinkForge-Setup-1.2.0-<commit>.exe.sha256`
+- `LinkForge-1.2.0-<commit>-win-x64-portable.zip`
+- 对应 `.sha256`
+- `LinkForge-1.2.0-<commit>-win-x86-portable.zip`
+- 对应 `.sha256`
+- `LinkForge-Setup-THIRD-PARTY-NOTICES.txt`
+- `LinkForge-Release-1.2.0-<commit>.json`
+
+便携包内含 `release.json`、`VERSION.txt`、依赖/许可证清单、CycloneDX 1.5
+SBOM、`SHA256SUMS.txt` 和 ZIP SHA-256。依赖清单只反映 NuGet nuspec 声明，
+不替代法律审查。
+
+## 5. 安装与卸载
 
 - 默认目录：`%LOCALAPPDATA%\Programs\LinkForge`
 - 权限：`PrivilegesRequired=lowest`、`asInvoker`，不需要管理员权限
 - 快捷方式：开始菜单；桌面快捷方式为可选
+- 升级失败：恢复旧程序目录；恢复不完整时保留
+  `%LOCALAPPDATA%\LinkForge\upgrade-backup`
+- 成功升级：删除临时升级备份
 - 卸载：删除程序文件、开始菜单/桌面快捷方式和卸载入口
 - 用户数据：`%LOCALAPPDATA%\LinkForge` 保留，不随卸载删除
-- 升级：同一 AppId 重复安装覆盖程序目录；不支持自动回滚
-- 语言：简体中文 + 英文；中文语言包随仓库固定，来源和 MIT 许可见
-  `installer/Languages/README.md`
+- 语言：简体中文 + 英文；中文语言包固定进仓库并附 MIT 声明
 
-安装器不是 MSIX/WiX，不包含自动更新器，也不支持失败自动回滚。
+## 6. 安全与范围边界
 
-## 3. 验证命令
+- 安装器和便携包**未签名**，SmartScreen 可能显示未知发布者警告。
+- 无 Authenticode 代码签名、可信时间戳、SmartScreen 信誉、自动更新、
+  版本降级阻止或系统级事务安装。
+- 未在 Windows 10 真机、32 位 Windows 安装流程、高 DPI 多显示器和完整
+  键盘/辅助功能组合上完成最终验收。
+- 厂商 SDK（D-09）、抓包、安全扫描与渗透/攻防（D-10）未接入。
+- V1.2 只证明安装器失败升级的程序目录恢复链路，不证明任意磁盘、ACL、
+  杀毒软件或系统策略故障都能恢复。
 
-安装器完整验收：
+## 7. 历史版本
 
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass `
--File scripts/verify-installer.ps1 `
-  -InstallerPath artifacts/LinkForge-Setup-1.1.0-<commit>.exe
-```
+- V1.0.0：https://github.com/CiallorZ/ChinaTower-Tool/releases/tag/v1.0.0
+- V1.1.0：https://github.com/CiallorZ/ChinaTower-Tool/releases/tag/v1.1.0
 
-脚本验证静默安装、开始菜单入口、应用启动/关闭、重复安装升级、卸载和
-`%LOCALAPPDATA%\LinkForge` 用户数据保留。若开始菜单已存在 `LinkForge`
-目录，脚本会拒绝继续，避免误删既有安装快捷方式。
-
-两个架构载荷也可单独验证：
-
-```powershell
-artifacts\release-payloads\win-x86\LinkForge.App.exe
-```
-
-干净检出验证：
-
-```powershell
-pwsh -NoProfile -File scripts/verify-clean-checkout.ps1 -Configuration Release
-```
-
-截图验收测试默认写入系统临时目录，避免正式发布门禁污染工作区。需要有意
-更新仓库中的 `screenshots/` 证据图时，显式设置环境变量后运行构建：
-
-```powershell
-$env:LINKFORGE_UPDATE_SCREENSHOTS = '1'
-pwsh -NoProfile -File scripts/build.ps1
-Remove-Item Env:LINKFORGE_UPDATE_SCREENSHOTS
-```
-
-## 4. V1.1 验收边界
-
-已实测：
-
-- Windows 11 10.0.26300 x64 安装、覆盖安装、启动/关闭、卸载与用户数据保留；
-- 安装器内 x64 载荷真实启动并关闭，退出码 `0`；
-- 独立启动 x86 自包含载荷成功并关闭，退出码 `0`；
-- PE 头检查确认 `win-x64` 载荷为 x64、`win-x86` 载荷为 x86；
-- 全量测试 `1049 / 1049` 通过；
-- 正式门禁渠道 `formal`、`dirty=false`，发布提交 `64c5993e572d`；
-- Windows CI 的 Release 构建、全量测试和未签名诊断包步骤通过；
-- 正式提交 `64c5993` 的干净检出 Release 构建与 `1049 / 1049` 测试通过；
-- 完整记录见 `docs/BUILD_LOG.md`。
-
-公开发布后已核验：GitHub Release 为正式公开状态，不是草稿或预发布；
-8 个附件全部 `uploaded`，远端字节数与本地一致；`v1.1.0` 标签解引用后
-精确指向 `64c5993e572dae7879baf0819fed0c14898e7f85`，既有 `v1.0.0`
-标签未移动。发布记录文档提交 `ffc2a4a` 的 Windows CI
-[Run 40029279139](https://github.com/CiallorZ/ChinaTower-Tool/actions/runs/40029279139)
-也已通过。
-
-未完成最终实测：
-
-- Windows 10 x64 真机安装与升级；
-- 32 位 Windows 10 上的安装器架构选择和运行；
-- 高 DPI 多显示器、完整键盘焦点顺序与可访问性验收；
-- 恶意/损坏安装包、系统策略阻断和升级失败恢复。
-
-应用清单声明支持 Windows 10/11、PerMonitorV2、`asInvoker` 和 long path，
-但这不等于上述真机/辅助功能场景已经全部验收。
-
-## 5. 凭据库边界
-
-- 资产密码可保存到当前 Windows 用户的 DPAPI CurrentUser 凭据库；
-- 密文文件位于 `%LOCALAPPDATA%\LinkForge\secrets`，文件名不包含引用键；
-- 项目包、日志、历史、剪贴板、导出和报告只使用凭据引用键，不读取秘密值；
-- DPAPI CurrentUser 不支持跨机同步，也不能防御已经以同一用户身份运行的恶意软件。
-
-## 6. 签名状态
-
-V1.1 安装器和便携包**未签名**：
-
-- 没有代码签名证书、时间戳服务和发布者信任配置；
-- Windows SmartScreen 可能显示未知发布者或阻止下载/运行；
-- About 页只读取本机 Authenticode 信任链结果，不联网验证发布者；
-- 不得把“本机信任链通过”表述为软件供应链审计完成。
-
-代码签名、时间戳、SmartScreen 信誉和自动更新属于后续版本工作。
-
-## 7. 依赖与许可证
-
-发布脚本从 `project.assets.json` 和 NuGet `.nuspec` 生成 NuGet 依赖与声明
-许可证清单，并生成 CycloneDX 1.5 SBOM。声明许可证不等于完成法律审查。
-
-Inno Setup 简体中文语言包采用 MIT 许可，许可证文本随安装器发布物提供。
-仓库当前没有为 LinkForge 自身增加 `LICENSE` 或 EULA；安装器不伪造许可协议。
-正式对外再分发前，产品所有者仍需明确 LinkForge 自身授权策略并完成依赖
-许可证复核。
-
-## 8. 已知功能边界
-
-- 海康/大华开放平台 SDK、GB/T 28181、RTP 接收、媒体解码、首帧和持续播放未交付；
-- 抓包、端口/安全扫描和渗透攻防工具未交付，授权边界仍未确认；
-- MQTT 遗嘱、保留消息管理、Topic 树和自动重连未交付；
-- RTSP 当前只做 DNS/TCP/OPTIONS/DESCRIBE/SDP 与 Basic 认证；
-- ONVIF Stream URI 可用不等于媒体已经播放；
-- 日志文件不加密，未实现轮转保留、归档和签名；
-- DPAPI 凭据库不提供跨机同步、秘密备份恢复、密钥轮换或 Windows Credential Manager；
-- 便携包和安装器都不是 bit-for-bit 可复现；只能说干净 checkout 可重复构建和验证。
+历史标签不得移动或重写；各版本原始产物核对记录保留在 Git 历史、
+`docs/BUILD_LOG.md` 与对应 GitHub Release 中。

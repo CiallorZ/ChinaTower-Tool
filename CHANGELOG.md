@@ -2,6 +2,36 @@
 
 All notable changes to LinkForge are recorded here.
 
+## 1.2.0 - 2026-10-24
+
+### Fixed
+
+- In-place installer upgrades now back up the existing program directory before
+  changing files. If an upgrade fails, the installer restores the previous
+  executable, DLLs, uninstaller and shortcuts before exiting with a failure
+  code; an incomplete restore keeps the backup for manual recovery.
+- Successful upgrades remove the temporary backup, and normal uninstall still
+  preserves `%LOCALAPPDATA%\LinkForge` user data.
+
+### Verified
+
+- Debug build: 0 warnings, 0 errors.
+- Full test suite: 1049/1049 passed.
+- Application startup and close smoke test: exit code 0.
+- Controlled failure injection locked `LinkForge.App.dll` during an upgrade:
+  the candidate installer exited non-zero while the previous EXE/DLL hashes,
+  install-local marker, uninstaller and Start Menu shortcut remained available;
+  the recovered application started and closed with exit code 0.
+- A subsequent normal in-place upgrade succeeded, removed the backup directory,
+  and the installed application started and closed with exit code 0.
+
+### Release boundaries
+
+- The installer and portable packages remain **unsigned**.
+- This release closes installer upgrade-failure recovery only. It does not add
+  code signing, automatic updates, Windows 10 physical-device acceptance,
+  vendor SDKs, packet capture, security scanning or offensive tooling.
+
 ## 1.1.0 - 2026-10-24
 
 ### Added

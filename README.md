@@ -19,17 +19,21 @@
 | 项目资产、网络、HTTP、MQTT、RTSP、ONVIF、日志、报告、开发者工具、插件页 | 已完成真实实现与本地验证 |
 | 正式发布工程（LF-013） | **V1.0**：未签名双架构安装器、`win-x64`/`win-x86` 自包含便携包、依赖清单、SBOM、SHA-256 与干净构建脚本 |
 | V1.1 增量（LF-016 / LF-017） | **已发布**：MQTT 3.1.1 / 5.0、项目包导入导出、CurrentUser DPAPI 凭据库、Windows CI 与发布可追溯性 |
+| V1.2 增量（LF-018） | **发布候选**：安装器失败升级恢复；真实文件占用失败注入、程序目录恢复、备份清理与卸载入口保留验收 |
 | 版本与签名信息 | **已实现**：真实读取程序集、系统、架构、安装形态与本机 Authenticode 信任状态 |
 
-> 当前版本为 `1.1.0`。安装器与便携包均**未签名**，会触发 SmartScreen；
-> 安装器是 Inno Setup 用户级安装包，不是 MSIX/WiX，也没有自动更新或失败回滚。
+> 当前版本为 `1.2.0`（正式发布门禁完成后更新发布链接）。安装器与便携包均
+> **未签名**，会触发 SmartScreen；安装器是 Inno Setup 用户级安装包，不是
+> MSIX/WiX，也没有自动更新。本版已加入失败升级的程序目录恢复，但恢复能力
+> 不等于系统级事务，也不能替代代码签名或备份。
 > 本机已实测 Windows 11、x64 安装链路与 x86 自包含载荷；Windows 10 真机、
 > 高 DPI/可访问性最终验收、厂商 SDK 与抓包/安全扫描边界仍未完成，详见
 > `docs/RELEASE.md`。
 
 正式发布页：
-[LinkForge V1.1.0](https://github.com/CiallorZ/ChinaTower-Tool/releases/tag/v1.1.0)
-（历史版本：[V1.0.0](https://github.com/CiallorZ/ChinaTower-Tool/releases/tag/v1.0.0)）
+[LinkForge V1.2.0](https://github.com/CiallorZ/ChinaTower-Tool/releases/tag/v1.2.0)
+（历史版本：[V1.1.0](https://github.com/CiallorZ/ChinaTower-Tool/releases/tag/v1.1.0)、
+[V1.0.0](https://github.com/CiallorZ/ChinaTower-Tool/releases/tag/v1.0.0)）
 
 ## 文档索引
 
@@ -50,8 +54,9 @@
 | `docs/CODEX_START_PROMPT.md` | 启动提示词存档 |
 | `docs/UI_IMPLEMENTATION_PLAN.md` | 六个阶段的分阶段实施计划 |
 | `docs/RELEASE.md` | 正式发布物、安装/卸载、版本、依赖清单、SBOM、签名与未完成项 |
+| `docs/RELEASE_NOTES_V1.2.0.md` | V1.2.0 用户发布说明与安全边界 |
 | `docs/RELEASE_NOTES_V1.1.0.md` | V1.1.0 用户发布说明与安全边界 |
-| `CHANGELOG.md` | V1.1、V1.0 与历史预览版本变更摘要 |
+| `CHANGELOG.md` | V1.2、V1.1、V1.0 与历史预览版本变更摘要 |
 
 ## 环境要求（目标）
 
@@ -63,7 +68,7 @@
 ## 下一步
 
 1. 在 Windows 10 x64 真机执行安装、启动、升级替换与卸载残留验收。
-2. 评估代码签名证书、时间戳、自动更新与升级失败回滚。
+2. 评估代码签名证书、时间戳、自动更新与系统级事务安装。
 3. 关闭 D-09（海康/大华 SDK 许可）与 D-10（抓包/安全扫描授权边界）。
 
 发布命令：

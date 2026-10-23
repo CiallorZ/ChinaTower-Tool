@@ -4,9 +4,10 @@
 
 .DESCRIPTION
     Uses a unique temporary install directory and a unique Start Menu group.
-    The test verifies the selected payload starts, that an upgrade can run over
-    the previous install, and that uninstall removes program files without
-    deleting the user's %LOCALAPPDATA%\LinkForge data directory.
+    The test verifies the selected payload starts, that an in-place upgrade
+    failure preserves and restores the previous program directory, that a
+    subsequent upgrade succeeds, and that uninstall removes program files
+    without deleting the user's %LOCALAPPDATA%\LinkForge data directory.
 #>
 
 [CmdletBinding()]
@@ -32,20 +33,27 @@ $WorkingRoot = [IO.Path]::GetFullPath($WorkingRoot)
 $installDirectory = Join-Path $WorkingRoot 'app'
 $groupName = 'LinkForge'
 $installLog = Join-Path $WorkingRoot 'install.log'
+$failedUpgradeLog = Join-Path $WorkingRoot 'upgrade-failure.log'
 $upgradeLog = Join-Path $WorkingRoot 'upgrade.log'
 $uninstallLog = Join-Path $WorkingRoot 'uninstall.log'
+$markerPath = Join-Path $installDirectory 'upgrade-sentinel.txt'
+$lockedDll = Join-Path $installDirectory 'LinkForge.App.dll'
 $startMenuDirectory = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\$groupName"
 $dataDirectory = Join-Path $env:LOCALAPPDATA 'LinkForge'
 $dataSentinel = Join-Path $dataDirectory 'installer-verification.sentinel'
+$backupDirectory = Join-Path $dataDirectory 'upgrade-backup'
 $createdDataDirectory = -not (Test-Path $dataDirectory)
 $createdSentinel = $false
+$lock = $null
 
 New-Item -ItemType Directory -Path $WorkingRoot -Force | Out-Null
 
 function Invoke-Installer {
     param(
         [string]$LogPath,
-        [string[]]$ExtraArguments = @()
+        [string[]]$ExtraArguments = @(),
+        [switch]$AllowFailure,
+        [switch]$NoCloseApplications
     )
 
     $arguments = @(
@@ -56,6 +64,9 @@ function Invoke-Installer {
         "/DIR=`"$installDirectory`"",
         "/LOG=`"$LogPath`""
     ) + $ExtraArguments
+    if ($NoCloseApplications) {
+        $arguments += '/NOCLOSEAPPLICATIONS'
+    }
 
     $process = Start-Process -FilePath $InstallerPath `
         -ArgumentList $arguments `
@@ -63,9 +74,11 @@ function Invoke-Installer {
         -PassThru `
         -WindowStyle Hidden
 
-    if ($process.ExitCode -ne 0) {
+    if (-not $AllowFailure -and $process.ExitCode -ne 0) {
         throw "Installer failed with exit code $($process.ExitCode). Log: $LogPath"
     }
+
+    return $process.ExitCode
 }
 
 function Start-And-CloseApplication {
@@ -104,7 +117,7 @@ try {
     [IO.File]::WriteAllText($dataSentinel, 'preserve-me', [Text.UTF8Encoding]::new($false))
     $createdSentinel = $true
 
-    Invoke-Installer -LogPath $installLog
+    $installExitCode = Invoke-Installer -LogPath $installLog
 
     $appExe = Join-Path $installDirectory 'LinkForge.App.exe'
     $uninstaller = Join-Path $installDirectory 'unins000.exe'
@@ -123,10 +136,63 @@ try {
 
     $firstExitCode = Start-And-CloseApplication -ExecutablePath $appExe
 
+    # Force a file-replacement failure after the installer has started. The
+    # installer must preserve the previous program directory and restore it.
+    $originalHash = (Get-FileHash -LiteralPath $appExe -Algorithm SHA256).Hash
+    $originalDllHash = (Get-FileHash -LiteralPath $lockedDll -Algorithm SHA256).Hash
+    [IO.File]::WriteAllText(
+        $markerPath,
+        'preserve-me-during-failed-upgrade',
+        [Text.UTF8Encoding]::new($false))
+
+    $lock = [IO.File]::Open(
+        $lockedDll,
+        [IO.FileMode]::Open,
+        [IO.FileAccess]::ReadWrite,
+        [IO.FileShare]::None)
+
+    $failedUpgradeExitCode = Invoke-Installer `
+        -LogPath $failedUpgradeLog `
+        -AllowFailure `
+        -NoCloseApplications
+
+    $lock.Dispose()
+    $lock = $null
+
+    if ($failedUpgradeExitCode -eq 0) {
+        throw 'The failure-injected upgrade unexpectedly succeeded.'
+    }
+
+    if ((Get-FileHash -LiteralPath $appExe -Algorithm SHA256).Hash -ne $originalHash) {
+        throw 'The failed upgrade replaced the previous application executable.'
+    }
+
+    if ((Get-FileHash -LiteralPath $lockedDll -Algorithm SHA256).Hash -ne $originalDllHash) {
+        throw 'The failed upgrade changed the locked application DLL.'
+    }
+
+    if (-not (Test-Path $markerPath)) {
+        throw 'The failed upgrade removed the install-local marker.'
+    }
+
+    if (-not (Test-Path $uninstaller)) {
+        throw 'The failed upgrade removed the previous uninstaller.'
+    }
+
+    if (-not (Test-Path $startMenuLink)) {
+        throw 'The failed upgrade removed the previous Start Menu shortcut.'
+    }
+
+    $recoveredExitCode = Start-And-CloseApplication -ExecutablePath $appExe
+
     # Running the same installer over the existing install checks the per-user
     # upgrade path without needing a previous release artifact.
-    Invoke-Installer -LogPath $upgradeLog
+    $upgradeExitCode = Invoke-Installer -LogPath $upgradeLog
     $secondExitCode = Start-And-CloseApplication -ExecutablePath $appExe
+
+    if (Test-Path $backupDirectory) {
+        throw 'The successful upgrade left the temporary program backup behind.'
+    }
 
     $uninstallProcess = Start-Process -FilePath $uninstaller `
         -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/LOG=$uninstallLog") `
@@ -153,18 +219,27 @@ try {
     [pscustomobject]@{
         Installer = $InstallerPath
         InstallDirectory = $installDirectory
-        InstallExitCode = 0
-        UpgradeExitCode = 0
+        InstallExitCode = $installExitCode
+        FailedUpgradeExitCode = $failedUpgradeExitCode
+        UpgradeExitCode = $upgradeExitCode
         FirstApplicationExitCode = $firstExitCode
+        RecoveredApplicationExitCode = $recoveredExitCode
         SecondApplicationExitCode = $secondExitCode
         UninstallExitCode = 0
+        PreviousInstallationPreserved = $true
+        UpgradeBackupRemoved = $true
         UserDataPreserved = $true
         InstallLog = $installLog
+        FailedUpgradeLog = $failedUpgradeLog
         UpgradeLog = $upgradeLog
         UninstallLog = $uninstallLog
     } | Format-List
 }
 finally {
+    if ($null -ne $lock) {
+        $lock.Dispose()
+    }
+
     if ($createdSentinel -and (Test-Path $dataSentinel)) {
         Remove-Item -LiteralPath $dataSentinel -Force
     }

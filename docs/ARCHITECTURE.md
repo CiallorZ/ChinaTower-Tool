@@ -382,7 +382,7 @@ flowchart LR
 控制：秘密分离、脱敏、授权范围确认、速率限制、签名/哈希校验、最小权限、进程隔离、依赖清单、可审计日志。
 
 ## 8. 发布与交付
-- V1.0 / V1.1 发布物是未签名的双架构 Inno Setup 用户级安装器，以及
+- V1.0 / V1.1 / V1.2 发布物是未签名的双架构 Inno Setup 用户级安装器，以及
   `win-x64` / `win-x86` 自包含便携 ZIP。
 - `Directory.Build.props` 统一版本、产品、公司、仓库与确定性构建元数据；
   程序集信息版本附带 Git 提交号。
@@ -398,8 +398,10 @@ flowchart LR
 - 安装器由单一 AppId 管理，默认安装到
   `%LOCALAPPDATA%\Programs\LinkForge`，不要求管理员权限；同时嵌入两套
   自包含载荷，并按安装环境选择架构。
-- 卸载保留 `%LOCALAPPDATA%\LinkForge` 用户数据；重复安装覆盖程序文件，
-  但没有自动回滚或自动更新。
+- 卸载保留 `%LOCALAPPDATA%\LinkForge` 用户数据；重复安装覆盖程序文件。
+  V1.2 在升级前把旧程序目录备份到 `%LOCALAPPDATA%\LinkForge\upgrade-backup`，
+  安装未成功时恢复旧 EXE、DLL、卸载器与快捷方式；恢复不完整时保留备份并
+  写安装日志。没有自动更新。
 - 支持矩阵：已实测 Windows 11 10.0.26300 x64 安装链路，以及 x86 自包含载荷
   在 WOW64 下的启动/关闭；Windows 10 真机与 32 位 Windows 安装器选择流程
   仍未完成实测。

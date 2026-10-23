@@ -1,6 +1,6 @@
 <Project>
   <PropertyGroup>
-    <VersionPrefix>1.1.0</VersionPrefix>
+    <VersionPrefix>1.2.0</VersionPrefix>
     <Product>LinkForge 视联网调试工具箱</Product>
     <Company>CiallorZ</Company>
     <Authors>CiallorZ</Authors>
