@@ -531,6 +531,40 @@
 - Windows 10 真机、高 DPI、键盘 Tab 顺序与焦点环属阶段 06。
 - x86 运行仍受 D-08 缺少 x86 .NET 10 运行时约束。
 
+### LF-014 ONVIF 标准接入交付记录
+
+**状态**：已完成（2026-10-24）。
+
+**已交付**
+
+- `Adapters.Onvif`：WS-Discovery、`GetDeviceInformation`、`GetCapabilities`、
+  `GetProfiles` 与 `GetStreamUri`；SOAP over HTTP(S)，TLS 证书校验始终启用。
+- WS-Security UsernameToken；凭据不进入 URL，显示、日志、事实、复制与 JSON 导出统一脱敏。
+- 响应上限 2 MiB、禁止 DTD、限制 XML 解析资源；401、HTTP 错误、超时、
+  非法 XML、超大响应与取消分别反馈。
+- 单条损坏组播包被隔离，不中断发现窗口；未发现设备保持 `Unknown`。
+- ONVIF 页：发现/设备服务查询模式、服务 URI、凭据、Profile、超时校验、
+  外部目标授权、运行/取消、结构化结果、复制、JSON 导出、日志与空状态。
+- 导航：视频接入拆分为 RTSP 与 ONVIF 两条可用入口；导航目录递归支持三级节点。
+
+**验证**
+
+- 全解决方案构建与测试通过（结果见 `BUILD_LOG.md`）：975 / 975，0 警告 0 错误。
+- ONVIF 适配器 14 项测试使用本地设备服务与受控组播报文，覆盖发现、设备信息、
+  能力、Profile、Stream URI、认证、超时、非法 XML、超大响应、取消与脱敏。
+- 页面测试覆盖空/运行/成功/失败/未知/取消、1366×768 布局与浅深色截图差异；
+  Shell 测试覆盖 RTSP/ONVIF 页面互斥与完整 `DataContext` 绑定。
+- 应用真实启动/关闭成功，退出码 0。
+
+**明确未交付**
+
+- RTP 接收、媒体解码、首帧、持续播放、PTZ、事件、录像与固件升级。
+- 海康/大华开放平台 SDK、GB/T 28181 与厂商私有协议。
+- 真实设备矩阵、复杂多网卡组播环境与自动网段扫描。
+- **Stream URI 可用不等于视频已经播放。**
+- Windows 10 真机、高 DPI、键盘 Tab 顺序与焦点环属阶段 06。
+- x86 运行仍受 D-08 缺少 x86 .NET 10 运行时约束。
+
 
 ## 阶段 06：质量验收
 

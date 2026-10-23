@@ -340,9 +340,9 @@ public class ShellWindowTests
     }
 
     [Fact]
-    public void Selecting_video_should_show_the_rtsp_page_and_hide_other_pages()
+    public void Selecting_rtsp_should_show_the_rtsp_page_and_hide_other_pages()
     {
-        var (dashboard, network, api, mqtt, rtsp, placeholder, dataContext) = StaRunner.Run(() =>
+        var (dashboard, network, api, mqtt, rtsp, onvif, placeholder, dataContext) = StaRunner.Run(() =>
         {
             ThemedHost.EnsureResources();
 
@@ -350,19 +350,21 @@ public class ShellWindowTests
             using var apiHarness = new ApiWorkbenchHarness();
             using var mqttHarness = new MqttWorkbenchHarness();
             using var rtspHarness = new RtspDiagnosticsHarness();
+            using var onvifHarness = new OnvifDiagnosticsHarness();
             var viewModel = new ShellViewModel(
                 dashboard: new DashboardHarness().ViewModel,
                 networkDiagnostics: networkHarness.ViewModel,
                 apiWorkbench: apiHarness.ViewModel,
                 mqttWorkbench: mqttHarness.ViewModel,
-                rtspDiagnostics: rtspHarness.ViewModel);
+                rtspDiagnostics: rtspHarness.ViewModel,
+                onvifDiagnostics: onvifHarness.ViewModel);
             var window = new ShellWindow(viewModel);
 
             window.Show();
             PumpDispatcher();
             Layout(window, ReferenceWidth, ReferenceHeight);
 
-            viewModel.NavigateTo(NavigationCatalog.Find("connect.video"));
+            viewModel.NavigateTo(NavigationCatalog.Find("connect.video.rtsp"));
             PumpDispatcher();
             window.UpdateLayout();
 
@@ -372,6 +374,7 @@ public class ShellWindowTests
                 ((FrameworkElement)window.FindName("ApiWorkbenchContent")!).Visibility,
                 ((FrameworkElement)window.FindName("MqttWorkbenchContent")!).Visibility,
                 ((FrameworkElement)window.FindName("RtspDiagnosticsContent")!).Visibility,
+                ((FrameworkElement)window.FindName("OnvifDiagnosticsContent")!).Visibility,
                 ((FrameworkElement)window.FindName("NotImplementedContent")!).Visibility,
                 ((FrameworkElement)window.FindName("RtspDiagnosticsContent")!).DataContext);
 
@@ -385,8 +388,51 @@ public class ShellWindowTests
         api.ShouldBe(Visibility.Collapsed);
         mqtt.ShouldBe(Visibility.Collapsed);
         rtsp.ShouldBe(Visibility.Visible);
+        onvif.ShouldBe(Visibility.Collapsed);
         placeholder.ShouldBe(Visibility.Collapsed);
         dataContext.ShouldBeOfType<RtspDiagnosticsViewModel>();
+    }
+
+    [Fact]
+    public void Selecting_onvif_should_show_the_onvif_page_and_hide_other_pages()
+    {
+        var (dashboard, rtsp, onvif, placeholder, dataContext) = StaRunner.Run(() =>
+        {
+            ThemedHost.EnsureResources();
+
+            using var rtspHarness = new RtspDiagnosticsHarness();
+            using var onvifHarness = new OnvifDiagnosticsHarness();
+            var viewModel = new ShellViewModel(
+                dashboard: new DashboardHarness().ViewModel,
+                rtspDiagnostics: rtspHarness.ViewModel,
+                onvifDiagnostics: onvifHarness.ViewModel);
+            var window = new ShellWindow(viewModel);
+
+            window.Show();
+            PumpDispatcher();
+            Layout(window, ReferenceWidth, ReferenceHeight);
+
+            viewModel.NavigateTo(NavigationCatalog.Find("connect.video.onvif"));
+            PumpDispatcher();
+            window.UpdateLayout();
+
+            var result = (
+                ((FrameworkElement)window.FindName("DashboardContent")!).Visibility,
+                ((FrameworkElement)window.FindName("RtspDiagnosticsContent")!).Visibility,
+                ((FrameworkElement)window.FindName("OnvifDiagnosticsContent")!).Visibility,
+                ((FrameworkElement)window.FindName("NotImplementedContent")!).Visibility,
+                ((FrameworkElement)window.FindName("OnvifDiagnosticsContent")!).DataContext);
+
+            window.Close();
+            PumpDispatcher();
+            return result;
+        });
+
+        dashboard.ShouldBe(Visibility.Collapsed);
+        rtsp.ShouldBe(Visibility.Collapsed);
+        onvif.ShouldBe(Visibility.Visible);
+        placeholder.ShouldBe(Visibility.Collapsed);
+        dataContext.ShouldBeOfType<OnvifDiagnosticsViewModel>();
     }
 
     [Fact]

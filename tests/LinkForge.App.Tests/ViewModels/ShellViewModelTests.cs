@@ -475,16 +475,39 @@ public sealed class ShellViewModelTests : IDisposable
     }
 
     [Fact]
-    public void Navigating_to_video_should_select_the_rtsp_diagnostics()
+    public void Navigating_to_rtsp_should_select_the_rtsp_diagnostics()
     {
         using var harness = new RtspDiagnosticsHarness();
         var viewModel = new ShellViewModel(rtspDiagnostics: harness.ViewModel);
 
-        viewModel.NavigateTo(NavigationCatalog.Find("connect.video"));
+        viewModel.NavigateTo(NavigationCatalog.Find("connect.video.rtsp"));
 
         viewModel.IsRtspDiagnosticsSelected.ShouldBeTrue();
         viewModel.IsCurrentModuleImplemented.ShouldBeTrue();
-        viewModel.CurrentTitle.ShouldBe("视频接入");
+        viewModel.CurrentTitle.ShouldBe("RTSP 分阶段诊断");
+    }
+
+    [Fact]
+    public void Exposed_onvif_diagnostics_should_be_the_injected_instance()
+    {
+        using var harness = new OnvifDiagnosticsHarness();
+        var viewModel = new ShellViewModel(onvifDiagnostics: harness.ViewModel);
+
+        viewModel.OnvifDiagnostics.ShouldBeSameAs(harness.ViewModel);
+    }
+
+    [Fact]
+    public void Navigating_to_onvif_should_select_the_onvif_diagnostics()
+    {
+        using var harness = new OnvifDiagnosticsHarness();
+        var viewModel = new ShellViewModel(onvifDiagnostics: harness.ViewModel);
+
+        viewModel.NavigateTo(NavigationCatalog.Find("connect.video.onvif"));
+
+        viewModel.IsOnvifDiagnosticsSelected.ShouldBeTrue();
+        viewModel.IsRtspDiagnosticsSelected.ShouldBeFalse();
+        viewModel.IsCurrentModuleImplemented.ShouldBeTrue();
+        viewModel.CurrentTitle.ShouldBe("ONVIF 标准接入");
     }
 
     [Fact]

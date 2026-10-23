@@ -63,6 +63,7 @@ public class ArchitectureTests
                      "LinkForge.Adapters.Http",
                      "LinkForge.Adapters.Mqtt",
                      "LinkForge.Adapters.Network",
+                     "LinkForge.Adapters.Onvif",
                      "LinkForge.Adapters.Video"
                  })
         {
@@ -200,6 +201,27 @@ public class ArchitectureTests
     }
 
     [Fact]
+    public void Onvif_adapter_should_not_reference_app_application_or_wpf()
+    {
+        var references = ProjectFile.ReadProjectReferences(
+            "src/LinkForge.Adapters.Onvif/LinkForge.Adapters.Onvif.csproj");
+
+        references.ShouldNotContain("LinkForge.App");
+        references.ShouldNotContain("LinkForge.Application");
+
+        var onvif = typeof(LinkForge.Adapters.Onvif.OnvifDiagnosticAdapter).Assembly;
+        var forbidden = onvif
+            .GetReferencedAssemblies()
+            .Select(a => a.Name ?? string.Empty)
+            .Where(name => ForbiddenAssemblyPrefixes.Any(
+                forbiddenPrefix => name.StartsWith(forbiddenPrefix, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+
+        forbidden.ShouldBeEmpty(
+            $"Adapters.Onvif 不得引用 WPF 程序集，实际引用：{string.Join(", ", forbidden)}");
+    }
+
+    [Fact]
     public void Reporting_project_should_not_reference_app_adapters_or_wpf()
     {
         // Reporting 是纯渲染与扫描库：只允许依赖 Domain / Application。
@@ -212,6 +234,7 @@ public class ArchitectureTests
         references.ShouldNotContain("LinkForge.Adapters.Http");
         references.ShouldNotContain("LinkForge.Adapters.Mqtt");
         references.ShouldNotContain("LinkForge.Adapters.Network");
+        references.ShouldNotContain("LinkForge.Adapters.Onvif");
         references.ShouldNotContain("LinkForge.Adapters.Video");
         references.ShouldContain("LinkForge.Domain");
 

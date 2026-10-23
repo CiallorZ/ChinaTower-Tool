@@ -94,8 +94,17 @@ public static class NavigationCatalog
             LfModuleAvailability.NotImplemented,
             [
                 new("connect.video", "视频接入", LfGlyph.Video,
-                    "RTSP / ONVIF 与厂商 SDK 的阶段化诊断。",
-                    LfModuleAvailability.Available, []),
+                    "按标准信令检查视频接入链路。",
+                    LfModuleAvailability.NotImplemented,
+                    [
+                        new("connect.video.rtsp", "RTSP 分阶段诊断", LfGlyph.Video,
+                            "检查 RTSP OPTIONS、DESCRIBE 与 SDP 信令。",
+                            LfModuleAvailability.Available, []),
+
+                        new("connect.video.onvif", "ONVIF 标准接入", LfGlyph.Video,
+                            "执行 WS-Discovery、设备信息、能力与媒体 Profile 查询。",
+                            LfModuleAvailability.Available, [])
+                    ]),
 
                 new("connect.iot", "IoT 与协议", LfGlyph.Iot,
                     "MQTT / HTTP / WebSocket 等协议调试。",
@@ -194,11 +203,22 @@ public static class NavigationCatalog
     {
         foreach (var node in TopLevel)
         {
-            yield return node;
-
-            foreach (var child in node.Children)
+            foreach (var descendant in EnumerateNode(node))
             {
-                yield return child;
+                yield return descendant;
+            }
+        }
+    }
+
+    private static IEnumerable<NavigationNode> EnumerateNode(NavigationNode node)
+    {
+        yield return node;
+
+        foreach (var child in node.Children)
+        {
+            foreach (var descendant in EnumerateNode(child))
+            {
+                yield return descendant;
             }
         }
     }

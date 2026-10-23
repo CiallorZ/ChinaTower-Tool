@@ -3,6 +3,7 @@ using System.IO;
 using LinkForge.Adapters.Http;
 using LinkForge.Adapters.Mqtt;
 using LinkForge.Adapters.Network;
+using LinkForge.Adapters.Onvif;
 using LinkForge.Adapters.Video;
 using LinkForge.App.Presentation;
 using LinkForge.App.Services;
@@ -177,6 +178,12 @@ public partial class App : System.Windows.Application
         services.AddSingleton<RtspDiagnosticAdapter>();
         services.AddSingleton<IRtspResultExporter, RtspResultExporter>();
 
+        // ONVIF 标准接入：WS-Discovery、设备/能力/媒体 Profile 与 Stream URI。
+        // 不接入厂商 SDK、媒体解码或 GB/T 28181；TLS 校验始终启用。
+        services.AddSingleton<IOnvifProbe, WindowsOnvifProbe>();
+        services.AddSingleton<OnvifDiagnosticAdapter>();
+        services.AddSingleton<IOnvifResultExporter, OnvifResultExporter>();
+
         // 报告：应用层只依赖 IReportGenerator，HTML 模板与扫描规则集中在 Reporting 项目。
         services.AddSingleton<IReportGenerator>(static provider =>
             new ReportGenerator(provider.GetRequiredService<ITextRedactor>()));
@@ -228,6 +235,7 @@ public partial class App : System.Windows.Application
         services.AddSingleton<ApiWorkbenchViewModel>();
         services.AddSingleton<MqttWorkbenchViewModel>();
         services.AddSingleton<RtspDiagnosticsViewModel>();
+        services.AddSingleton<OnvifDiagnosticsViewModel>();
         services.AddSingleton<ReportPageViewModel>();
         services.AddSingleton<DeveloperToolsViewModel>();
         services.AddSingleton<PluginManagerViewModel>();

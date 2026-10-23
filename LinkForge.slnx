@@ -5,6 +5,7 @@
     <Project Path="src/LinkForge.Adapters.Http/LinkForge.Adapters.Http.csproj" />
     <Project Path="src/LinkForge.Adapters.Mqtt/LinkForge.Adapters.Mqtt.csproj" />
     <Project Path="src/LinkForge.Adapters.Network/LinkForge.Adapters.Network.csproj" />
+    <Project Path="src/LinkForge.Adapters.Onvif/LinkForge.Adapters.Onvif.csproj" />
     <Project Path="src/LinkForge.Adapters.Video/LinkForge.Adapters.Video.csproj" />
     <Project Path="src/LinkForge.Domain/LinkForge.Domain.csproj" />
     <Project Path="src/LinkForge.DeveloperTools/LinkForge.DeveloperTools.csproj" />
@@ -17,6 +18,7 @@
     <Project Path="tests/LinkForge.Adapters.Http.Tests/LinkForge.Adapters.Http.Tests.csproj" />
     <Project Path="tests/LinkForge.Adapters.Mqtt.Tests/LinkForge.Adapters.Mqtt.Tests.csproj" />
     <Project Path="tests/LinkForge.Adapters.Network.Tests/LinkForge.Adapters.Network.Tests.csproj" />
+    <Project Path="tests/LinkForge.Adapters.Onvif.Tests/LinkForge.Adapters.Onvif.Tests.csproj" />
     <Project Path="tests/LinkForge.Adapters.Video.Tests/LinkForge.Adapters.Video.Tests.csproj" />
     <Project Path="tests/LinkForge.Application.Tests/LinkForge.Application.Tests.csproj" />
     <Project Path="tests/LinkForge.App.Tests/LinkForge.App.Tests.csproj" />

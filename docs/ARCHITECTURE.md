@@ -287,6 +287,25 @@ flowchart LR
 - 筛选、复制与导出都只作用于当前可见日志；取消导出与失败分别表达。
 - 不引入 Serilog；日志文件不加密，且尚未实现轮转保留、归档和签名校验。
 
+### 4.10 ONVIF 适配器依赖边（阶段 05）
+
+ONVIF 标准接入采用 `App → Adapters.Onvif → Domain / Plugin.Abstractions`，
+且 `Adapters.Onvif` 不引用 App、Application 或 WPF：
+
+- `OnvifDiagnosticAdapter` 封装 WS-Discovery、设备信息、能力、媒体 Profile 与
+  Stream URI 查询；只返回诊断阶段结果，不写历史、不做 UI、不做导出。
+- 发现使用 UDP `239.255.255.250:3702`，单条损坏组播包被隔离，
+  不中断发现窗口，也不进入原始输出。
+- SOAP 请求始终经过 HTTP/HTTPS 与 TLS 证书校验；不提供关闭证书校验的开关，
+  不执行自动网段扫描。
+- 当前只实现 WS-Security UsernameToken；凭据仅用于构造请求，
+  在显示、日志、事实、复制与 JSON 导出中统一脱敏。
+- 响应限制为 2 MiB，禁止 DTD，并限制 XML 解析深度与实体扩展。
+- 未发现设备保持 `Unknown`，不等同于“网络中没有 ONVIF 设备”。
+- Stream URI 可用只证明标准信令返回了播放地址，不证明 RTP 已接收、
+  媒体已解码或首帧已显示；PTZ、事件、录像、厂商 SDK 与 GB/T 28181 未实现。
+- 集成测试使用本地 HTTP 设备服务与受控组播报文，不依赖公网或真实设备。
+
 
 ## 5. 关键领域模型
 - Project：项目元数据与 SchemaVersion。

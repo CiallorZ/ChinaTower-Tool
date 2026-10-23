@@ -1070,3 +1070,47 @@ scripts/verify-clean-checkout.ps1 → scripts/build.ps1
 - 不得把 NuGet 声明许可证清单称为已完成法律审查。
 - 变更发布字段、SBOM 结构或打包流程时必须同步更新 `docs/RELEASE.md`、
   `CHANGELOG.md` 与构建记录。
+
+## ADR-035：ONVIF 只做标准信令诊断，不伪造媒体播放（LF-014）
+
+**背景**
+
+视频接入需要同时覆盖 RTSP 与标准 ONVIF。若把“发现到设备”或“取得 Stream URI”
+直接显示成“视频已播放”，会把信令可用、媒体接收、解码和首帧渲染混为一谈；
+若关闭 TLS 校验或自动扫描整个网段，也会扩大未经授权探测的风险。
+
+**决策**
+
+1. **独立适配器边界**：采用 `Adapters.Onvif`，
+   依赖 `App → Adapters.Onvif → Domain / Plugin.Abstractions`；
+   适配器不引用 App、Application、WPF，也不访问项目数据库或日志文件。
+2. **能力范围**：仅实现 WS-Discovery、`GetDeviceInformation`、
+   `GetCapabilities`、`GetProfiles` 与 `GetStreamUri`。这些结果是标准 SOAP
+   信令和设备响应，不是媒体播放结果。
+3. **发现边界**：WS-Discovery 固定使用 UDP `239.255.255.250:3702`，
+   只执行用户明确启动的一次发现窗口；单条损坏报文被隔离，不中断其他设备响应。
+4. **传输安全**：HTTP/HTTPS 请求始终启用 TLS 证书校验，不提供绕过开关；
+   不执行自动网段扫描、端口扫描或厂商私有探测。
+5. **凭据最小化**：当前只支持 WS-Security UsernameToken。凭据只进入
+   SOAP Header，不进入 URL；显示、日志、结构化事实、复制和 JSON 导出统一脱敏。
+6. **资源限制**：响应体上限 2 MiB，禁止 DTD，并限制 XML 深度与实体扩展；
+    HTTP 错误、401、超时、非法 XML、超大响应分别表达。
+7. **未知语义**：发现窗口内没有设备响应时保持 `Unknown`，
+   不得表述为“网络中没有 ONVIF 设备”。
+8. **媒体边界**：不实现 RTP 接收、媒体解码、首帧、持续播放、PTZ、事件、
+   录像、固件升级、厂商 SDK 或 GB/T 28181。Stream URI 可用不等于视频可播放。
+
+**验证**
+
+- 本地设备服务测试覆盖发现、设备信息、能力、Profile、Stream URI、
+  WS-Security、401、超时、非法 XML、超大响应、取消与脱敏。
+- App 层测试覆盖双页面导航互斥、依赖注入、空/运行/成功/失败/未知/取消状态、
+  1366×768 布局与浅深色截图。
+- 当前未覆盖真实设备矩阵、复杂多网卡组播环境与厂商兼容性差异。
+
+**约束**
+
+- 不得把 `Unknown` 映射为 `Completed`，也不得把 `Skipped` 映射为 `Failed`。
+- 不得在 UI、日志、历史、复制、导出或测试输出中出现 WS-Security 明文口令。
+- 不得用示例设备、固定 Stream URI 或静态结果冒充真实 ONVIF 响应。
+- 新增 ONVIF 服务时若涉及媒体、PTZ 或事件，必须单独评审授权、脱敏与资源上限。

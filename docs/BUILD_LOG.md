@@ -964,3 +964,55 @@ pwsh -File scripts/run.ps1
 - 干净 checkout 验证已对提交 `3bd8af769ad1` 执行通过：克隆、还原、构建与
   937 / 937 测试全部成功。最终干净版 ZIP SHA-256 为
   `9c542574a73f899b957e5694e6c2a15aaeb8a4f4ba0d4df9c1d6376007272c8e`。
+
+## 阶段 05 · ONVIF 标准接入（LF-014，2026-10-24）
+
+### 1. 交付物
+
+- `src/LinkForge.Adapters.Onvif/`
+  - WS-Discovery UDP `239.255.255.250:3702`
+  - `GetDeviceInformation`、`GetCapabilities`、`GetProfiles`、`GetStreamUri`
+  - SOAP over HTTP(S)，TLS 证书校验始终启用
+  - WS-Security UsernameToken、2 MiB 响应上限、禁止 DTD 与 XML 解析限制
+- `src/LinkForge.App/ViewModels/OnvifDiagnosticsViewModel.cs`
+- `src/LinkForge.App/Views/Pages/OnvifDiagnosticsPage.xaml`
+- `tests/LinkForge.Adapters.Onvif.Tests/`
+- App 测试：ViewModel、页面、Shell 导航/互斥、依赖注入与架构守卫
+- 截图：`screenshots/stage05-onvif-light.png` / `screenshots/stage05-onvif-dark.png`
+
+### 2. 本阶段发现并修复的真实缺陷
+
+| # | 现象 | 根因 | 处理 |
+| --- | --- | --- | --- |
+| 1 | 三级导航节点 `connect.video.rtsp` / `connect.video.onvif` 无法被 `Find` 命中 | 导航目录只遍历两级，视频分组拆分后子节点不可达 | `NavigationCatalog.Enumerate` 改为递归深度优先遍历 |
+| 2 | 发现窗口内单条畸形组播报文可能打断整轮发现 | 同一接收循环直接处理所有报文 | 隔离坏包、继续等待窗口结束，坏包不进入原始输出 |
+| 3 | “发现到设备”与“取得 Stream URI”容易被误读为媒体已播放 | ONVIF 信令能力与媒体接收/解码边界不同 | 页面、结果、文档统一声明未执行 RTP/解码/首帧，相关步骤保持 `Skipped` |
+| 4 | 凭据可能通过 SOAP 调试文本或 Stream URI 进入复制/导出 | 认证材料与 URL 会出现在请求/响应表面 | 凭据只进入认证 Header；显示、日志、事实、复制与 JSON 导出统一脱敏 |
+| 5 | 本地未发现设备时若映射为成功会给出错误结论 | `Unknown` 与 `Completed` 语义不同 | 保持 `Unknown`，文案明确“不代表网络中没有 ONVIF 设备” |
+
+### 3. 验证记录
+
+| 验证项 | 结果 |
+| --- | --- |
+| 解决方案构建 | 通过，0 警告 0 错误 |
+| ONVIF 适配器测试 | 14 / 14 |
+| App ONVIF / 导航 / Shell / DI 定向测试 | 91 / 91 |
+| App 测试 | 561 / 561 |
+| **全解决方案测试** | **975 / 975 通过** |
+| 真实启动 + 关闭 | 成功；退出码 **0** |
+| 截图 | 1366×768；浅色均值 `(236.6,236.8,237.2)`，深色均值 `(100.8,102.8,106.7)` |
+| 脱敏 | WS-Security 用户名/口令、服务 URI userinfo 与 Stream URI 凭据在 UI/日志/事实/复制/导出中统一处理 |
+| 发现韧性 | 单条坏组播包隔离；未发现设备保持 `Unknown` |
+
+### 4. 尚未验证（如实声明）
+
+- 已实现：WS-Discovery、设备信息、能力、媒体 Profile、Stream URI、
+  WS-Security UsernameToken、结构化阶段结果、取消、复制与 JSON 导出。
+- **未实现**：RTP 接收、媒体解码、首帧、持续播放、PTZ、事件、录像、
+  固件升级、海康/大华开放平台 SDK 与 GB/T 28181。
+- **Stream URI 可用不等于视频已经播放。**
+- 未覆盖真实设备矩阵、厂商兼容性差异与复杂多网卡组播环境。
+- 不执行自动网段扫描、端口扫描或厂商私有探测。
+- Windows 10 真机、高 DPI、键盘 Tab 顺序与焦点环仍属阶段 06。
+- x86 运行仍受 D-08 缺少 x86 .NET 10 运行时约束；本阶段仅验证 x64。
+- 厂商 SDK（D-09）、抓包与安全扫描/渗透攻防（D-10）仍未接入。

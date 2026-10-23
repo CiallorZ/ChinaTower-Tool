@@ -284,6 +284,12 @@
                                                                     RelativeSource={RelativeSource AncestorType=Window},
                                                                     Converter={StaticResource LfBoolToVisibility}}" />
 
+                    <pages:OnvifDiagnosticsPage x:Name="OnvifDiagnosticsContent"
+                                                DataContext="{Binding OnvifDiagnostics}"
+                                                Visibility="{Binding DataContext.IsOnvifDiagnosticsSelected,
+                                                                     RelativeSource={RelativeSource AncestorType=Window},
+                                                                     Converter={StaticResource LfBoolToVisibility}}" />
+
                     <pages:ReportPage x:Name="ReportContent"
                                       DataContext="{Binding ReportPage}"
                                       Visibility="{Binding DataContext.IsReportPageSelected,

@@ -14,9 +14,9 @@
 | 开发步骤规范 | 已起草，见 `docs/DEV_STANDARDS.md` |
 | UI 强约束规范 | 已归档，见 `docs/LinkForge_UI_Design_Guidelines_V1.1.md` |
 | UI 分阶段实施计划 | 已起草，见 `docs/UI_IMPLEMENTATION_PLAN.md` |
-| 解决方案骨架与业务模块 | 12 个源码项目、11 个测试项目，Debug/Release 构建均通过 |
+| 解决方案骨架与业务模块 | 13 个源码项目、12 个测试项目，Debug/Release 构建均通过 |
 | 设计令牌 / 基础组件 / 应用壳层 | 已完成 |
-| 项目资产、网络、HTTP、MQTT、RTSP、日志、报告、开发者工具、插件页 | 已完成真实实现与本地验证 |
+| 项目资产、网络、HTTP、MQTT、RTSP、ONVIF、日志、报告、开发者工具、插件页 | 已完成真实实现与本地验证 |
 | 发布工程（LF-013） | **部分完成**：未签名 `win-x64` 自包含便携 ZIP、依赖清单、SBOM、SHA-256 与干净构建脚本已落地 |
 
 > 当前版本为 `0.5.0-preview.1`。便携 ZIP 不是安装器且未签名；Windows 10 真机、

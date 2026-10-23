@@ -23,6 +23,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\LinkForge.Adapters.Http\LinkForge.Adapters.Http.csproj" />
     <ProjectReference Include="..\..\src\LinkForge.Adapters.Mqtt\LinkForge.Adapters.Mqtt.csproj" />
+    <ProjectReference Include="..\..\src\LinkForge.Adapters.Onvif\LinkForge.Adapters.Onvif.csproj" />
     <ProjectReference Include="..\..\src\LinkForge.Adapters.Video\LinkForge.Adapters.Video.csproj" />
     <ProjectReference Include="..\..\src\LinkForge.DeveloperTools\LinkForge.DeveloperTools.csproj" />
     <ProjectReference Include="..\..\src\LinkForge.Application\LinkForge.Application.csproj" />

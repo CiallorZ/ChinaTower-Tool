@@ -1,0 +1,365 @@
+<UserControl x:Class="LinkForge.App.Views.Pages.OnvifDiagnosticsPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="clr-namespace:LinkForge.App.Controls"
+             xmlns:domain="clr-namespace:LinkForge.Domain.Diagnostics;assembly=LinkForge.Domain"
+             xmlns:vm="clr-namespace:LinkForge.App.ViewModels"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:OnvifDiagnosticsViewModel}"
+             Background="Transparent">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="LfBoolToVisibility" />
+    </UserControl.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled"
+                  Padding="{DynamicResource LfContentPadding}">
+        <StackPanel>
+            <Border Background="{DynamicResource LfBrushSurface}"
+                    BorderBrush="{DynamicResource LfBrushBorder}"
+                    BorderThickness="{DynamicResource LfBorderThickness}"
+                    CornerRadius="{DynamicResource LfRadiusPanel}"
+                    Padding="{DynamicResource LfCardPadding}">
+                <StackPanel>
+                    <TextBlock Text="ONVIF 标准接入"
+                               FontSize="{DynamicResource LfFontSizeSectionTitle}"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource LfBrushTextPrimary}" />
+                    <TextBlock Text="仅执行标准 WS-Discovery、设备信息、能力、媒体 Profile 与 Stream URI 查询；不接收或解码媒体。"
+                               Margin="{DynamicResource LfOptionHintSpacing}"
+                               TextWrapping="Wrap"
+                               Foreground="{DynamicResource LfBrushTextSecondary}" />
+
+                    <TextBlock Text="检查工具"
+                               Margin="{DynamicResource LfBlockSpacing}"
+                               FontSize="{DynamicResource LfFontSizeCaption}"
+                               Foreground="{DynamicResource LfBrushTextSecondary}" />
+                    <ComboBox ItemsSource="{Binding Tools}"
+                              SelectedItem="{Binding SelectedTool}"
+                              IsEnabled="{Binding CanStart}"
+                              DisplayMemberPath="Title" />
+                    <TextBlock Text="{Binding SelectedTool.Description}"
+                               Margin="{DynamicResource LfOptionHintSpacing}"
+                               TextWrapping="Wrap"
+                               FontSize="{DynamicResource LfFontSizeCaption}"
+                               Foreground="{DynamicResource LfBrushTextSecondary}" />
+
+                    <StackPanel Visibility="{Binding IsInspectMode,
+                                                     Converter={StaticResource LfBoolToVisibility}}">
+                        <controls:LabeledTextBox Label="设备服务 URL"
+                                                 IsRequired="True"
+                                                 Text="{Binding ServiceUrl}"
+                                                 Placeholder="http://10.0.0.8/onvif/device_service"
+                                                 Hint="只接受 http:// 或 https://；不接受 URL 内嵌凭据。"
+                                                 ErrorText="{Binding ServiceUrlError}"
+                                                 IsEnabled="{Binding CanStart}"
+                                                 Margin="{DynamicResource LfBlockSpacing}" />
+
+                        <Grid Margin="{DynamicResource LfBlockSpacing}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="{DynamicResource LfFormColumnGap}" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="{DynamicResource LfFormColumnGap}" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <controls:LabeledTextBox Grid.Column="0"
+                                                     Label="WS-Security 用户名"
+                                                     Text="{Binding Username}"
+                                                     Hint="没有认证要求时可留空。"
+                                                     ErrorText="{Binding UsernameError}"
+                                                     IsEnabled="{Binding CanStart}" />
+
+                            <controls:SecretTextBox Grid.Column="2"
+                                                    Label="WS-Security 口令"
+                                                    Placeholder="不会进入日志、复制或导出"
+                                                    Secret="{Binding Password}"
+                                                    ErrorText="{Binding PasswordError}"
+                                                    IsEnabled="{Binding CanStart}" />
+
+                            <controls:LabeledTextBox Grid.Column="4"
+                                                     Label="Profile Token（可选）"
+                                                     Text="{Binding ProfileToken}"
+                                                     Hint="留空时使用设备返回的第一个 Profile。"
+                                                     ErrorText="{Binding ProfileTokenError}"
+                                                     IsEnabled="{Binding CanStart}" />
+                        </Grid>
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="{DynamicResource LfFormColumnGap}" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="脱敏后的服务地址"
+                                           FontSize="{DynamicResource LfFontSizeCaption}"
+                                           Foreground="{DynamicResource LfBrushTextSecondary}" />
+                                <TextBlock Text="{Binding RedactedServiceUrl}"
+                                           Margin="{DynamicResource LfOptionHintSpacing}"
+                                           FontFamily="{DynamicResource LfFontFamilyMono}"
+                                           TextWrapping="Wrap"
+                                           Foreground="{DynamicResource LfBrushTextPrimary}" />
+                            </StackPanel>
+
+                            <controls:LabeledTextBox Grid.Column="2"
+                                                     Label="单步超时（秒）"
+                                                     Text="{Binding TimeoutText}"
+                                                     Hint="1–60 秒；超时与失败分别显示。"
+                                                     ErrorText="{Binding TimeoutError}"
+                                                     IsEnabled="{Binding CanStart}" />
+                        </Grid>
+                    </StackPanel>
+
+                    <Grid Margin="{DynamicResource LfBlockSpacing}"
+                          Visibility="{Binding IsDiscoverMode,
+                                               Converter={StaticResource LfBoolToVisibility}}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="{DynamicResource LfFormColumnGap}" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Grid.Column="0"
+                                   Text="WS-Discovery 会向标准组播地址 239.255.255.250:3702 发送一次 Probe；不会自动扫描网段。"
+                                   TextWrapping="Wrap"
+                                   Foreground="{DynamicResource LfBrushTextSecondary}" />
+
+                        <controls:LabeledTextBox Grid.Column="2"
+                                                 Label="等待超时（秒）"
+                                                 Text="{Binding TimeoutText}"
+                                                 Hint="1–60 秒。未发现设备时结论保持未知。"
+                                                 ErrorText="{Binding TimeoutError}"
+                                                 IsEnabled="{Binding CanStart}" />
+                    </Grid>
+
+                    <Border Background="{DynamicResource LfBrushWarningSubtle}"
+                            BorderBrush="{DynamicResource LfBrushWarning}"
+                            BorderThickness="{DynamicResource LfBorderThickness}"
+                            CornerRadius="{DynamicResource LfRadiusControl}"
+                            Padding="{DynamicResource LfCardPadding}"
+                            Margin="{DynamicResource LfAuthorizationSpacing}"
+                            Visibility="{Binding RequiresAuthorization,
+                                                 Converter={StaticResource LfBoolToVisibility}}">
+                        <StackPanel>
+                            <TextBlock Text="授权确认"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource LfBrushTextPrimary}" />
+                            <TextBlock Text="该操作会向本地网络或指定视频设备发送标准 ONVIF 请求。请确认你已获得目标网络与设备的测试授权；本工具不会自动扩大探测范围。"
+                                       Margin="{DynamicResource LfInlineSpacing}"
+                                       Foreground="{DynamicResource LfBrushTextSecondary}"
+                                       TextWrapping="Wrap" />
+                            <CheckBox Content="我确认已获得对该网络或设备的测试授权"
+                                      IsChecked="{Binding IsAuthorized}"
+                                      IsEnabled="{Binding CanStart}"
+                                      Margin="{DynamicResource LfInlineSpacing}" />
+                        </StackPanel>
+                    </Border>
+
+                    <WrapPanel Margin="{DynamicResource LfSectionSpacing}">
+                        <Button Content="开始 ONVIF 诊断"
+                                Command="{Binding RunCommand}"
+                                MinWidth="{DynamicResource LfActionButtonMinWidth}"
+                                Height="{DynamicResource LfControlHeight}"
+                                ToolTip="执行所选的 WS-Discovery 或设备服务查询" />
+                        <Button Content="停止"
+                                Command="{Binding CancelCommand}"
+                                MinWidth="{DynamicResource LfButtonMinWidth}"
+                                Height="{DynamicResource LfControlHeight}"
+                                Margin="{DynamicResource LfInlineSpacingLeading}"
+                                ToolTip="取消正在运行的 ONVIF 诊断" />
+                    </WrapPanel>
+                </StackPanel>
+            </Border>
+
+            <controls:TaskProgressPanel Margin="{DynamicResource LfBlockSpacing}"
+                                        TaskState="{Binding State}"
+                                        Stage="{Binding CurrentStage}"
+                                        ElapsedText="{Binding ElapsedText}"
+                                        CancelCommand="{Binding CancelCommand}"
+                                        Visibility="{Binding IsRunning,
+                                                             Converter={StaticResource LfBoolToVisibility}}" />
+
+            <controls:ResultSummary Margin="{DynamicResource LfBlockSpacing}"
+                                    TaskState="{Binding State}"
+                                    Conclusion="{Binding Conclusion}"
+                                    Note="{Binding ConclusionNote}"
+                                    Items="{Binding SummaryItems}"
+                                    Visibility="{Binding HasResult,
+                                                         Converter={StaticResource LfBoolToVisibility}}" />
+
+            <Border Margin="{DynamicResource LfBlockSpacing}"
+                    Background="{DynamicResource LfBrushSurface}"
+                    BorderBrush="{DynamicResource LfBrushBorder}"
+                    BorderThickness="{DynamicResource LfBorderThickness}"
+                    CornerRadius="{DynamicResource LfRadiusPanel}"
+                    Padding="{DynamicResource LfCardPadding}"
+                    Visibility="{Binding HasResult,
+                                         Converter={StaticResource LfBoolToVisibility}}">
+                <StackPanel>
+                    <TextBlock Text="结构化阶段结果"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource LfBrushTextPrimary}" />
+
+                    <ScrollViewer MaxHeight="{DynamicResource LfBusinessResultMaxHeight}"
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  Margin="{DynamicResource LfInlineSpacing}">
+                        <ItemsControl ItemsSource="{Binding Steps}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type domain:DiagnosticStepResult}">
+                                    <Border Margin="{DynamicResource LfRowSpacing}"
+                                            BorderBrush="{DynamicResource LfBrushDivider}"
+                                            BorderThickness="{DynamicResource LfDividerTop}"
+                                            Padding="{DynamicResource LfInlineSpacing}">
+                                        <StackPanel>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <controls:StatusBadge Grid.Column="0"
+                                                                      DiagnosticStatus="{Binding Status}"
+                                                                      Margin="{DynamicResource LfLabelSpacing}" />
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding Name}"
+                                                           VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource LfBrushTextPrimary}" />
+                                                <TextBlock Grid.Column="2"
+                                                           Text="{Binding DurationText}"
+                                                           VerticalAlignment="Center"
+                                                           FontFamily="{DynamicResource LfFontFamilyMono}"
+                                                           FontSize="{DynamicResource LfFontSizeCaption}"
+                                                           Foreground="{DynamicResource LfBrushTextSecondary}" />
+                                            </Grid>
+                                            <TextBlock Text="{Binding Summary}"
+                                                       Margin="{DynamicResource LfInlineSpacing}"
+                                                       TextWrapping="Wrap"
+                                                       Foreground="{DynamicResource LfBrushTextSecondary}" />
+                                            <ItemsControl ItemsSource="{Binding FactItems}"
+                                                          Margin="{DynamicResource LfInlineSpacing}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate DataType="{x:Type domain:DiagnosticFact}">
+                                                        <Grid Margin="{DynamicResource LfInlineSpacing}">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="{DynamicResource LfFactLabelColumnWidth}" />
+                                                                <ColumnDefinition Width="*" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBlock Grid.Column="0"
+                                                                       Text="{Binding Label}"
+                                                                       Foreground="{DynamicResource LfBrushTextMuted}"
+                                                                       FontSize="{DynamicResource LfFontSizeCaption}" />
+                                                            <TextBlock Grid.Column="1"
+                                                                       Text="{Binding Value}"
+                                                                       FontFamily="{DynamicResource LfFontFamilyMono}"
+                                                                       Foreground="{DynamicResource LfBrushTextPrimary}"
+                                                                       TextWrapping="Wrap" />
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                            <TextBlock Text="{Binding NextStepSuggestion}"
+                                                       Margin="{DynamicResource LfInlineSpacing}"
+                                                       TextWrapping="Wrap"
+                                                       FontSize="{DynamicResource LfFontSizeCaption}"
+                                                       Foreground="{DynamicResource LfBrushTextSecondary}"
+                                                       Visibility="{Binding HasSuggestion,
+                                                                            Converter={StaticResource LfBoolToVisibility}}" />
+                                            <TextBlock Text="{Binding SkipReason}"
+                                                       Margin="{DynamicResource LfInlineSpacing}"
+                                                       TextWrapping="Wrap"
+                                                       FontSize="{DynamicResource LfFontSizeCaption}"
+                                                       Foreground="{DynamicResource LfBrushTextSecondary}"
+                                                       Visibility="{Binding RequiresSkipReason,
+                                                                            Converter={StaticResource LfBoolToVisibility}}" />
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </StackPanel>
+            </Border>
+
+            <WrapPanel Margin="{DynamicResource LfBlockSpacing}"
+                       Visibility="{Binding HasResult,
+                                            Converter={StaticResource LfBoolToVisibility}}">
+                <Button Content="复制脱敏摘要"
+                        Command="{Binding CopySummaryCommand}"
+                        MinWidth="{DynamicResource LfActionButtonMinWidth}"
+                        Height="{DynamicResource LfControlHeight}" />
+                <Button Content="导出 JSON"
+                        Command="{Binding ExportCommand}"
+                        MinWidth="{DynamicResource LfButtonMinWidth}"
+                        Height="{DynamicResource LfControlHeight}"
+                        Margin="{DynamicResource LfInlineSpacingLeading}" />
+                <TextBlock Text="{Binding ActionFeedback}"
+                           VerticalAlignment="Center"
+                           Margin="{DynamicResource LfInlineSpacingLeading}"
+                           FontSize="{DynamicResource LfFontSizeCaption}"
+                           Foreground="{DynamicResource LfBrushTextSecondary}"
+                           TextWrapping="Wrap" />
+            </WrapPanel>
+
+            <Expander Header="原始 SOAP 与日志"
+                      Margin="{DynamicResource LfBlockSpacing}"
+                      Visibility="{Binding HasResult,
+                                           Converter={StaticResource LfBoolToVisibility}}">
+                <StackPanel>
+                    <ItemsControl ItemsSource="{Binding Steps}"
+                                  Margin="{DynamicResource LfInlineSpacing}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type domain:DiagnosticStepResult}">
+                                <StackPanel Margin="{DynamicResource LfRowSpacing}"
+                                            Visibility="{Binding HasRawOutput,
+                                                                 Converter={StaticResource LfBoolToVisibility}}">
+                                    <TextBlock Text="{Binding Name}"
+                                               FontWeight="SemiBold"
+                                               Foreground="{DynamicResource LfBrushTextPrimary}" />
+                                    <TextBox Text="{Binding RawOutput, Mode=OneWay}"
+                                             IsReadOnly="True"
+                                             AcceptsReturn="True"
+                                             TextWrapping="Wrap"
+                                             MaxHeight="{DynamicResource LfRawOutputMaxHeight}"
+                                             VerticalScrollBarVisibility="Auto"
+                                             FontFamily="{DynamicResource LfFontFamilyMono}"
+                                             FontSize="{DynamicResource LfFontSizeCaption}"
+                                             Margin="{DynamicResource LfOptionHintSpacing}" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <controls:LogViewer Height="{DynamicResource LfLogPanelDefaultHeight}"
+                                        Entries="{Binding Logs}"
+                                        Margin="{DynamicResource LfInlineSpacing}" />
+                </StackPanel>
+            </Expander>
+
+            <controls:EmptyState Margin="{DynamicResource LfBlockSpacing}"
+                                 Title="尚未运行 ONVIF 诊断"
+                                 Description="选择发现或设备服务查询并点击“开始 ONVIF 诊断”。本页只验证标准信令、能力、媒体 Profile 与 Stream URI；RTP、解码、首帧、PTZ、事件、录像、厂商 SDK 与 GB/T 28181 均不在本次范围内。">
+                <controls:EmptyState.Style>
+                    <Style TargetType="controls:EmptyState"
+                           BasedOn="{StaticResource {x:Type controls:EmptyState}}">
+                        <Setter Property="Visibility" Value="Visible" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding HasResult}" Value="True">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding IsRunning}" Value="True">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </controls:EmptyState.Style>
+            </controls:EmptyState>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

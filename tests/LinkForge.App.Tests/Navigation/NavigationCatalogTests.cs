@@ -179,6 +179,8 @@ public sealed class NavigationCatalogTests
         NavigationCatalog.Find("dashboard").ShouldNotBeNull();
         NavigationCatalog.Find("connect.video").ShouldNotBeNull();
         NavigationCatalog.Find("connect.video")!.Title.ShouldBe("视频接入");
+        NavigationCatalog.Find("connect.video.rtsp").ShouldNotBeNull();
+        NavigationCatalog.Find("connect.video.onvif").ShouldNotBeNull();
     }
 
     [Fact]
@@ -219,7 +221,8 @@ public sealed class NavigationCatalogTests
             [
                 "dashboard",
                 "assets",
-                "connect.video",
+                "connect.video.rtsp",
+                "connect.video.onvif",
                 "connect.iot",
                 "connect.api",
                 "network",
@@ -260,7 +263,8 @@ public sealed class NavigationCatalogTests
             ["network"] = ("NetworkDiagnosticsViewModel", "NetworkDiagnosticsContent"),
             ["connect.api"] = ("ApiWorkbenchViewModel", "ApiWorkbenchContent"),
             ["connect.iot"] = ("MqttWorkbenchViewModel", "MqttWorkbenchContent"),
-            ["connect.video"] = ("RtspDiagnosticsViewModel", "RtspDiagnosticsContent"),
+            ["connect.video.rtsp"] = ("RtspDiagnosticsViewModel", "RtspDiagnosticsContent"),
+            ["connect.video.onvif"] = ("OnvifDiagnosticsViewModel", "OnvifDiagnosticsContent"),
             ["assets"] = ("AssetCatalogViewModel", "AssetCatalogContent"),
             ["reports"] = ("ReportPageViewModel", "ReportContent"),
             ["developer"] = ("DeveloperToolsViewModel", "DeveloperToolsContent"),

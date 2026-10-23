@@ -36,6 +36,7 @@ public sealed partial class ShellViewModel : ObservableObject
     /// <param name="apiWorkbench">API 工作台视图模型。</param>
     /// <param name="mqttWorkbench">MQTT 工作台视图模型。</param>
     /// <param name="rtspDiagnostics">RTSP 诊断视图模型。</param>
+    /// <param name="onvifDiagnostics">ONVIF 诊断视图模型。</param>
     /// <param name="reportPage">项目与报告视图模型。</param>
     /// <param name="developerTools">开发者工具视图模型。</param>
     /// <param name="pluginManager">插件管理视图模型。</param>
@@ -50,6 +51,7 @@ public sealed partial class ShellViewModel : ObservableObject
         ApiWorkbenchViewModel? apiWorkbench = null,
         MqttWorkbenchViewModel? mqttWorkbench = null,
         RtspDiagnosticsViewModel? rtspDiagnostics = null,
+        OnvifDiagnosticsViewModel? onvifDiagnostics = null,
         ReportPageViewModel? reportPage = null,
         DeveloperToolsViewModel? developerTools = null,
         PluginManagerViewModel? pluginManager = null,
@@ -66,6 +68,7 @@ public sealed partial class ShellViewModel : ObservableObject
         ApiWorkbench = apiWorkbench;
         MqttWorkbench = mqttWorkbench;
         RtspDiagnostics = rtspDiagnostics;
+        OnvifDiagnostics = onvifDiagnostics;
         ReportPage = reportPage;
         DeveloperTools = developerTools;
         PluginManager = pluginManager;
@@ -79,6 +82,7 @@ public sealed partial class ShellViewModel : ObservableObject
         AttachLogSource(ApiWorkbench?.Logs);
         AttachLogSource(MqttWorkbench?.Logs);
         AttachLogSource(RtspDiagnostics?.Logs);
+        AttachLogSource(OnvifDiagnostics?.Logs);
         AttachLogSource(PluginManager?.Logs);
 
         LogEntries.CollectionChanged += OnLogEntriesChanged;
@@ -123,6 +127,9 @@ public sealed partial class ShellViewModel : ObservableObject
 
     /// <summary>RTSP 诊断视图模型。</summary>
     public RtspDiagnosticsViewModel? RtspDiagnostics { get; }
+
+    /// <summary>ONVIF 诊断视图模型。</summary>
+    public OnvifDiagnosticsViewModel? OnvifDiagnostics { get; }
 
     /// <summary>项目与报告视图模型。</summary>
     public ReportPageViewModel? ReportPage { get; }
@@ -211,7 +218,10 @@ public sealed partial class ShellViewModel : ObservableObject
     public bool IsMqttWorkbenchSelected => CurrentPageId == "connect.iot";
 
     /// <summary>是否显示 RTSP 诊断页。</summary>
-    public bool IsRtspDiagnosticsSelected => CurrentPageId == "connect.video";
+    public bool IsRtspDiagnosticsSelected => CurrentPageId == "connect.video.rtsp";
+
+    /// <summary>是否显示 ONVIF 诊断页。</summary>
+    public bool IsOnvifDiagnosticsSelected => CurrentPageId == "connect.video.onvif";
 
     /// <summary>是否显示项目与报告页。</summary>
     public bool IsReportPageSelected => CurrentPageId == "reports";
@@ -294,6 +304,7 @@ public sealed partial class ShellViewModel : ObservableObject
         OnPropertyChanged(nameof(IsApiWorkbenchSelected));
         OnPropertyChanged(nameof(IsMqttWorkbenchSelected));
         OnPropertyChanged(nameof(IsRtspDiagnosticsSelected));
+        OnPropertyChanged(nameof(IsOnvifDiagnosticsSelected));
         OnPropertyChanged(nameof(IsReportPageSelected));
         OnPropertyChanged(nameof(IsDeveloperToolsSelected));
         OnPropertyChanged(nameof(IsPluginManagerSelected));
