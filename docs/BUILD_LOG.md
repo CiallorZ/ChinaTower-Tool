@@ -1537,6 +1537,7 @@ pwsh -NoProfile -File scripts\verify-clean-checkout.ps1 -Configuration Release
 | 1024×640 安全页主操作 | 可通过页面滚动到达 |
 | 键盘焦点路径 | 初始动作可聚焦，移动后仍在壳层内 |
 | 真实启动/关闭 | 退出码 `0` |
+| 干净检出 | 提交 `ab15cd7` 克隆后还原、构建与 1122 / 1122 测试通过 |
 
 ### 3. 边界
 
