@@ -48,6 +48,9 @@
                                                    Mode=TwoWay,
                                                    UpdateSourceTrigger=PropertyChanged}"
                                     PlaceholderText="{TemplateBinding Placeholder}"
+                                    AutomationProperties.Name="{TemplateBinding Label}"
+                                    AutomationProperties.HelpText="{TemplateBinding Hint}"
+                                    AutomationProperties.IsRequiredForForm="{TemplateBinding IsRequired}"
                                     Margin="{DynamicResource LfInlineSpacing}"
                                     Height="{DynamicResource LfControlHeight}" />
 

@@ -88,28 +88,32 @@
                             Height="{DynamicResource LfControlHeight}"
                             Command="{Binding ApplyThemeCommand}"
                             CommandParameter="{x:Static services:LfThemePreference.FollowSystem}"
-                            ToolTip="主题跟随 Windows 系统设置" />
+                            ToolTip="主题跟随 Windows 系统设置"
+                            AutomationProperties.Name="主题跟随系统" />
 
                     <Button Content="浅色"
                             MinWidth="{DynamicResource LfButtonMinWidth}"
                             Height="{DynamicResource LfControlHeight}"
                             Margin="{DynamicResource LfInlineSpacingLeading}"
                             Command="{Binding ApplyThemeCommand}"
-                            CommandParameter="{x:Static services:LfThemePreference.Light}" />
+                            CommandParameter="{x:Static services:LfThemePreference.Light}"
+                            AutomationProperties.Name="使用浅色主题" />
 
                     <Button Content="深色"
                             MinWidth="{DynamicResource LfButtonMinWidth}"
                             Height="{DynamicResource LfControlHeight}"
                             Margin="{DynamicResource LfInlineSpacingLeading}"
                             Command="{Binding ApplyThemeCommand}"
-                            CommandParameter="{x:Static services:LfThemePreference.Dark}" />
+                            CommandParameter="{x:Static services:LfThemePreference.Dark}"
+                            AutomationProperties.Name="使用深色主题" />
 
                     <Button Content="日志面板"
                             MinWidth="{DynamicResource LfButtonMinWidth}"
                             Height="{DynamicResource LfControlHeight}"
                             Margin="{DynamicResource LfInlineSpacingLeading}"
                             Command="{Binding ToggleLogPanelCommand}"
-                            ToolTip="展开或折叠底部日志面板" />
+                            ToolTip="展开或折叠底部日志面板"
+                            AutomationProperties.Name="展开或折叠日志面板" />
                 </StackPanel>
             </Grid>
         </Border>
@@ -160,7 +164,8 @@
                               BorderThickness="{DynamicResource LfBorderThicknessNone}"
                               Margin="{DynamicResource LfInlineSpacingSm}"
                               SelectedItemChanged="OnNavigationSelectedItemChanged"
-                              ItemContainerStyle="{StaticResource LfNavigationTreeItemStyle}">
+                              ItemContainerStyle="{StaticResource LfNavigationTreeItemStyle}"
+                              AutomationProperties.Name="主导航">
 
                         <TreeView.ItemTemplate>
                             <HierarchicalDataTemplate DataType="{x:Type nav:NavigationNode}"
@@ -354,7 +359,8 @@
                               ResizeDirection="Rows"
                               ResizeBehavior="PreviousAndNext"
                               DragCompleted="OnLogPanelSplitterDragCompleted"
-                              ToolTip="拖动以调整日志面板高度">
+                              ToolTip="拖动以调整日志面板高度"
+                              AutomationProperties.Name="调整日志面板高度">
                     <GridSplitter.Style>
                         <Style TargetType="GridSplitter">
                             <Setter Property="Visibility" Value="Collapsed" />

@@ -95,7 +95,8 @@
                                     MinWidth="{DynamicResource LfButtonMinWidth}"
                                     Height="{DynamicResource LfControlHeight}"
                                     Margin="{DynamicResource LfInlineSpacingLeading}"
-                                    VerticalAlignment="Center" />
+                                    VerticalAlignment="Center"
+                                    AutomationProperties.Name="停止当前任务" />
 
                         </Grid>
                     </Border>

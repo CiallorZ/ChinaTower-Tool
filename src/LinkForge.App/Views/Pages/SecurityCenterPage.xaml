@@ -282,13 +282,15 @@
                         Command="{Binding CopySummaryCommand}"
                         MinWidth="{DynamicResource LfActionButtonMinWidth}"
                         Height="{DynamicResource LfControlHeight}"
-                        ToolTip="复制结论与事实；复制前统一脱敏" />
+                        ToolTip="复制结论与事实；复制前统一脱敏"
+                        AutomationProperties.Name="复制脱敏安全基线摘要" />
                 <Button Content="导出 JSON"
                         Command="{Binding ExportCommand}"
                         MinWidth="{DynamicResource LfButtonMinWidth}"
                         Height="{DynamicResource LfControlHeight}"
                         Margin="{DynamicResource LfInlineSpacingLeading}"
-                        ToolTip="导出结构化结果；导出前统一脱敏" />
+                        ToolTip="导出结构化结果；导出前统一脱敏"
+                        AutomationProperties.Name="导出脱敏安全基线 JSON" />
                 <TextBlock Text="{Binding ActionFeedback}"
                            VerticalAlignment="Center"
                            Margin="{DynamicResource LfInlineSpacingLeading}"
@@ -302,7 +304,8 @@
                       Visibility="{Binding HasResult,
                                            Converter={StaticResource LfBoolToVisibility}}">
                 <StackPanel>
-                    <TextBox Text="{Binding RawOutputText, Mode=OneWay}"
+                    <TextBox x:Name="RawOutputTextBox"
+                             Text="{Binding RawOutputText, Mode=OneWay}"
                              IsReadOnly="True"
                              AcceptsReturn="True"
                              TextWrapping="NoWrap"
@@ -312,7 +315,8 @@
                              MaxHeight="{DynamicResource LfRawOutputMaxHeight}"
                              Margin="{DynamicResource LfInlineSpacing}"
                              FontFamily="{DynamicResource LfFontFamilyMono}"
-                             FontSize="{DynamicResource LfFontSizeCaption}" />
+                             FontSize="{DynamicResource LfFontSizeCaption}"
+                             AutomationProperties.Name="安全基线原始输出" />
                     <controls:LogViewer Height="{DynamicResource LfLogPanelDefaultHeight}"
                                         Entries="{Binding Logs}"
                                         Margin="{DynamicResource LfInlineSpacing}" />
