@@ -226,6 +226,7 @@ public sealed class NavigationCatalogTests
                 "connect.iot",
                 "connect.api",
                 "network",
+                "security",
                 "developer",
                 "reports",
                 "settings.plugins",
@@ -262,6 +263,7 @@ public sealed class NavigationCatalogTests
         new(StringComparer.Ordinal)
         {
             ["network"] = ("NetworkDiagnosticsViewModel", "NetworkDiagnosticsContent"),
+            ["security"] = ("SecurityCenterViewModel", "SecurityCenterContent"),
             ["connect.api"] = ("ApiWorkbenchViewModel", "ApiWorkbenchContent"),
             ["connect.iot"] = ("MqttWorkbenchViewModel", "MqttWorkbenchContent"),
             ["connect.video.rtsp"] = ("RtspDiagnosticsViewModel", "RtspDiagnosticsContent"),

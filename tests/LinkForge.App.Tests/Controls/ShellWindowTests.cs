@@ -180,7 +180,7 @@ public class ShellWindowTests
             PumpDispatcher();
             Layout(window, ReferenceWidth, ReferenceHeight);
 
-            viewModel.NavigateTo(NavigationCatalog.Find("security"));
+            viewModel.NavigateTo(NavigationCatalog.Find("diagnostics"));
             PumpDispatcher();
             window.UpdateLayout();
 
@@ -238,6 +238,53 @@ public class ShellWindowTests
         network.ShouldBe(Visibility.Visible);
         placeholder.ShouldBe(Visibility.Collapsed);
         dataContext.ShouldBeOfType<NetworkDiagnosticsViewModel>();
+    }
+
+    [Fact]
+    public void Selecting_security_should_show_the_security_page_and_hide_other_content()
+    {
+        var (dashboard, network, security, placeholder, dataContext) = StaRunner.Run(() =>
+        {
+            ThemedHost.EnsureResources();
+
+            using var networkHarness = new NetworkDiagnosticsHarness();
+            using var securityHarness = new SecurityCenterHarness();
+            var viewModel = new ShellViewModel(
+                dashboard: new DashboardHarness().ViewModel,
+                networkDiagnostics: networkHarness.ViewModel,
+                securityCenter: securityHarness.ViewModel);
+            var window = new ShellWindow(viewModel);
+
+            window.Show();
+            PumpDispatcher();
+            Layout(window, ReferenceWidth, ReferenceHeight);
+
+            viewModel.NavigateTo(NavigationCatalog.Find("security"));
+            PumpDispatcher();
+            window.UpdateLayout();
+
+            var dashboardPage = (FrameworkElement)window.FindName("DashboardContent")!;
+            var networkPage = (FrameworkElement)window.FindName("NetworkDiagnosticsContent")!;
+            var securityPage = (FrameworkElement)window.FindName("SecurityCenterContent")!;
+            var emptyState = (FrameworkElement)window.FindName("NotImplementedContent")!;
+            var result = (
+                dashboardPage.Visibility,
+                networkPage.Visibility,
+                securityPage.Visibility,
+                emptyState.Visibility,
+                securityPage.DataContext);
+
+            window.Close();
+            PumpDispatcher();
+
+            return result;
+        });
+
+        dashboard.ShouldBe(Visibility.Collapsed);
+        network.ShouldBe(Visibility.Collapsed);
+        security.ShouldBe(Visibility.Visible);
+        placeholder.ShouldBe(Visibility.Collapsed);
+        dataContext.ShouldBeOfType<SecurityCenterViewModel>();
     }
 
     [Fact]

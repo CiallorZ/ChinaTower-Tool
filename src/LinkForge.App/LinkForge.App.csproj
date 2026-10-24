@@ -19,6 +19,7 @@
     <ProjectReference Include="..\LinkForge.Adapters.Http\LinkForge.Adapters.Http.csproj" />
     <ProjectReference Include="..\LinkForge.Adapters.Network\LinkForge.Adapters.Network.csproj" />
     <ProjectReference Include="..\LinkForge.Adapters.Onvif\LinkForge.Adapters.Onvif.csproj" />
+    <ProjectReference Include="..\LinkForge.Adapters.Security\LinkForge.Adapters.Security.csproj" />
     <ProjectReference Include="..\LinkForge.Application\LinkForge.Application.csproj" />
     <ProjectReference Include="..\LinkForge.Domain\LinkForge.Domain.csproj" />
     <ProjectReference Include="..\LinkForge.DeveloperTools\LinkForge.DeveloperTools.csproj" />

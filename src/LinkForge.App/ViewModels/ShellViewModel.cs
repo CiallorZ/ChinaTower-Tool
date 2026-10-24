@@ -37,6 +37,7 @@ public sealed partial class ShellViewModel : ObservableObject
     /// <param name="mqttWorkbench">MQTT 工作台视图模型。</param>
     /// <param name="rtspDiagnostics">RTSP 诊断视图模型。</param>
     /// <param name="onvifDiagnostics">ONVIF 诊断视图模型。</param>
+    /// <param name="securityCenter">安全基线视图模型。</param>
     /// <param name="reportPage">项目与报告视图模型。</param>
     /// <param name="developerTools">开发者工具视图模型。</param>
     /// <param name="pluginManager">插件管理视图模型。</param>
@@ -52,6 +53,7 @@ public sealed partial class ShellViewModel : ObservableObject
         MqttWorkbenchViewModel? mqttWorkbench = null,
         RtspDiagnosticsViewModel? rtspDiagnostics = null,
         OnvifDiagnosticsViewModel? onvifDiagnostics = null,
+        SecurityCenterViewModel? securityCenter = null,
         ReportPageViewModel? reportPage = null,
         DeveloperToolsViewModel? developerTools = null,
         PluginManagerViewModel? pluginManager = null,
@@ -70,6 +72,7 @@ public sealed partial class ShellViewModel : ObservableObject
         MqttWorkbench = mqttWorkbench;
         RtspDiagnostics = rtspDiagnostics;
         OnvifDiagnostics = onvifDiagnostics;
+        SecurityCenter = securityCenter;
         ReportPage = reportPage;
         DeveloperTools = developerTools;
         PluginManager = pluginManager;
@@ -85,6 +88,7 @@ public sealed partial class ShellViewModel : ObservableObject
         AttachLogSource(MqttWorkbench?.Logs);
         AttachLogSource(RtspDiagnostics?.Logs);
         AttachLogSource(OnvifDiagnostics?.Logs);
+        AttachLogSource(SecurityCenter?.Logs);
         AttachLogSource(PluginManager?.Logs);
 
         LogEntries.CollectionChanged += OnLogEntriesChanged;
@@ -132,6 +136,9 @@ public sealed partial class ShellViewModel : ObservableObject
 
     /// <summary>ONVIF 诊断视图模型。</summary>
     public OnvifDiagnosticsViewModel? OnvifDiagnostics { get; }
+
+    /// <summary>安全基线视图模型。</summary>
+    public SecurityCenterViewModel? SecurityCenter { get; }
 
     /// <summary>项目与报告视图模型。</summary>
     public ReportPageViewModel? ReportPage { get; }
@@ -228,6 +235,9 @@ public sealed partial class ShellViewModel : ObservableObject
     /// <summary>是否显示 ONVIF 诊断页。</summary>
     public bool IsOnvifDiagnosticsSelected => CurrentPageId == "connect.video.onvif";
 
+    /// <summary>是否显示安全中心页。</summary>
+    public bool IsSecurityCenterSelected => CurrentPageId == "security";
+
     /// <summary>是否显示项目与报告页。</summary>
     public bool IsReportPageSelected => CurrentPageId == "reports";
 
@@ -313,6 +323,7 @@ public sealed partial class ShellViewModel : ObservableObject
         OnPropertyChanged(nameof(IsMqttWorkbenchSelected));
         OnPropertyChanged(nameof(IsRtspDiagnosticsSelected));
         OnPropertyChanged(nameof(IsOnvifDiagnosticsSelected));
+        OnPropertyChanged(nameof(IsSecurityCenterSelected));
         OnPropertyChanged(nameof(IsReportPageSelected));
         OnPropertyChanged(nameof(IsDeveloperToolsSelected));
         OnPropertyChanged(nameof(IsPluginManagerSelected));

@@ -5,6 +5,7 @@ using LinkForge.Adapters.Http;
 using LinkForge.Adapters.Mqtt;
 using LinkForge.Adapters.Network;
 using LinkForge.Adapters.Onvif;
+using LinkForge.Adapters.Security;
 using LinkForge.Adapters.Video;
 using LinkForge.App.Presentation;
 using LinkForge.App.Services;
@@ -428,6 +429,12 @@ public partial class App : System.Windows.Application
         services.AddSingleton<OnvifDiagnosticAdapter>();
         services.AddSingleton<IOnvifResultExporter, OnvifResultExporter>();
 
+        // 安全中心：单目标、显式端口的 TCP/TLS 证书基线检查。
+        // 严格使用系统证书校验；不提供漏洞利用、口令爆破、规避检测或网段扫描。
+        services.AddSingleton<ISecurityProbe, WindowsSecurityProbe>();
+        services.AddSingleton<SecurityDiagnosticAdapter>();
+        services.AddSingleton<ISecurityResultExporter, SecurityResultExporter>();
+
         // 报告：应用层只依赖 IReportGenerator，HTML 模板与扫描规则集中在 Reporting 项目。
         services.AddSingleton<IReportGenerator>(static provider =>
             new ReportGenerator(provider.GetRequiredService<ITextRedactor>()));
@@ -494,6 +501,7 @@ public partial class App : System.Windows.Application
         services.AddSingleton<MqttWorkbenchViewModel>();
         services.AddSingleton<RtspDiagnosticsViewModel>();
         services.AddSingleton<OnvifDiagnosticsViewModel>();
+        services.AddSingleton<SecurityCenterViewModel>();
         services.AddSingleton<ReportPageViewModel>();
         services.AddSingleton<DeveloperToolsViewModel>();
         services.AddSingleton<PluginManagerViewModel>();

@@ -64,6 +64,7 @@ public class ArchitectureTests
                      "LinkForge.Adapters.Mqtt",
                      "LinkForge.Adapters.Network",
                      "LinkForge.Adapters.Onvif",
+                     "LinkForge.Adapters.Security",
                      "LinkForge.Adapters.Video"
                  })
         {
@@ -135,6 +136,7 @@ public class ArchitectureTests
         references.ShouldContain("LinkForge.Domain");
         references.ShouldContain("LinkForge.Plugin.Abstractions");
         references.ShouldContain("LinkForge.Adapters.Http");
+        references.ShouldContain("LinkForge.Adapters.Security");
     }
 
     [Fact]
@@ -222,6 +224,20 @@ public class ArchitectureTests
     }
 
     [Fact]
+    public void Security_adapter_should_not_reference_app_application_or_wpf()
+    {
+        // LF-020：安全基线适配器只负责单目标端口/TLS 探测，
+        // 不得依赖 UI 或应用编排层，也不得把对话框和授权状态带进协议实现。
+        var references = ProjectFile.ReadProjectReferences(
+            "src/LinkForge.Adapters.Security/LinkForge.Adapters.Security.csproj");
+
+        references.ShouldNotContain("LinkForge.App");
+        references.ShouldNotContain("LinkForge.Application");
+        references.ShouldContain("LinkForge.Domain");
+        references.ShouldContain("LinkForge.Plugin.Abstractions");
+    }
+
+    [Fact]
     public void Reporting_project_should_not_reference_app_adapters_or_wpf()
     {
         // Reporting 是纯渲染与扫描库：只允许依赖 Domain / Application。
@@ -235,6 +251,7 @@ public class ArchitectureTests
         references.ShouldNotContain("LinkForge.Adapters.Mqtt");
         references.ShouldNotContain("LinkForge.Adapters.Network");
         references.ShouldNotContain("LinkForge.Adapters.Onvif");
+        references.ShouldNotContain("LinkForge.Adapters.Security");
         references.ShouldNotContain("LinkForge.Adapters.Video");
         references.ShouldContain("LinkForge.Domain");
 

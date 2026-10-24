@@ -290,6 +290,12 @@
                                                                      RelativeSource={RelativeSource AncestorType=Window},
                                                                      Converter={StaticResource LfBoolToVisibility}}" />
 
+                    <pages:SecurityCenterPage x:Name="SecurityCenterContent"
+                                              DataContext="{Binding SecurityCenter}"
+                                              Visibility="{Binding DataContext.IsSecurityCenterSelected,
+                                                                   RelativeSource={RelativeSource AncestorType=Window},
+                                                                   Converter={StaticResource LfBoolToVisibility}}" />
+
                     <pages:ReportPage x:Name="ReportContent"
                                       DataContext="{Binding ReportPage}"
                                       Visibility="{Binding DataContext.IsReportPageSelected,

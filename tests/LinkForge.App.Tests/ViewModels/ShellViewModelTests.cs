@@ -88,16 +88,16 @@ public sealed class ShellViewModelTests : IDisposable
     {
         var viewModel = new ShellViewModel();
 
-        viewModel.NavigateTo(NavigationCatalog.Find("security"));
+        viewModel.NavigateTo(NavigationCatalog.Find("diagnostics"));
 
-        viewModel.CurrentTitle.ShouldBe("安全中心");
+        viewModel.CurrentTitle.ShouldBe("诊断中心");
         viewModel.IsCurrentModuleImplemented.ShouldBeFalse();
         viewModel.CurrentUnavailableReason.ShouldNotBeNullOrWhiteSpace();
 
         // 文案必须说清是"尚未实现"而不是含糊的"不可用"，
         // 否则用户会误以为是自己环境的问题（规范 §5.6 要求区分二者）。
         viewModel.CurrentUnavailableReason.ShouldContain("尚未实现");
-        viewModel.CurrentUnavailableReason.ShouldContain("安全中心");
+        viewModel.CurrentUnavailableReason.ShouldContain("诊断中心");
     }
 
     [Fact]
@@ -128,7 +128,7 @@ public sealed class ShellViewModelTests : IDisposable
         // 从"未实现"模块切回工作台后，残留的原因文案会出现在工作台上。
         var viewModel = new ShellViewModel();
 
-        viewModel.NavigateTo(NavigationCatalog.Find("security"));
+        viewModel.NavigateTo(NavigationCatalog.Find("diagnostics"));
         viewModel.NavigateTo(NavigationCatalog.Find("dashboard"));
 
         viewModel.IsCurrentModuleImplemented.ShouldBeTrue();
@@ -432,6 +432,30 @@ public sealed class ShellViewModelTests : IDisposable
         var viewModel = new ShellViewModel(networkDiagnostics: harness.ViewModel);
 
         viewModel.NetworkDiagnostics.ShouldBeSameAs(harness.ViewModel);
+    }
+
+    [Fact]
+    public void Exposed_security_center_should_be_the_injected_instance()
+    {
+        using var harness = new SecurityCenterHarness();
+        var viewModel = new ShellViewModel(securityCenter: harness.ViewModel);
+
+        viewModel.SecurityCenter.ShouldBeSameAs(harness.ViewModel);
+    }
+
+    [Fact]
+    public void Navigating_to_security_should_select_the_security_center()
+    {
+        using var harness = new SecurityCenterHarness();
+        var viewModel = new ShellViewModel(securityCenter: harness.ViewModel);
+
+        viewModel.NavigateTo(NavigationCatalog.Find("security"));
+
+        viewModel.IsSecurityCenterSelected.ShouldBeTrue();
+        viewModel.IsDashboardSelected.ShouldBeFalse();
+        viewModel.IsNetworkDiagnosticsSelected.ShouldBeFalse();
+        viewModel.IsCurrentModuleImplemented.ShouldBeTrue();
+        viewModel.CurrentTitle.ShouldBe("安全中心");
     }
 
     [Fact]

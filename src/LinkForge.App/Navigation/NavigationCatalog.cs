@@ -136,7 +136,7 @@ public static class NavigationCatalog
             "安全中心",
             LfGlyph.Security,
             "在授权范围内检查暴露面与安全基线。",
-            LfModuleAvailability.NotImplemented,
+            LfModuleAvailability.Available,
             []),
 
         new(

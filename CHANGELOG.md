@@ -4,6 +4,14 @@ All notable changes to LinkForge are recorded here.
 
 ## Unreleased
 
+### Added
+
+- Authorized single-target security baseline checks for explicitly listed TCP
+  ports, with optional TLS handshakes on a subset of those ports.
+- Security Center UI with authorization gating, bounded scope, concurrency and
+  delay controls, cancellation, structured port/TLS facts, redacted copy and
+  JSON export.
+
 ### Fixed
 
 - Source-tree Debug launches now use `Start-LinkForge.cmd` or
@@ -27,6 +35,19 @@ All notable changes to LinkForge are recorded here.
 - Rebuildable caches and temporary LinkForge artifacts were cleaned without
   removing user databases, projects, logs, credentials, or formal release
   assets.
+- LF-020 security-center verification: 0 warnings, 0 errors; full suite
+  **1110 / 1110** passed; startup/close exit code 0; light and dark
+  screenshots rendered at 1366x768.
+
+### Security boundaries
+
+- Security Center is not a vulnerability scanner or penetration-testing tool.
+  It does not perform exploitation, password spraying, evasion, network-range
+  scanning, service fingerprinting or destructive testing.
+- Open ports and certificate warnings are facts requiring further validation;
+  they are not vulnerability conclusions.
+- TLS uses system default certificate validation with TLS 1.2/1.3 and provides
+  no bypass switch. Filtered or no-response results do not prove a host offline.
 
 ## 1.2.0 - 2026-10-24
 

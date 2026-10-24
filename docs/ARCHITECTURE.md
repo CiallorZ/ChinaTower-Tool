@@ -30,6 +30,7 @@ flowchart TB
   TASK --> API[HTTP/API Adapter]
   TASK --> MQTT[MQTT Adapter]
   TASK --> VIDEO[Video/RTSP Adapter]
+  TASK --> SEC[Security Baseline Adapter]
   TASK --> PLUGIN[Plugin Host]
   NET --> OS[Windows APIs / Pktmon]
   VIDEO --> MEDIA[Media Runtime]
@@ -118,6 +119,7 @@ src/
   LinkForge.Adapters.Http/        # HTTP/API 请求
   LinkForge.Adapters.Mqtt/        # MQTT 客户端
   LinkForge.Adapters.Video/       # RTSP/ONVIF/媒体抽象
+  LinkForge.Adapters.Security/    # 单目标 TCP/TLS 安全基线
   LinkForge.Reporting/            # HTML 报告模板与脱敏
   LinkForge.Plugin.Abstractions/  # 插件契约与版本
 tests/
@@ -355,6 +357,23 @@ flowchart LR
 - 凭据库不进入日志、历史、剪贴板、导出、报告或项目包。DPAPI CurrentUser
   只保护当前 Windows 用户在本机的离线文件，不提供跨机同步，
   也不能防御已经以同一用户身份运行的恶意软件。
+
+### 4.13 安全基线适配器依赖边（阶段 06 / LF-020）
+
+安全中心采用 `App → Adapters.Security → Domain / Plugin.Abstractions`：
+
+- `WindowsSecurityProbe` 只检查用户显式列出的单个目标和有限端口；
+  最多 32 个 TCP 端口、8 个 TLS 端口，TLS 必须是 TCP 子集。
+- 并发限制为 1–4，单项连接/握手有独立超时；所有探测支持取消。
+- TLS 使用 `SslStream`，启用 TLS 1.2/1.3，并保持系统默认证书链与
+  主机名校验。自定义回调只记录校验错误用于展示，仍对任何错误返回拒绝。
+- 端口状态区分 `Open / Closed / Filtered / Unknown`，TLS 状态区分
+  `NotRequested / Valid / CertificateRejected / HandshakeFailed / TimedOut`。
+  过滤/无响应不得断言主机离线，端口开放不得直接表述为漏洞。
+- 安全适配器不引用 App、Application 或 WPF；页面只依赖视图模型与
+  `ISecurityResultExporter`，不直接持有 socket、TLS 流或文件对话框。
+- 该能力只提供授权范围内的基线事实，不包含漏洞利用、口令爆破、
+  规避检测、网段扫描或破坏性测试。
 
 
 ## 5. 关键领域模型
