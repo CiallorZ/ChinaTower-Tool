@@ -533,3 +533,31 @@
   [v1.2.0](https://github.com/CiallorZ/ChinaTower-Tool/releases/tag/v1.2.0)。
   8 个附件均为 `uploaded`，远端大小与 SHA-256 摘要同本地一致。
 - [ ] 无代码签名、Windows 10 真机、32 位 Windows 安装流程与系统级事务保证。
+
+### LF-019：启动失败、零点数据库与可重建缓存清理
+
+任务：
+- 修复源码 Debug 启动依赖系统级 .NET、导致 apphost 提示缺少运行时的问题。
+- 修复 SQLite 迁移晚于工作台查询、0 字节数据库触发缺表异常的问题。
+- 统一 UI Dispatcher 与后台任务异常兜底；启动失败必须可读、脱敏并返回
+  可诊断退出码。
+- 清理 Codex、构建和发布过程中可重建的缓存与临时文件，不删除用户数据或
+  正式发布资产。
+
+验收记录（2026-10-24）：
+
+- [x] 新增 `Start-LinkForge.cmd`；`scripts/run.ps1` 仅进程级设置
+  `DOTNET_ROOT`，支持 `-BuildIfMissing` 并透传退出码。
+- [x] 启动顺序改为迁移先于查询；0 字节数据库成功初始化为有效 schema。
+- [x] 生命周期异步初始化可取消；Dispatcher 与未观察任务异常有脱敏可读提示。
+- [x] 数据库不可用时保留应用壳层并明确提示受影响功能，不伪造成功。
+- [x] 三条启动路径 `Start-LinkForge.cmd`、`scripts/run.ps1`、显式
+  `DOTNET_ROOT` apphost 均真实启动/关闭，退出码 `0`。
+- [x] 清理缓存后 Restore 成功；Debug 构建 0 警告 0 错误；全解决方案
+  **1053 / 1053** 测试通过。
+- [x] 数据库由启动前 0 字节恢复为启动后 61,440 字节，SQLite 文件头有效。
+- [x] `artifacts` 仅保留 22 个正式版本产物/校验文件；临时目录、可重建
+  `bin/obj`、Codex 缓存、崩溃转储与 NuGet 缓存已清理。
+- [x] 未删除用户数据库、项目、日志、凭据、Codex 持久数据或正式发布资产。
+- [ ] 不替换既有 `v1.2.0` 标签或附件；代码签名、Windows 10 真机、
+  高 DPI 与可访问性验收仍待后续版本。

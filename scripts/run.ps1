@@ -17,9 +17,13 @@
     以 dotnet LinkForge.App.dll 方式启动，而不是 apphost（.exe）。
     当 DOTNET_ROOT 方案不适用时可作为替代路径。
 
+.PARAMETER BuildIfMissing
+    构建产物不存在时先执行应用项目的 Debug 构建。
+
 .EXAMPLE
     pwsh -File scripts/run.ps1
     pwsh -File scripts/run.ps1 -Configuration Release
+    pwsh -File scripts/run.ps1 -BuildIfMissing
 #>
 
 [CmdletBinding()]
@@ -27,7 +31,9 @@ param(
     [ValidateSet('Debug', 'Release')]
     [string]$Configuration = 'Debug',
 
-    [switch]$FrameworkDependent
+    [switch]$FrameworkDependent,
+
+    [switch]$BuildIfMissing
 )
 
 $ErrorActionPreference = 'Stop'
@@ -37,12 +43,9 @@ $outputDirectory = Join-Path $repoRoot "src\LinkForge.App\bin\$Configuration\net
 $appHost = Join-Path $outputDirectory 'LinkForge.App.exe'
 $appDll = Join-Path $outputDirectory 'LinkForge.App.dll'
 
-if (-not (Test-Path $appHost) -or -not (Test-Path $appDll)) {
-    throw "未找到构建产物（$outputDirectory）。请先运行 scripts/build.ps1。"
-}
-
 $dotnetRoot = Join-Path $env:USERPROFILE '.dotnet'
-if (-not (Test-Path (Join-Path $dotnetRoot 'dotnet.exe'))) {
+$dotnet = Join-Path $dotnetRoot 'dotnet.exe'
+if (-not (Test-Path $dotnet)) {
     throw "未找到用户级 .NET 运行时（$dotnetRoot）。请先安装 .NET SDK 或设置 DOTNET_ROOT。"
 }
 
@@ -50,12 +53,32 @@ if (-not (Test-Path (Join-Path $dotnetRoot 'dotnet.exe'))) {
 $env:DOTNET_ROOT = $dotnetRoot
 $env:PATH = "$dotnetRoot;$env:PATH"
 
+$missingOutputs = -not (Test-Path $appDll)
+if (-not $FrameworkDependent) {
+    $missingOutputs = $missingOutputs -or -not (Test-Path $appHost)
+}
+
+if ($missingOutputs -and $BuildIfMissing) {
+    Write-Host "未找到构建产物，先执行 $Configuration 构建…" -ForegroundColor Cyan
+    & $dotnet build (Join-Path $repoRoot 'src\LinkForge.App\LinkForge.App.csproj') `
+        -c $Configuration --nologo -warnaserror
+    if ($LASTEXITCODE -ne 0) {
+        throw "应用构建失败（退出码 $LASTEXITCODE）。"
+    }
+}
+
+if (-not (Test-Path $appDll) -or (-not $FrameworkDependent -and -not (Test-Path $appHost))) {
+    throw "未找到构建产物（$outputDirectory）。请先运行 scripts/build.ps1，或用 -BuildIfMissing 启动。"
+}
+
 if ($FrameworkDependent) {
     Write-Host "以框架依赖方式启动：dotnet $appDll" -ForegroundColor Cyan
-    & (Join-Path $dotnetRoot 'dotnet.exe') $appDll
+    & $dotnet $appDll
 }
 else {
     Write-Host "启动：$appHost" -ForegroundColor Cyan
     Write-Host "DOTNET_ROOT=$dotnetRoot（仅本进程）" -ForegroundColor DarkGray
     & $appHost
 }
+
+exit $LASTEXITCODE

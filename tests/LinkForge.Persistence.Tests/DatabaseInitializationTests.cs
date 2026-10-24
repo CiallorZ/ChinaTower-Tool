@@ -32,6 +32,26 @@ public class DatabaseInitializationTests
     }
 
     [Fact]
+    public async Task Zero_byte_database_should_initialize_into_a_usable_schema()
+    {
+        using var database = new TemporaryDatabase();
+
+        // 用户目录里可能残留一个 0 字节的 linkforge.db：
+        // 文件存在但尚未写入 SQLite 头。启动时必须把它当作空库迁移，
+        // 而不是在工作台查询时抛 "no such table"。
+        await File.WriteAllBytesAsync(database.DatabasePath, []);
+
+        var result = await database.InitializeAsync();
+
+        result.Outcome.ShouldBe(DatabaseInitializationOutcome.Upgraded);
+
+        var projectStore = new SqliteProjectStore(database.Factory);
+        var saved = await projectStore.UpsertAsync(NewProject("零点数据库"));
+
+        (await projectStore.FindAsync(saved.Id)).ShouldNotBeNull();
+    }
+
+    [Fact]
     public async Task Initialization_should_keep_existing_data()
     {
         // "旧版本数据库打开"的核心风险不是结构，而是"打开之后数据还在不在"。

@@ -1409,3 +1409,58 @@ pwsh -NoProfile -File scripts\verify-clean-checkout.ps1 -Configuration Release
   SHA-256、x86 便携包、x86 SHA-256、第三方声明、发布 JSON。
 - GitHub 远端附件大小与本地一致；正式 exe、两个便携 ZIP、发布 JSON 和第三方
   声明的远端 SHA-256 摘要与本地计算结果逐项一致。
+
+## V1.2 后启动与数据库恢复修复（LF-019，2026-10-24）
+
+### 1. 真实运行故障
+
+- `src\LinkForge.App\bin\Debug\net10.0-windows\LinkForge.App.exe` 是框架依赖
+  apphost，默认查找系统级 .NET。本机 SDK 位于 `%USERPROFILE%\.dotnet`，
+  直接双击会提示缺少运行时。
+- 本机历史 `linkforge.db` 为 0 字节；启动流程先由工作台查询项目表，后执行
+  SQLite 迁移，导致 `no such table`。后台初始化任务未被观察，用户只看到
+  页面不可用或缺表异常。
+- 启动失败没有统一的 UI Dispatcher / 未观察任务异常兜底，错误无法稳定转成
+  可读提示或非零退出码。
+
+### 2. 修复内容
+
+- 新增仓库根目录 `Start-LinkForge.cmd`；`scripts/run.ps1` 仅为当前进程设置
+  `DOTNET_ROOT` 和 `PATH`，新增 `-BuildIfMissing`，并透传应用退出码。
+- 启动顺序改为：日志读取 → SQLite 初始化/迁移 → 工作台加载；生命周期使用
+  可取消的 `CancellationTokenSource` 管理。
+- 增加 Dispatcher 与未观察任务异常兜底；启动关键错误显示脱敏、可读的提示，
+  无法继续启动时返回非零退出码。数据库初始化失败时保留应用壳层并明确提示
+  依赖数据库的功能暂不可用，不伪造加载成功。
+- `README.md` 明确源码运行时不要直接双击 Debug apphost，安装版与便携包不受
+  该问题影响。
+
+### 3. 验证结果
+
+| 验证项 | 结果 |
+| --- | --- |
+| 清理缓存后 Restore | 成功 |
+| Debug 构建 | 0 警告、0 错误 |
+| 全解决方案测试 | **1053 / 1053** 通过 |
+| `Start-LinkForge.cmd` 启动/关闭 | 退出码 `0` |
+| `scripts\run.ps1 -BuildIfMissing` 启动/关闭 | 退出码 `0` |
+| Debug apphost + 显式 `DOTNET_ROOT` | 退出码 `0` |
+| 启动前数据库 | 0 字节 |
+| 启动后数据库 | 61,440 字节，SQLite 文件头有效 |
+
+### 4. 缓存与临时文件清理
+
+- `artifacts` 仅保留 V1.0/V1.1/V1.2 正式产物与校验文件共 22 个；删除
+  解压后的便携目录、`release-payloads` 和候选安装器测试目录。
+- 清理 `E:\AIWork\temp` 下 788 个 LinkForge 临时项、仓库内 52 个可重建
+  `bin/obj` 目录、Codex `cache/.tmp`、崩溃转储与 NuGet 包缓存。
+- Magpie 缓存除正在运行的 `bun` 进程文件外均已清理；未终止用户进程。
+- 未删除用户数据库、项目、日志、凭据、Codex sessions/memories/plugins/
+  attachments/visualizations，也未删除正式发布资产。
+
+### 5. 边界
+
+- 本次是 `v1.2.0` 发布后的源码启动与数据恢复修复，不替换、不重写既有
+  `v1.0.0` / `v1.1.0` / `v1.2.0` 标签和已发布附件。
+- 安装器与便携包仍未签名；Windows 10 真机、高 DPI、可访问性、厂商 SDK、
+  抓包、安全扫描与渗透攻防边界仍未完成。

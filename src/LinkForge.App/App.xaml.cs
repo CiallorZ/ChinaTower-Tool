@@ -1,5 +1,6 @@
 using System.Windows;
 using System.IO;
+using System.Windows.Threading;
 using LinkForge.Adapters.Http;
 using LinkForge.Adapters.Mqtt;
 using LinkForge.Adapters.Network;
@@ -42,6 +43,15 @@ public partial class App : System.Windows.Application
     public const string StartupThemeVariableName = "LINKFORGE_STARTUP_THEME";
 
     private ServiceProvider? _services;
+    private readonly CancellationTokenSource _lifetime = new();
+    private bool _fatalErrorPresented;
+
+    /// <summary>创建应用并安装最后一道可读错误兜底。</summary>
+    public App()
+    {
+        DispatcherUnhandledException += OnDispatcherUnhandledException;
+        TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
+    }
 
     /// <summary>
     /// 设计令牌主题服务；由 DI 容器提供。
@@ -56,35 +66,263 @@ public partial class App : System.Windows.Application
     {
         base.OnStartup(e);
 
-        _services = BuildServiceProvider();
+        try
+        {
+            _services = BuildServiceProvider();
 
-        ThemeManager = _services.GetRequiredService<ThemeManager>();
-        Dashboard = _services.GetRequiredService<DashboardViewModel>();
+            ThemeManager = _services.GetRequiredService<ThemeManager>();
+            Dashboard = _services.GetRequiredService<DashboardViewModel>();
 
-        // ADR-014：默认跟随系统主题；偏好从设置文件读取（阶段 03 起持久化）。
-        //
-        // 验收开关（StartupThemeVariableName）优先于已保存偏好：
-        // 它存在的唯一目的是让截图脚本拿到干净的浅/深色启动画面。
-        var startupOverride = ResolveStartupPreference();
-        ThemeManager.Apply(startupOverride ?? ThemeManager.Preference);
+            // ADR-014：默认跟随系统主题；偏好从设置文件读取（阶段 03 起持久化）。
+            //
+            // 验收开关（StartupThemeVariableName）优先于已保存偏好：
+            // 它存在的唯一目的是让截图脚本拿到干净的浅/深色启动画面。
+            var startupOverride = ResolveStartupPreference();
+            ThemeManager.Apply(startupOverride ?? ThemeManager.Preference);
 
-        var shell = _services.GetRequiredService<ShellWindow>();
-        shell.Show();
+            var shell = _services.GetRequiredService<ShellWindow>();
+            shell.Show();
 
-        // 历史日志读取是异步 I/O；先让窗口使用空状态，记录到达后由绑定刷新。
-        _ = _services.GetRequiredService<IStructuredLogService>().InitializeAsync();
-
-        // 窗口已显示后再加载：依赖探测会启动外部进程（ffmpeg --version 等），
-        // 放在 Show 之前会让用户看到一段没有内容的空白窗口。
-        // 不 await 也不阻塞：数据到达时由绑定自动刷新，首屏显示加载态。
-        _ = Dashboard.LoadAsync();
+            // 初始化顺序不可交换：数据库迁移必须先于工作台查询。
+            // 历史上 0 字节 linkforge.db 会让工作台查询先报 "no such table"，
+            // 且 fire-and-forget 会把异常留成不可观察任务异常。
+            _ = InitializeApplicationAsync();
+        }
+        catch (Exception ex)
+        {
+            PresentFatalStartupFailure(ex);
+        }
     }
 
     /// <inheritdoc />
     protected override void OnExit(ExitEventArgs e)
     {
+        _lifetime.Cancel();
+        DispatcherUnhandledException -= OnDispatcherUnhandledException;
+        TaskScheduler.UnobservedTaskException -= OnUnobservedTaskException;
         _services?.Dispose();
+        _lifetime.Dispose();
         base.OnExit(e);
+    }
+
+    /// <summary>
+    /// 在窗口显示后执行异步初始化，避免 I/O 与外部进程探测阻塞 UI 线程。
+    /// </summary>
+    private async Task InitializeApplicationAsync()
+    {
+        try
+        {
+            var services = _services
+                ?? throw new InvalidOperationException("应用服务容器尚未初始化。");
+            var logs = services.GetRequiredService<IStructuredLogService>();
+
+            // 历史日志读取失败只影响日志面板，不阻断数据库和工作台。
+            try
+            {
+                await logs.InitializeAsync(_lifetime.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
+            {
+                return;
+            }
+            catch (Exception ex)
+            {
+                TryPublishFailure(
+                    "Logging",
+                    "startup.logging.failed",
+                    LfLogLevel.Warning,
+                    ex);
+                ShowRecoverableStartupFailure(
+                    "历史日志加载失败",
+                    "日志面板暂不可用，但项目、资产与诊断功能会继续初始化。");
+            }
+
+            var storage = services.GetRequiredService<IStorageInitializer>();
+            DatabaseInitializationResult initialization;
+
+            try
+            {
+                initialization = await storage.InitializeAsync(_lifetime.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
+            {
+                return;
+            }
+            catch (Exception ex)
+            {
+                TryPublishFailure(
+                    "Storage",
+                    "startup.storage.failed",
+                    LfLogLevel.Critical,
+                    ex);
+
+                ShowRecoverableStartupFailure(
+                    "本地数据库初始化失败",
+                    "项目、资产、环境与历史等依赖本地数据库的功能暂不可用。");
+                return;
+            }
+
+            if (initialization.RequiresAttention)
+            {
+                TryPublish(
+                    "Storage",
+                    "startup.storage.recovered",
+                    LfLogLevel.Warning,
+                    initialization.Description);
+            }
+
+            // 窗口已经显示加载态；这里继续等待数据库就绪后再读取真实项目数。
+            await Dashboard.LoadAsync(_lifetime.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
+        {
+            // 正常退出。
+        }
+        catch (Exception ex)
+        {
+            TryPublishFailure(
+                "Startup",
+                "startup.initialization.failed",
+                LfLogLevel.Error,
+                ex);
+            ShowRecoverableStartupFailure(
+                "应用初始化未完全成功",
+                "部分页面可能需要重新打开或重试。");
+        }
+    }
+
+    private void OnDispatcherUnhandledException(
+        object sender,
+        DispatcherUnhandledExceptionEventArgs e)
+    {
+        e.Handled = true;
+        PresentFatalStartupFailure(e.Exception);
+    }
+
+    private void OnUnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
+    {
+        foreach (var exception in e.Exception.Flatten().InnerExceptions)
+        {
+            TryPublishFailure(
+                "Runtime",
+                "runtime.unobserved-task-exception",
+                LfLogLevel.Error,
+                exception);
+        }
+
+        // 已进入统一日志；观测掉异常避免进程在关闭阶段再次终止。
+        e.SetObserved();
+    }
+
+    private void PresentFatalStartupFailure(Exception exception)
+    {
+        if (_fatalErrorPresented)
+        {
+            return;
+        }
+
+        _fatalErrorPresented = true;
+        TryPublishFailure(
+            "Startup",
+            "startup.fatal",
+            LfLogLevel.Critical,
+            exception);
+
+        try
+        {
+            MessageBox.Show(
+                BuildStartupFailureMessage(exception),
+                "LinkForge 启动失败",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+        catch
+        {
+            // 连错误对话框都无法创建时，退出码仍是可诊断的最后事实。
+        }
+
+        Shutdown(1);
+    }
+
+    private void ShowRecoverableStartupFailure(string title, string guidance)
+    {
+        var message = title
+            + Environment.NewLine
+            + Environment.NewLine
+            + guidance
+            + Environment.NewLine
+            + "请查看日志面板或联系维护人员。";
+
+        try
+        {
+            _ = Dispatcher.BeginInvoke(
+                () => MessageBox.Show(
+                    message,
+                    "LinkForge",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning),
+                DispatcherPriority.Background);
+        }
+        catch (InvalidOperationException)
+        {
+            // 应用正在退出时不再制造新的 UI 工作。
+        }
+    }
+
+    private void TryPublishFailure(
+        string module,
+        string eventId,
+        LfLogLevel level,
+        Exception exception)
+    {
+        TryPublish(module, eventId, level, BuildStartupFailureMessage(exception));
+    }
+
+    private void TryPublish(
+        string module,
+        string eventId,
+        LfLogLevel level,
+        string message)
+    {
+        try
+        {
+            _services?.GetService<IStructuredLogService>()?.Publish(
+                new LogEntry(
+                    DateTimeOffset.Now,
+                    level,
+                    module,
+                    "startup",
+                    targetId: null,
+                    message,
+                    eventId));
+        }
+        catch
+        {
+            // 日志服务本身不可用时，不能反过来阻断错误处理。
+        }
+    }
+
+    /// <summary>
+    /// 构造可展示、已脱敏的失败说明。
+    /// </summary>
+    internal static string BuildStartupFailureMessage(Exception exception)
+    {
+        ArgumentNullException.ThrowIfNull(exception);
+
+        var lines = new List<string>
+        {
+            "LinkForge 遇到未处理错误。请保留以下信息用于排障："
+        };
+
+        var current = exception;
+        for (var depth = 0; current is not null && depth < 4; depth++)
+        {
+            var message = SecretRedactor.Redact(current.Message);
+            lines.Add($"{current.GetType().Name}: {message}");
+            current = current.InnerException;
+        }
+
+        return string.Join(Environment.NewLine, lines);
     }
 
     /// <summary>

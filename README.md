@@ -68,6 +68,21 @@ V1.2.0 已通过 Windows CI、正式 Release 门禁（0 警告、0 错误，
 - 可选：Docker（本机已装 29.8.1，用于 MQTT/HTTP 测试容器）
 - 可选：FFmpeg（本机已装 9.0.2，**仅作开发期诊断参考，不随产品分发**，原因见 ADR-007）
 
+## 从源码运行
+
+不要直接双击 `src\LinkForge.App\bin\...\LinkForge.App.exe`。Debug 构建是
+框架依赖 apphost，它默认只查找系统级 .NET；本机 SDK 位于用户目录时，直接
+双击会显示 “You must install or update .NET”。
+
+请双击仓库根目录的 `Start-LinkForge.cmd`，或执行：
+
+```powershell
+pwsh -NoProfile -File scripts/run.ps1 -BuildIfMissing
+```
+
+启动脚本只对当前进程设置 `DOTNET_ROOT=%USERPROFILE%\.dotnet`，不会修改
+系统或用户环境变量。安装版与便携包使用自包含运行时，不依赖这一设置。
+
 ## 下一步
 
 1. 在 Windows 10 x64 真机执行安装、启动、升级替换与卸载残留验收。

@@ -2,6 +2,32 @@
 
 All notable changes to LinkForge are recorded here.
 
+## Unreleased
+
+### Fixed
+
+- Source-tree Debug launches now use `Start-LinkForge.cmd` or
+  `scripts/run.ps1`, which set `DOTNET_ROOT` for the current process instead of
+  relying on a system-wide .NET installation.
+- Startup now initializes the SQLite database before the dashboard queries it.
+  A zero-byte `linkforge.db` is migrated into a usable schema instead of leaving
+  the application in a background "no such table" failure.
+- Unhandled dispatcher and background-task failures now produce a redacted,
+  readable startup message and a non-zero exit code when startup cannot
+  continue.
+
+### Verified
+
+- Debug build: 0 warnings, 0 errors.
+- Full test suite: 1053/1053 passed.
+- `Start-LinkForge.cmd`, `scripts/run.ps1`, and the framework-dependent apphost
+  with an explicit `DOTNET_ROOT` all started and closed with exit code 0.
+- The recovered local database grew from 0 bytes to 61,440 bytes and retained a
+  valid SQLite header.
+- Rebuildable caches and temporary LinkForge artifacts were cleaned without
+  removing user databases, projects, logs, credentials, or formal release
+  assets.
+
 ## 1.2.0 - 2026-10-24
 
 ### Fixed
