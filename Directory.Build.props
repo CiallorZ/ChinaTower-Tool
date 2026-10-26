@@ -7,6 +7,7 @@
     <RepositoryUrl>https://github.com/CiallorZ/ChinaTower-Tool</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <Deterministic>true</Deterministic>
+    <AllowMissingPrunePackageData>true</AllowMissingPrunePackageData>
     <IncludeSourceRevisionInInformationalVersion>true</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 </Project>

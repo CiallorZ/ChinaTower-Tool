@@ -37,6 +37,8 @@ internal sealed class DashboardHarness : IDisposable
     /// <param name="timeProvider">时间源；null 时使用系统时钟。</param>
     public DashboardHarness(TimeProvider? timeProvider = null)
     {
+        StaleTempDirectoryCleanup.Sweep();
+
         _directory = Path.Combine(
             Path.GetTempPath(),
             "linkforge-dashboard-" + Guid.NewGuid().ToString("N"));

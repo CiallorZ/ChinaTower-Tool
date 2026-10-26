@@ -26,6 +26,8 @@ internal sealed class TemporaryDatabase : IDisposable
     /// <summary>创建并在临时目录中初始化数据库。</summary>
     public TemporaryDatabase()
     {
+        StaleTempDirectoryCleanup.Sweep();
+
         _directory = Path.Combine(
             Path.GetTempPath(),
             "linkforge-persistence-tests",
